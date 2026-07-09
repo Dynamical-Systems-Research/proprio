@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If Proprio contributes to published research, please cite this software."
+title: "Proprio"
+type: software
+version: 0.1.0
+license: Apache-2.0
+repository-code: "https://github.com/Dynamical-Systems-Research/proprio"
+authors:
+  - name: "Dynamical Systems"
+abstract: >-
+  A simulation-validated pre-deployment substrate for instrument operation,
+  measurement-validity verification, support checks, and self-verifying skill
+  acquisition.
+keywords:
+  - instrument control
+  - observability
+  - X-ray diffraction
+  - scientific agents

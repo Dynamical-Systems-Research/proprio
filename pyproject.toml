@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "proprio"
+version = "0.1.0"
+description = "Simulation-validated pre-deployment instrument-operation observability."
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Dynamical Systems" }]
+keywords = [
+  "bluesky",
+  "instrument-control",
+  "observability",
+  "x-ray-diffraction",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "bluesky>=1.13",
+  "numpy>=2.1",
+  "openai>=1.60",
+  "ophyd>=1.10",
+  "pydantic>=2.10",
+  "pyfai>=2025.3",
+  "pyvisa>=1.14",
+  "pyvisa-sim>=0.7",
+  "pyyaml>=6.0",
+  "scipy>=1.14",
+]
+
+[project.urls]
+Homepage = "https://github.com/Dynamical-Systems-Research/proprio"
+Repository = "https://github.com/Dynamical-Systems-Research/proprio"
+Documentation = "https://github.com/Dynamical-Systems-Research/proprio/blob/main/docs/technical-note.md"
+Issues = "https://github.com/Dynamical-Systems-Research/proprio/issues"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=6.0",
+  "ruff>=0.11",
+]
+
+[project.scripts]
+proprio = "proprio.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/proprio"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+extend-exclude = ["artifacts/**", "cassettes/**", "skills/**"]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "RUF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
