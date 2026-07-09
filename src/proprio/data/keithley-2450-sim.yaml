@@ -1,0 +1,67 @@
+spec: "1.0"
+devices:
+  Keithley 2450:
+    eom:
+      USB INSTR:
+        q: "\n"
+        r: "\n"
+    error:
+      error_queue:
+        - q: ":SYST:ERR?"
+          default: "0,No error"
+          command_error: "-113,Undefined header"
+          query_error: "-420,Query unterminated"
+    dialogues:
+      - q: "*IDN?"
+        r: "KEITHLEY INSTRUMENTS,MODEL 2450,04500001,1.7.12"
+      - q: "*RST"
+      - q: ":MEAS:CURR?"
+        r: "+1.000000E-03"
+    properties:
+      voltage:
+        default: 0.0
+        getter:
+          q: ":SOUR:VOLT?"
+          r: "{:+.6E}"
+        setter:
+          q: ":SOUR:VOLT {:.6f}"
+        specs:
+          min: -20.0
+          max: 20.0
+          type: float
+      current_limit:
+        default: 0.001
+        getter:
+          q: ":SENS:CURR:PROT?"
+          r: "{:+.6E}"
+        setter:
+          q: ":SENS:CURR:PROT {:.6f}"
+        specs:
+          min: 0.000001
+          max: 1.0
+          type: float
+      measurement_range:
+        default: 0.001
+        getter:
+          q: ":SENS:CURR:RANG?"
+          r: "{:+.6E}"
+        setter:
+          q: ":SENS:CURR:RANG {:.6f}"
+        specs:
+          min: 0.000001
+          max: 1.0
+          type: float
+      output_enabled:
+        default: 0
+        getter:
+          q: ":OUTP?"
+          r: "{:d}"
+        setter:
+          q: ":OUTP {:d}"
+        specs:
+          valid: [0, 1]
+          type: int
+resources:
+  USB::0x05E6::0x2450::04500001::INSTR:
+    device: Keithley 2450
+

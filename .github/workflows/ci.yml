@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --extra dev
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run pytest
+      - run: uv run proprio procedural-battery --output-dir artifacts/generated/ci/procedural
+      - run: uv run proprio metrology --cases-per-class 300 --output-dir artifacts/generated/ci/metrology
+      - run: uv run proprio support-battery --output-dir artifacts/generated/ci/support
+      - run: uv run proprio composition-battery --output-dir artifacts/generated/ci/composition
+      - run: uv run proprio skill-admission --cassette-dir cassettes/dsv4 --output-dir artifacts/generated/ci/skill-admission
+      - run: uv run proprio evidence-manifest --root . --output artifacts/generated/ci/evidence-manifest.json

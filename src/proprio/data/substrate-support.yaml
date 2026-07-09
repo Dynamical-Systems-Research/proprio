@@ -1,0 +1,25 @@
+schema_version: proprio.substrate_support.v0.1
+support_contract_id: synthetic-xrd-substrate-v0.1
+claim_boundary: >-
+  Support is defined for the synthetic v0.1 XRD substrate. It is not a claim
+  about DSV4's training distribution or a future trained judgment policy.
+allowed_shapes:
+  - [256, 256]
+allowed_calibrants:
+  - lab6
+  - si
+wavelength_m:
+  nominal: 1.5406e-10
+  relative_tolerance: 0.005
+radial_range_deg:
+  required_min: 15.0
+  required_max: 55.0
+finite_fraction_min: 1.0
+intensity_min: 0.0
+battery:
+  seed: 20260709
+  in_support_cases: 300
+  out_cases_per_class: 100
+  detection_rate_min: 0.90
+  false_alarm_rate_max: 0.10
+

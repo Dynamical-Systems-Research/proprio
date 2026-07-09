@@ -1,0 +1,37 @@
+{
+  "schema_version": "proprio.skill_catalog.v0.1",
+  "skills": [
+    {
+      "id": "xrd-operate-observe",
+      "version": "0.1.0",
+      "instrument": "2D area-detector powder XRD",
+      "path": "skills/xrd-reference/SKILL.md",
+      "code_path": null,
+      "status": "reference",
+      "verification": {
+        "artifact": "artifacts/evidence/composition/summary.json",
+        "artifact_verdict": "PASS",
+        "skill_sha256": "e1705511510d9a90e8364b7c22823f262fb94c6dcf23345b9532b3438221a993",
+        "code_sha256": null,
+        "verifier_sha256": null,
+        "source_sha256": null
+      }
+    },
+    {
+      "id": "keithley-2450-measure-current",
+      "version": "1.0.0",
+      "instrument": "Keithley 2450-style SMU",
+      "path": "skills/keithley-2450/SKILL.md",
+      "code_path": "skills/keithley-2450/skill.py",
+      "status": "admitted",
+      "verification": {
+        "artifact": "artifacts/evidence/skill-admission/summary.json",
+        "artifact_verdict": "PASS",
+        "skill_sha256": "47b44c9bdcd31e171d8f0ff4884eafe8248670f51014df4d6df080883423ff46",
+        "code_sha256": "8c91c3cc6c580dfef4b13c446ecc57cea1b24787aa71ddc66ac96872bcdb9113",
+        "verifier_sha256": "e74fc4d6e13e2d32f9f2e6d0801cf798bca8f831993034d005908b1261dfce1e",
+        "source_sha256": "b9830787b50e32003e5e0b51745bcaf7559ad302e43903301485462437b2c69a"
+      }
+    }
+  ]
+}
