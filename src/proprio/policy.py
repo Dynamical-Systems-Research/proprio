@@ -105,6 +105,11 @@ class DSV4Client:
             kwargs["extra_body"] = extra_body
         return self.client.chat.completions.create(**kwargs)
 
+    def close(self) -> None:
+        """Release provider transport resources after one bounded agent episode."""
+
+        self.client.close()
+
     def health(self) -> dict[str, Any]:
         models = self.client.models.list()
         model_ids = [item.id for item in models.data]

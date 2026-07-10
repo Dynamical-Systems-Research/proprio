@@ -1,0 +1,269 @@
+schema_version: proprio.adaptive_method_preregistration.v0.2
+registered_at: "2026-07-10T05:35:00-04:00"
+method_state: development
+code_parent: 0f58aa19670289a83e02e60fd400237248ad6738
+decision: >-
+  Whether a bounded adaptive skill representation, multi-condition execution feedback, and a
+  small deterministic candidate archive are sufficient for DSV4 to repair the external
+  OpenFlexure failures observed under the v0.1 straight-line method.
+claim_boundary: >-
+  OpenFlexure is method-development evidence. It cannot support the later frozen-method
+  generalization claim. Simulation establishes pre-deployment qualification only; real-hardware
+  qualification remains separate.
+data_policy:
+  model_visible:
+    - public instrument source bundle
+    - declared controller contract
+    - controller-returned observations
+    - visible simulator traces and immutable physical-check records
+  prohibited:
+    - verifier implementation
+    - simulator hidden state
+    - locked conditions or labels
+    - golden skill or golden patch
+    - XRD-RL or VOE-Bench data
+    - trained judgment checkpoint
+  pretraining_exposure_claim: prohibited
+development_instruments:
+  - xrd-reference
+  - keithley-2450
+  - microscope-autofocus
+openflexure:
+  simulator_repository: https://gitlab.com/openflexure/openflexure-microscope-server
+  simulator_revision: d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+  source_path: sources/development/microscope-autofocus/source.md
+  source_sha256_at_registration: a0a9f0bc76230324fcadf3a15c9ca64bf0c6617114848ecc0c067a911c0feccc
+  adapter_path: src/proprio/adaptive_microscopy.py
+  verifier_path: src/proprio/adaptive_microscopy_verifier.py
+  candidate_visible_focus_measure: tenengrad_gradient_energy
+  admission_evidence:
+    - raw_autofocus_sharpness_curve
+    - independent_stage_position
+    - calibrated_reference_coverage
+    - raw_frame_integrity
+    - temporal_measurement_uncertainty
+    - acquisition_time_budget
+  development_thresholds:
+    status: registered_before_labeled_curve_and_uncertainty_batteries
+    source: src/proprio/data/adaptive-microscopy-thresholds.yaml
+    autofocus_curve_minimum_samples: 15
+    autofocus_peak_prominence_minimum: 0.5
+    autofocus_peak_reference_tolerance_steps: 150.0
+    autofocus_selected_peak_tolerance_steps: 150.0
+    temporal_relative_standard_error_maximum: 0.011
+    incremental_acquisition_time_maximum_seconds: 8.3
+    basis: >-
+      Baseline-relative focus gain was ill-posed for near-focus starts. Absolute FFT and
+      Laplacian thresholds then failed across independently seeded simulator specimens and were
+      invalidated. The replacement contract operates on the raw autofocus curve, calibrated
+      stage reference, raw-frame integrity, and repeated-measurement uncertainty. Its operating
+      points were fixed after exploratory development and before fresh labeled batteries.
+    curve_rule:
+      registered_before_battery: true
+      primary_forward_sweep_samples_minimum: 15
+      transaction_segmentation: largest_positive_stage_displacement
+      calibrated_reference_must_be_covered: true
+      peak_prominence_minimum: 0.5
+      peak_reference_tolerance_steps: 150.0
+      selected_peak_tolerance_steps: 150.0
+      groups: known_valid_wide_sweep_vs_known_invalid_truncated_sweep
+      cases_per_group: 20
+      failure_action: stop_method_freeze
+    uncertainty_rule:
+      status: registered_before_labeled_battery
+      maximum_relative_standard_error: 0.011
+      statistic: median_pixel_temporal_sigma_over_sqrt_n_over_spatial_contrast
+      valid_control: measurement_noise_2_with_three_repeats
+      repairable_control: measurement_noise_4_with_two_five_frame_series
+      invalid_control: measurement_noise_4_with_three_repeats
+      autofocus_noise_level: 2.0
+      failure_action: stop_method_freeze
+    acquisition_time_rule:
+      status: registered_before_causal_fault_factorial
+      maximum_incremental_seconds: 8.3
+      stage_steps_per_second: 1000.0
+      raw_frame_seconds: 0.1
+      fixed_common_overhead_excluded: true
+      basis: external_simulator_stage_and_camera_timing
+      failure_action: reject_candidate
+    invalidated_absolute_focus_contract:
+      artifact: artifacts/invalidated/adaptive-microscopy-absolute-focus-calibration/summary.json
+      cross_instance_battery: >-
+        artifacts/invalidated/adaptive-microscopy-uncertainty-absolute-focus-confound/summary.json
+      reason: absolute image-sharpness magnitudes were specimen-texture dependent
+  residual_correlation: >-
+    The raw autofocus curve and independent stage read originate from the same external simulator
+    process. Raw-frame integrity and temporal uncertainty are independently implemented, but
+    shared-simulator correlation remains and must be reported.
+adaptive_executor:
+  syntax:
+    - finite literal range loops
+    - conditional branches
+    - comparisons and boolean expressions
+    - bounded numeric arithmetic
+    - indexing of controller-returned observations
+  prohibited:
+    - imports
+    - while loops
+    - exception handling
+    - recursion
+    - arbitrary builtins or non-controller calls
+    - direct simulator-state reads
+  limits:
+    source_bytes: 16384
+    loop_iterations: 16
+    nesting_depth: 4
+    controller_calls: 96
+search:
+  algorithm: bounded_parallel_draft_with_pareto_archive
+  initial_parallel_drafts: 4
+  archive_survivors: 2
+  repair_rounds: 4
+  children_per_survivor_per_round: 1
+  maximum_generated_candidates: 12
+  selection_authority: deterministic_execution_and_physical_checks
+  parent_ranking:
+    - no procedural or safety failure
+    - most admitted visible conditions
+    - largest worst-condition repeated-admission rate
+    - highest required-check pass rate
+    - lowest controller-call cost
+    - structural diversity
+  early_stop:
+    - every visible condition admits
+    - same normalized failure recurs without archive improvement
+    - model, simulator, token, or wall-clock budget expires
+  no_model_vote_for_promotion: true
+repeated_measurement:
+  independent_skill_executions_per_visible_condition: 1
+  independent_skill_executions_for_uncertainty_condition: 3
+  raw_measurement_repeats_inside_skill: 3
+  minimum_valid_raw_measurements: 2
+  maximum_raw_measurements_after_repair: 10
+  maximum_measurement_series_after_repair: 2
+  procedural_failure_rule: any procedural failure rejects
+  unavailable_rule: hold
+  ambiguous_rule: hold
+  candidate_may_set_verifier_thresholds: false
+fixture_preflight:
+  timing: before_any_model_call
+  required_controls:
+    - known_valid_admits
+    - known_invalid_rejects_with_expected_failed_check
+    - unavailable_holds
+  failure_action: abort_model_invocation
+debug_distribution:
+  visible_categories:
+    - nominal
+    - boundary_start_state
+    - stochastic_repeat
+    - repairable_shift
+    - reset_and_cleanup
+  objective: conjunctive_worst_condition_validity
+locked_qualification:
+  candidate_sealed_before_execution: true
+  feedback_to_agent: prohibited
+  executions_during_selection: 1
+  pass_rule: every locked condition admits
+  openflexure_development:
+    cases: 12
+    seed: 941731
+    start_z_min: 400.0
+    start_z_max: 1800.0
+    measurement_noise_level_min: 2.0
+    measurement_noise_level_max: 4.0
+causal_repair:
+  starting_candidate_and_simulator_state_paired: true
+  evidence_arm_label_visible_to_model: false
+  promotion_requires_agent_candidate_status: true
+  maximum_model_turns_per_arm: 8
+  model_transport:
+    attempts_per_model_turn: 3
+    retryable_failures:
+      - connection error
+      - timeout
+      - HTTP 408
+      - HTTP 409
+      - HTTP 429
+      - HTTP 5xx
+      - response missing choices or assistant message
+    fixed_backoff_seconds:
+      - 1
+      - 2
+    failed_transport_attempt_consumes_model_turn: false
+    capture_every_failed_attempt: true
+  repair_rounds_per_arm: 4
+  episode_definition: >-
+    One fresh agent context receives the current candidate and the feedback view assigned to its
+    arm, may submit at most one repair, and must rerun the visible suite before finishing. The
+    admitted output becomes the next episode's current candidate.
+  budget_fairness: >-
+    Every arm receives the same maximum of four repair episodes and eight model turns per episode;
+    an arm stops early only after its candidate passes deterministic visible admission.
+  proxy_threshold_inference: prohibited
+  source_leakage_policy:
+    api_semantics_and_resource_limits: permitted
+    injected_fault_descriptions: prohibited
+    fault_to_repair_instructions: prohibited
+    verifier_implementation_or_thresholds: prohibited
+  fault_factorial:
+    cells:
+      - temporal_precision
+      - sweep_coverage
+      - stage_readback
+    balanced_trials: 30
+    trials_per_cell: 10
+    challenge_assignment_seed: 990000
+    parent_must_pass_nominal: true
+    golden_diagonal_must_pass: true
+    maximum_single_static_repair_coverage: 0.4
+  arms:
+    - structured_truthful_feedback
+    - binary_outcome_only
+    - coherent_opposite_fault_feedback
+    - no_feedback
+  primary_test: paired_truthful_uplift_over_no_feedback
+  pass_criteria:
+    truthful_locked_qualification_rate_minimum: 0.8
+    truthful_rate_per_fault_minimum: 0.7
+    truthful_minus_no_feedback_minimum: 0.25
+    truthful_minus_mismatched_minimum: 0.25
+    one_sided_exact_mcnemar_p_maximum: 0.05
+    truthful_trace_to_edit_concordance_minimum: 0.8
+    mismatched_actual_fault_concordance_maximum: 0.35
+  required_evidence:
+    - exact failed-check reference used before edit
+    - relevant skill logic changed
+    - original failed check cleared
+    - visible historical conditions preserved
+    - locked conditions pass once
+method_freeze_gate:
+  required_before_external_family_selection:
+    - adaptive executor tests pass
+    - fixture preflight tests pass
+    - OpenFlexure development acquisition and repair close
+    - search and feedback ablations complete
+    - prompts, DSL, budgets, record schemas, and promotion rules hash-bound
+    - confirmatory simulator families remain unselected and uninspected by the method
+confirmatory_plan_after_freeze:
+  independently_maintained_external_families_minimum: 3
+  independent_generations_per_instrument: 20
+  permitted_increase_before_first_confirmatory_call: 30
+  required_per_instrument:
+    - source-grounded acquisition
+    - physical qualification
+    - causal repair
+    - fail-closed invalid rejection
+    - simulated drift detection and non-regressive staged evolution
+  aggregate_may_rescue_instrument_failure: false
+sources:
+  - https://www.nature.com/articles/s42256-026-01261-5
+  - https://www.nature.com/articles/s41524-026-02005-0
+  - https://research.nvidia.com/labs/gear/aspire/
+  - https://arxiv.org/abs/2607.00272v1
+  - https://arxiv.org/abs/2605.23904
+  - https://hermes-agent.nousresearch.com/docs/user-guide/features/skills
+  - https://arxiv.org/abs/2501.14723
+  - https://arxiv.org/abs/2502.14382
+  - https://arxiv.org/abs/2506.12928
+  - https://arxiv.org/abs/2606.00660

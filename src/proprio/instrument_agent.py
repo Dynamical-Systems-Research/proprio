@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -261,6 +262,9 @@ HISTORY_REPLAY_TOOL = _tool(
     EMPTY_OBJECT,
 )
 
+TRANSPORT_ATTEMPTS_PER_MODEL_TURN = 3
+RETRYABLE_HTTP_STATUS = frozenset({408, 409, 429})
+
 
 JUDGE_TOOLS = [
     _tool("read_source_bundle", "Read the source bundle.", EMPTY_OBJECT),
@@ -299,6 +303,26 @@ def _json_content(value: Any) -> str:
     return canonical_json(value).decode("utf-8")
 
 
+def _is_retryable_transport_error(exc: Exception) -> tuple[bool, int | None]:
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        return status in RETRYABLE_HTTP_STATUS or status >= 500, status
+    retryable_names = {
+        "APIConnectionError",
+        "APITimeoutError",
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadError",
+        "ReadTimeout",
+    }
+    return type(exc).__name__ in retryable_names, None
+
+
+def _response_has_message(response: Any) -> bool:
+    choices = getattr(response, "choices", None)
+    return bool(choices) and getattr(choices[0], "message", None) is not None
+
+
 def _run_tool_loop(
     *,
     client: DSV4Client,
@@ -328,9 +352,62 @@ def _run_tool_loop(
         }
         if seed is not None:
             request["seed"] = seed
-        response = create(
-            **request,
-        )
+        response = None
+        for transport_attempt in range(1, TRANSPORT_ATTEMPTS_PER_MODEL_TURN + 1):
+            try:
+                candidate_response = create(**request)
+            except Exception as exc:
+                retryable, status_code = _is_retryable_transport_error(exc)
+                will_retry = (
+                    retryable and transport_attempt < TRANSPORT_ATTEMPTS_PER_MODEL_TURN
+                )
+                raw_responses.append(
+                    {
+                        "schema_version": "proprio.model_transport_error.v0.2",
+                        "error_type": type(exc).__name__,
+                        "error": str(exc),
+                        "status_code": status_code,
+                        "model_turn": model_turn,
+                        "transport_attempt": transport_attempt,
+                        "will_retry": will_retry,
+                        "request_config": {
+                            "temperature": temperature,
+                            "top_p": top_p,
+                            "seed": seed,
+                        },
+                    }
+                )
+                if not will_retry:
+                    raise
+                time.sleep(float(transport_attempt))
+                continue
+            if _response_has_message(candidate_response):
+                response = candidate_response
+                break
+            will_retry = transport_attempt < TRANSPORT_ATTEMPTS_PER_MODEL_TURN
+            dumped = getattr(candidate_response, "model_dump", None)
+            raw_responses.append(
+                {
+                    "schema_version": "proprio.model_transport_invalid_response.v0.2",
+                    "error_type": "missing-choice-or-message",
+                    "response": dumped(mode="json") if callable(dumped) else None,
+                    "model_turn": model_turn,
+                    "transport_attempt": transport_attempt,
+                    "will_retry": will_retry,
+                    "request_config": {
+                        "temperature": temperature,
+                        "top_p": top_p,
+                        "seed": seed,
+                    },
+                }
+            )
+            if not will_retry:
+                raise RuntimeError(
+                    "model transport returned no choice message after three attempts"
+                )
+            time.sleep(float(transport_attempt))
+        if response is None:  # pragma: no cover - loop either returns or raises
+            raise RuntimeError("model transport attempts ended without a response")
         message = response.choices[0].message
         assistant = _assistant_payload(message)
         raw = response.model_dump(mode="json")
@@ -341,8 +418,17 @@ def _run_tool_loop(
             "seed": seed,
         }
         raw_responses.append(raw)
-        messages.append(assistant)
         calls = message.tool_calls or []
+        if not calls and not message.content:
+            # Some OpenRouter backends can return preserved reasoning without
+            # either a visible answer or tool call. Such an assistant message
+            # is invalid when replayed to the backend. Preserve the raw
+            # response, add a transport-only visible marker while retaining
+            # reasoning_content, and spend the next model turn on an explicit
+            # action nudge.
+            assistant["content"] = "[reasoning-only response; no action emitted]"
+            raw["transport_recovery"] = "reasoning-only-no-action"
+        messages.append(assistant)
         if not calls:
             messages.append(
                 {
