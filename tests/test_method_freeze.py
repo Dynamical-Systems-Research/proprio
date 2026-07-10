@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from proprio.method_freeze import (
+    ACCUMULATED_CAUSAL_EVIDENCE,
     CAUSAL_DEVELOPMENT_EVIDENCE,
     REQUIRED_EVIDENCE,
     freeze_adaptive_method,
@@ -31,6 +32,19 @@ def write_evidence(root: Path, *, verdict: str = "PASS", repairs=None) -> None:
                 "completed_trials": 4,
                 "registered_trials": 30,
                 "analysis": {"verdict": "INCOMPLETE"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    accumulated = root / ACCUMULATED_CAUSAL_EVIDENCE
+    accumulated.parent.mkdir(parents=True, exist_ok=True)
+    accumulated.write_text(
+        json.dumps(
+            {
+                "schema_version": "proprio.accumulated_causal_evidence.v0.2",
+                "broad_mechanism_claim": "ESTABLISHED",
+                "single_protocol_openflexure_30_trial_claim": "NOT_ESTABLISHED",
+                "pairs": 18,
             }
         ),
         encoding="utf-8",

@@ -33,6 +33,7 @@ REQUIRED_EVIDENCE = {
     "locked_qualification": "adaptive-microscopy-locked/summary.json",
 }
 CAUSAL_DEVELOPMENT_EVIDENCE = "adaptive-microscopy-causal-development/summary.json"
+ACCUMULATED_CAUSAL_EVIDENCE = "accumulated-causal-evidence/summary.json"
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -83,6 +84,26 @@ def _evidence_gate(generated_root: Path) -> dict[str, dict[str, Any]]:
         "confirmatory_status": causal.get("confirmatory_status"),
         "completed_trials": causal.get("completed_trials"),
         "registered_trials": causal.get("registered_trials"),
+    }
+    accumulated_path = generated_root / ACCUMULATED_CAUSAL_EVIDENCE
+    accumulated = _read_json(accumulated_path)
+    if (
+        accumulated.get("schema_version") != "proprio.accumulated_causal_evidence.v0.2"
+        or accumulated.get("broad_mechanism_claim") != "ESTABLISHED"
+        or accumulated.get("single_protocol_openflexure_30_trial_claim")
+        != "NOT_ESTABLISHED"
+        or accumulated.get("pairs") != 18
+    ):
+        raise RuntimeError("accumulated causal evidence has an unsupported claim boundary")
+    evidence["accumulated_causal_mechanism"] = {
+        "path": _display_path(accumulated_path),
+        "sha256": source_sha256(accumulated_path),
+        "schema_version": accumulated.get("schema_version"),
+        "broad_mechanism_claim": accumulated.get("broad_mechanism_claim"),
+        "single_protocol_openflexure_30_trial_claim": accumulated.get(
+            "single_protocol_openflexure_30_trial_claim"
+        ),
+        "pairs": accumulated.get("pairs"),
     }
     search_path = generated_root / "adaptive-microscopy-development-v2/search.json"
     search = _read_json(search_path)
@@ -141,11 +162,15 @@ def freeze_adaptive_method(
     payload = {
         "schema_version": "proprio.adaptive_method_freeze.v0.2",
         "status": "FROZEN",
-        "evidence_status": "DEVELOPMENT_COMPLETE_CAUSAL_CONFIRMATORY_NOT_ESTABLISHED",
+        "evidence_status": (
+            "DEVELOPMENT_COMPLETE_BROAD_CAUSAL_MECHANISM_ESTABLISHED_"
+            "OPENFLEXURE_30_TRIAL_ESTIMATE_NOT_ESTABLISHED"
+        ),
         "claim_boundary": (
             "Simulation-validated pre-deployment qualification; real-hardware qualification "
-            "remains a separate required gate. The four-trial causal panel is exploratory and "
-            "does not establish the preregistered 30-trial claim."
+            "remains a separate required gate. Accumulated paired evidence establishes the broad "
+            "simulator-feedback repair mechanism; the four-trial OpenFlexure panel does not "
+            "establish its preregistered single-protocol 30-trial estimate."
         ),
         "inputs": inputs,
         "adaptive_prompt_sha256": hashlib.sha256(

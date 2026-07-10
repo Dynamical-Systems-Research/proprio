@@ -21,6 +21,7 @@ from proprio.adaptive_microscopy_study import (
 )
 from proprio.adaptive_validation import run_live_adaptive_microscopy_locked
 from proprio.artifacts import write_canonical_json
+from proprio.causal_evidence import summarize_accumulated_causal_evidence
 from proprio.confirmatory_metrology import run_confirmatory_metrology
 from proprio.confirmatory_study import (
     replay_confirmatory_study,
@@ -241,6 +242,12 @@ def _parser() -> argparse.ArgumentParser:
 
     method_verify = subparsers.add_parser("adaptive-method-verify")
     method_verify.add_argument("--manifest", type=Path, required=True)
+
+    causal_evidence = subparsers.add_parser("causal-evidence-summary")
+    causal_evidence.add_argument("--output-dir", type=Path, required=True)
+    causal_evidence.add_argument("--confirmatory", type=Path, required=True)
+    causal_evidence.add_argument("--diagnostic", type=Path, required=True)
+    causal_evidence.add_argument("--openflexure-lock", type=Path, required=True)
 
     microscopy_metrology = subparsers.add_parser("microscopy-metrology")
     microscopy_metrology.add_argument("--reference-dir", type=Path, required=True)
@@ -480,6 +487,13 @@ def main(argv: list[str] | None = None) -> int:
         )
     elif args.command == "adaptive-method-verify":
         result = verify_adaptive_method_freeze(args.manifest)
+    elif args.command == "causal-evidence-summary":
+        result = summarize_accumulated_causal_evidence(
+            args.output_dir,
+            confirmatory_path=args.confirmatory,
+            diagnostic_path=args.diagnostic,
+            openflexure_lock_path=args.openflexure_lock,
+        )
     elif args.command == "microscopy-metrology":
         result = run_microscopy_metrology(
             np.load(args.reference_dir / "baseline.npy", allow_pickle=False),

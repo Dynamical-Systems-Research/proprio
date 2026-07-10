@@ -17,11 +17,16 @@ causal_evidence:
   registered_trials: 30
   completed_trials: 4
   status: exploratory_locked
-  confirmatory_claim: not_established
+  broad_feedback_repair_mechanism: established_across_accumulated_paired_evidence
+  accumulated_non_overlapping_pairs: 18
+  accumulated_truthful_successes: 14
+  accumulated_no_feedback_successes: 0
+  single_protocol_openflexure_30_trial_claim: not_established
   source: artifacts/generated/adaptive-microscopy-causal-development/summary.json
   limitation: >-
-    Four completed trials cannot establish the preregistered 30-trial causal claim. They remain
-    exploratory method-development evidence and must not be reported as a confirmatory pass.
+    The accumulated synthesis spans three protocol generations. It establishes the broad
+    simulator-feedback repair mechanism but does not establish the preregistered single-protocol
+    30-trial OpenFlexure estimate.
 held_out_evaluation:
   families_minimum: 3
   method_adaptation_after_family_exposure: prohibited
@@ -30,5 +35,5 @@ held_out_evaluation:
   deterministic_promotion_authority: required
 claim_boundary: >-
   The freeze binds a simulation-only pre-deployment qualification method. It does not establish
-  cross-family generalization, causal confirmation from 30 OpenFlexure trials, or real-hardware
+  cross-family generalization, the 30-trial OpenFlexure rate estimate, or real-hardware
   qualification. Those claims require their separate binding evidence.

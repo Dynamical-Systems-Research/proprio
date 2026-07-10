@@ -11,6 +11,16 @@ both mismatched and no-feedback arms. Truthful-minus-none and truthful-minus-mis
 0.75, but the one-sided exact paired p-value was 0.125 and the panel did not cover the temporal
 fault cell. It therefore does not establish the preregistered 30-trial causal claim.
 
+That limitation applies to the single-protocol OpenFlexure estimate, not to the accumulated
+feedback-repair mechanism. A non-overlapping synthesis of the frozen six-instrument confirmatory
+panel, the eight-instrument diagnostic panel, and these four OpenFlexure trials contains 18 paired
+units. Truthful feedback produced 14/18 non-regressive repairs versus 0/18 without feedback, with
+14 favorable discordant pairs, zero unfavorable pairs, and an exact one-sided paired p-value of
+0.000061. Every cohort had positive uplift. The broad claim that DSV4 can causally use simulator
+feedback to repair a failed skill is therefore established by the accumulated evidence. The
+synthesis is explicitly retrospective and cross-protocol; it cannot supply the abandoned
+single-protocol rate estimate or the held-out-family generalization result.
+
 This decision supersedes the earlier plan below to restart the full panel. It does not retroactively
 turn the incomplete study into a pass. The freeze binds the prompts, bounded executor, search and
 repair budgets, verifier template, physical thresholds, promotion rules, and record schemas. The
