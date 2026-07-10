@@ -68,8 +68,8 @@ before its first adaptive OpenFlexure model call. It introduces:
 - three repeated measurements per visible condition, with deterministic ADMIT / REJECT / HOLD
   aggregation and independent recomputation from raw evidence;
 - a visible multi-condition debug distribution rather than one fixture;
-- four independent initial drafts, a two-candidate Pareto archive, and at most two
-  evidence-grounded repair rounds, for no more than eight generated candidates;
+- four independent initial drafts, a two-candidate Pareto archive, and at most four
+  evidence-grounded repair rounds, for no more than 12 generated candidates;
 - deterministic fixture preflight before model invocation and one-shot locked qualification
   after candidate selection.
 
@@ -78,12 +78,20 @@ execution traces, and immutable check records, but cannot inspect verifier code,
 internals, locked conditions, or a golden patch. Physical and procedural gates remain the sole
 promotion authority. Agent review remains a supplemental veto or hold.
 
-The method is not frozen until OpenFlexure development and compute-matched search/feedback
-ablations close. Only then may at least three independently maintained external simulator
-families be selected. Those families must remain untouched by method development, and each must
-independently pass acquisition, physical qualification, causal repair, and simulated drift
-evolution over at least twenty fresh DSV4 generations. Aggregate performance cannot rescue a
-failed instrument.
+The original plan required a 30-trial OpenFlexure causal panel before method freeze. Four trials
+completed under one hash-bound manifest before a malformed provider response stopped the run.
+The human research lead then froze the complete method configuration and redirected the remaining
+live-inference budget to the held-out-family study. The four trials are locked exploratory
+development evidence: truthful feedback qualified 3/4 candidates, while no feedback and
+mismatched feedback qualified 0/4; the one-sided exact paired p-value is 0.125. This does not
+establish the preregistered causal claim, and the report must not describe it as a confirmatory
+pass.
+
+After the configuration freeze, at least three independently maintained external simulator
+families may be preregistered before inspection or invocation. Those families remain untouched by
+method development, and each must independently pass acquisition, physical qualification, causal
+repair, and simulated drift evolution over at least twenty fresh DSV4 generations. Aggregate
+performance cannot rescue a failed instrument.
 
 ## Expanded experiment matrix
 

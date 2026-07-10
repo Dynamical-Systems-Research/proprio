@@ -68,6 +68,13 @@ Execute a bounded adaptive autofocus procedure using repeated image evidence.
 UNCERTAINTY_CHECK = "temporal-measurement-uncertainty"
 ROOT = Path(__file__).resolve().parents[2]
 
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
 CAUSAL_PROTOCOL_INPUTS = (
     "src/proprio/instrument_agent.py",
     "src/proprio/adaptive_agent.py",
@@ -720,6 +727,87 @@ def summarize_causal_trials(rows: list[dict[str, Any]], *, required_trials: int)
         "by_fault": by_fault,
         "verdict": "PASS" if passed else ("INCOMPLETE" if not enough_trials else "FAIL"),
     }
+
+
+def lock_causal_development_panel(
+    attempt_dir: Path,
+    output_dir: Path,
+    *,
+    completed_trials: int = 4,
+) -> dict[str, Any]:
+    """Seal a stopped causal panel without converting it into confirmatory evidence."""
+
+    manifest_path = attempt_dir / "run-manifest.json"
+    if not manifest_path.is_file():
+        raise RuntimeError(f"causal run manifest is missing: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("schema_version") != "proprio.causal_run_manifest.v0.2":
+        raise RuntimeError("causal run manifest has an unsupported schema")
+    registered_trials = int(manifest.get("trials", 0))
+    if completed_trials < 1 or completed_trials >= registered_trials:
+        raise ValueError("development lock requires a strict subset of registered trials")
+    seed = int(manifest.get("paired_seed_base", -1))
+    fault_assignment = manifest.get("fault_assignment") or []
+    if len(fault_assignment) != registered_trials:
+        raise RuntimeError("causal run manifest has an incomplete fault assignment")
+
+    rows: list[dict[str, Any]] = []
+    trial_evidence: list[dict[str, Any]] = []
+    for trial_index in range(completed_trials):
+        fault = CausalFault(fault_assignment[trial_index])
+        trial_dir = attempt_dir / "trials" / f"trial-{trial_index:03d}"
+        row = _load_completed_causal_trial(
+            trial_dir,
+            trial_index=trial_index,
+            fault=fault,
+            model_seed=seed + trial_index,
+        )
+        if row is None:
+            raise RuntimeError(f"causal development trial is incomplete: {trial_dir}")
+        rows.append(row)
+        summary_path = trial_dir / "summary.json"
+        trial_evidence.append(
+            {
+                "trial_index": trial_index,
+                "path": _display_path(summary_path),
+                "sha256": source_sha256(summary_path),
+            }
+        )
+
+    partial_indices = [
+        trial_index
+        for trial_index in range(completed_trials, registered_trials)
+        if (attempt_dir / "trials" / f"trial-{trial_index:03d}").exists()
+    ]
+    analysis = summarize_causal_trials(rows, required_trials=registered_trials)
+    if analysis["verdict"] != "INCOMPLETE":
+        raise RuntimeError("stopped development panel must remain incomplete confirmatory evidence")
+    payload = {
+        "schema_version": "proprio.causal_development_lock.v0.2",
+        "status": "EXPLORATORY_LOCKED",
+        "confirmatory_status": "NOT_ESTABLISHED",
+        "claim_boundary": (
+            "The four completed trials are exploratory method-development evidence. They do not "
+            "establish the preregistered 30-trial causal claim or cross-family generalization."
+        ),
+        "decision": (
+            "Freeze the method configuration after four completed trials and allocate remaining "
+            "live inference to the binding held-out-family study."
+        ),
+        "registered_trials": registered_trials,
+        "completed_trials": completed_trials,
+        "locked_trial_indices": list(range(completed_trials)),
+        "excluded_partial_trial_indices": partial_indices,
+        "source_manifest": {
+            "path": _display_path(manifest_path),
+            "sha256": source_sha256(manifest_path),
+        },
+        "trial_evidence": trial_evidence,
+        "analysis": analysis,
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    write_canonical_json(output_dir / "summary.json", payload)
+    return payload
 
 
 def _run_causal_confusion_preflight(

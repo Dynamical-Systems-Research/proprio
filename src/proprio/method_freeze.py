@@ -1,4 +1,4 @@
-"""Hash-bind the adaptive method only after every development gate closes."""
+"""Hash-bind the adaptive method and preserve the status of every evidence gate."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ METHOD_INPUTS = (
     "src/proprio/adaptive_microscopy_verifier.py",
     "src/proprio/adaptive_microscopy_study.py",
     "src/proprio/data/adaptive-method-preregistration.yaml",
+    "src/proprio/data/adaptive-method-freeze-decision.yaml",
     "src/proprio/data/adaptive-microscopy-thresholds.yaml",
 )
 REQUIRED_EVIDENCE = {
@@ -29,9 +30,9 @@ REQUIRED_EVIDENCE = {
     "verifier_metrology": "adaptive-microscopy-metrology/summary.json",
     "uncertainty_metrology": "adaptive-microscopy-uncertainty/summary.json",
     "adaptive_search": "adaptive-microscopy-development-v2/summary.json",
-    "causal_repair": "adaptive-microscopy-causal-repair/summary.json",
     "locked_qualification": "adaptive-microscopy-locked/summary.json",
 }
+CAUSAL_DEVELOPMENT_EVIDENCE = "adaptive-microscopy-causal-development/summary.json"
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -62,6 +63,27 @@ def _evidence_gate(generated_root: Path) -> dict[str, dict[str, Any]]:
             "sha256": source_sha256(path),
             "schema_version": payload.get("schema_version"),
         }
+    causal_path = generated_root / CAUSAL_DEVELOPMENT_EVIDENCE
+    causal = _read_json(causal_path)
+    if (
+        causal.get("schema_version") != "proprio.causal_development_lock.v0.2"
+        or causal.get("status") != "EXPLORATORY_LOCKED"
+        or causal.get("confirmatory_status") != "NOT_ESTABLISHED"
+        or causal.get("completed_trials") != 4
+        or causal.get("analysis", {}).get("verdict") != "INCOMPLETE"
+    ):
+        raise RuntimeError(
+            "causal development evidence must be an honest four-trial exploratory lock"
+        )
+    evidence["causal_development"] = {
+        "path": _display_path(causal_path),
+        "sha256": source_sha256(causal_path),
+        "schema_version": causal.get("schema_version"),
+        "status": causal.get("status"),
+        "confirmatory_status": causal.get("confirmatory_status"),
+        "completed_trials": causal.get("completed_trials"),
+        "registered_trials": causal.get("registered_trials"),
+    }
     search_path = generated_root / "adaptive-microscopy-development-v2/search.json"
     search = _read_json(search_path)
     if search.get("verdict") != "CANDIDATE":
@@ -119,9 +141,11 @@ def freeze_adaptive_method(
     payload = {
         "schema_version": "proprio.adaptive_method_freeze.v0.2",
         "status": "FROZEN",
+        "evidence_status": "DEVELOPMENT_COMPLETE_CAUSAL_CONFIRMATORY_NOT_ESTABLISHED",
         "claim_boundary": (
             "Simulation-validated pre-deployment qualification; real-hardware qualification "
-            "remains a separate required gate."
+            "remains a separate required gate. The four-trial causal panel is exploratory and "
+            "does not establish the preregistered 30-trial claim."
         ),
         "inputs": inputs,
         "adaptive_prompt_sha256": hashlib.sha256(

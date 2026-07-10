@@ -1,0 +1,34 @@
+schema_version: proprio.adaptive_method_freeze_decision.v0.2
+decided_at: "2026-07-10T18:14:37-04:00"
+authority: human_research_lead
+decision: >-
+  Freeze the complete method configuration after four completed OpenFlexure causal-development
+  trials and allocate the remaining live-inference budget to binding held-out-family
+  generalization.
+configuration_lock:
+  prompts: frozen
+  bounded_executor: frozen
+  search_budget: frozen
+  repair_budget: frozen
+  verifier_template: frozen
+  promotion_rules: frozen
+  thresholds: frozen
+causal_evidence:
+  registered_trials: 30
+  completed_trials: 4
+  status: exploratory_locked
+  confirmatory_claim: not_established
+  source: artifacts/generated/adaptive-microscopy-causal-development/summary.json
+  limitation: >-
+    Four completed trials cannot establish the preregistered 30-trial causal claim. They remain
+    exploratory method-development evidence and must not be reported as a confirmatory pass.
+held_out_evaluation:
+  families_minimum: 3
+  method_adaptation_after_family_exposure: prohibited
+  family_replacement_after_failure: prohibited
+  aggregate_rescue_of_family_failure: prohibited
+  deterministic_promotion_authority: required
+claim_boundary: >-
+  The freeze binds a simulation-only pre-deployment qualification method. It does not establish
+  cross-family generalization, causal confirmation from 30 OpenFlexure trials, or real-hardware
+  qualification. Those claims require their separate binding evidence.

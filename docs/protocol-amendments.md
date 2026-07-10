@@ -1,5 +1,22 @@
 # Protocol amendments and invalidated runs
 
+## 2026-07-10: configuration freeze after four causal-development trials
+
+The human research lead stopped the replacement 30-trial OpenFlexure run during deterministic
+preflight, before it made a new model call, and redirected the remaining inference budget to the
+held-out-family study. The four complete trials from the earlier transport-interrupted attempt are
+now sealed as exploratory method-development evidence. Trial 4 was partial and remains excluded.
+The locked panel observed 3/4 truthful qualifications, 2/4 generic qualifications, and 0/4 for
+both mismatched and no-feedback arms. Truthful-minus-none and truthful-minus-mismatched were each
+0.75, but the one-sided exact paired p-value was 0.125 and the panel did not cover the temporal
+fault cell. It therefore does not establish the preregistered 30-trial causal claim.
+
+This decision supersedes the earlier plan below to restart the full panel. It does not retroactively
+turn the incomplete study into a pass. The freeze binds the prompts, bounded executor, search and
+repair budgets, verifier template, physical thresholds, promotion rules, and record schemas. The
+next binding evidence is the preregistered held-out-family study, in which every family must pass
+independently and no failing family may be replaced or rescued by an aggregate result.
+
 ## 2026-07-10: repair-episode budget before the OpenFlexure causal study
 
 The one-episode engineering pilot showed that truthful simulator feedback identified the correct
