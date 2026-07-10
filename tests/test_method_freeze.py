@@ -99,10 +99,7 @@ def test_method_freeze_allows_direct_admission_but_rejects_failed_gate(tmp_path:
     generated = tmp_path / "generated"
     write_evidence(generated, repairs=[])
     manifest = freeze_adaptive_method(tmp_path / "freeze", generated_root=generated)
-    assert (
-        manifest["evidence"]["adaptive_search_record"]["selection_mode"]
-        == "direct-admit"
-    )
+    assert manifest["evidence"]["adaptive_search_record"]["selection_mode"] == "direct-admit"
     write_evidence(generated, verdict="FAIL")
     with pytest.raises(RuntimeError, match="did not pass"):
         freeze_adaptive_method(tmp_path / "freeze", generated_root=generated)

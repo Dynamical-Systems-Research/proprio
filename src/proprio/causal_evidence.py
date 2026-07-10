@@ -25,8 +25,7 @@ def _exact_mcnemar_one_sided(favorable: int, unfavorable: int) -> float:
     if discordant == 0:
         return 1.0
     return sum(
-        math.comb(discordant, value) * 0.5**discordant
-        for value in range(favorable, discordant + 1)
+        math.comb(discordant, value) * 0.5**discordant for value in range(favorable, discordant + 1)
     )
 
 
@@ -88,6 +87,7 @@ def summarize_accumulated_causal_evidence(
             and row.get("final_target_verdict") == "ADMIT"
             and not row.get("regression", False)
         )
+
     cohorts: dict[str, list[dict[str, Any]]] = {
         "frozen_six_instrument_confirmatory": _paired_rows(
             confirmatory,

@@ -70,6 +70,14 @@ extend-exclude = [
     "artifacts/**",
     "cassettes/**",
     "skills/**",
+    # These files are byte-bound by the frozen v0.2 method or its effective
+    # agent runtime. Format new code normally; do not rewrite frozen evidence.
+    "src/proprio/adaptive_microscopy_study.py",
+    "src/proprio/adaptive_microscopy_verifier.py",
+    "src/proprio/adaptive_search.py",
+    "src/proprio/adaptive_validation.py",
+    "src/proprio/instrument_agent.py",
+    "src/proprio/instrument_qualification.py",
     "src/proprio/microscopy_verifier.py",
 ]
 line-length = 100

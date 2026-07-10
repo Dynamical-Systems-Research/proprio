@@ -90,8 +90,7 @@ def _evidence_gate(generated_root: Path) -> dict[str, dict[str, Any]]:
     if (
         accumulated.get("schema_version") != "proprio.accumulated_causal_evidence.v0.2"
         or accumulated.get("broad_mechanism_claim") != "ESTABLISHED"
-        or accumulated.get("single_protocol_openflexure_30_trial_claim")
-        != "NOT_ESTABLISHED"
+        or accumulated.get("single_protocol_openflexure_30_trial_claim") != "NOT_ESTABLISHED"
         or accumulated.get("pairs") != 18
     ):
         raise RuntimeError("accumulated causal evidence has an unsupported claim boundary")
@@ -189,13 +188,13 @@ def verify_adaptive_method_freeze(manifest_path: Path) -> dict[str, Any]:
     expected_digest = manifest.pop("method_sha256", None)
     observed_digest = hashlib.sha256(canonical_json(manifest)).hexdigest()
     input_matches = {
-        relative: (ROOT / relative).is_file()
-        and source_sha256(ROOT / relative) == expected_sha
+        relative: (ROOT / relative).is_file() and source_sha256(ROOT / relative) == expected_sha
         for relative, expected_sha in manifest.get("inputs", {}).items()
     }
-    prompt_matches = manifest.get("adaptive_prompt_sha256") == hashlib.sha256(
-        ADAPTIVE_SKILL_ENGINEER_SYSTEM_PROMPT.encode()
-    ).hexdigest()
+    prompt_matches = (
+        manifest.get("adaptive_prompt_sha256")
+        == hashlib.sha256(ADAPTIVE_SKILL_ENGINEER_SYSTEM_PROMPT.encode()).hexdigest()
+    )
     passed = (
         expected_digest == observed_digest
         and bool(input_matches)

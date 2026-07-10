@@ -76,9 +76,8 @@ def test_causal_conditions_are_balanced_across_three_competing_repairs() -> None
 
 
 def test_causal_protocol_allows_four_evidence_conditioned_repairs() -> None:
-    preregistration = (
-        Path("src/proprio/data/adaptive-method-preregistration.yaml")
-        .read_text(encoding="utf-8")
+    preregistration = Path("src/proprio/data/adaptive-method-preregistration.yaml").read_text(
+        encoding="utf-8"
     )
     assert ADAPTIVE_REPAIR_EPISODES == 4
     assert "repair_rounds: 4" in preregistration

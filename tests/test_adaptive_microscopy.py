@@ -47,7 +47,7 @@ class FakeBackend:
         lower, upper = self.z - dz_steps // 2, self.z + dz_steps // 2
         self.z = 0 if lower <= 0 <= upper else min((lower, upper), key=abs)
         sampled = np.linspace(lower, upper, 50)
-        sharpness = 1000.0 + 9000.0 * np.exp(-(sampled / 250.0) ** 2)
+        sharpness = 1000.0 + 9000.0 * np.exp(-((sampled / 250.0) ** 2))
         return {
             "selected_z": self.z,
             "sweep_steps": dz_steps,
@@ -133,9 +133,7 @@ def test_adaptive_microscopy_uses_feedback_and_repeated_measurement() -> None:
     assert len(result.telemetry["frame_sha256s"]) == 3
     assert result.result == {"position_z": 0.0, "repeats": 3.0}
     assert hashlib.sha256(GOOD.encode()).hexdigest() == result.skill_sha256
-    resource = next(
-        check for check in result.checks if check.check_id == "acquisition-time-budget"
-    )
+    resource = next(check for check in result.checks if check.check_id == "acquisition-time-budget")
     assert resource.passed
     assert resource.evidence["observed_seconds"] <= MAX_ACQUISITION_SECONDS
 
@@ -173,9 +171,7 @@ def test_adaptive_microscopy_rejects_combined_conservative_repairs() -> None:
     return {"position_z": measurement["position_z"]}
 """
     result = _evaluate(source, 1600)
-    check = next(
-        check for check in result.checks if check.check_id == "acquisition-time-budget"
-    )
+    check = next(check for check in result.checks if check.check_id == "acquisition-time-budget")
     assert result.verdict == "REJECT"
     assert not check.passed
     assert check.evidence["observed_seconds"] == 8.5
@@ -208,9 +204,7 @@ def test_static_rejection_closes_transport() -> None:
 
 
 def test_adaptive_microscopy_stage_readback_supports_bounded_correction() -> None:
-    uncorrected = AdaptiveMicroscopyController(
-        FakeBackend(), start_z=1600, stage_bias_steps=300
-    )
+    uncorrected = AdaptiveMicroscopyController(FakeBackend(), start_z=1600, stage_bias_steps=300)
     rejected = evaluate_adaptive_microscopy_skill(
         GOOD,
         scenario=SimulationScenario.REPAIR,
@@ -234,9 +228,7 @@ def test_adaptive_microscopy_stage_readback_supports_bounded_correction() -> Non
     corrected = evaluate_adaptive_microscopy_skill(
         corrected_source,
         scenario=SimulationScenario.REPAIR,
-        controller=AdaptiveMicroscopyController(
-            FakeBackend(), start_z=1600, stage_bias_steps=300
-        ),
+        controller=AdaptiveMicroscopyController(FakeBackend(), start_z=1600, stage_bias_steps=300),
     )
     assert corrected.verdict == "ADMIT"
     assert next(
@@ -319,9 +311,7 @@ def test_autofocus_curve_rejects_truncation_flat_peak_and_peak_mismatch() -> Non
 
     mismatch = _qualified_controller()
     sweep = next(row for row in mismatch.trace if row["operation"] == "fast_autofocus")
-    sweep["stage_positions"] = [
-        {**row, "z": row["z"] + 500} for row in sweep["stage_positions"]
-    ]
+    sweep["stage_positions"] = [{**row, "z": row["z"] + 500} for row in sweep["stage_positions"]]
     assert not _checks(mismatch)["autofocus-peak-selected"].passed
 
 
