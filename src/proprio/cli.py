@@ -9,6 +9,16 @@ from typing import Any
 
 import numpy as np
 
+from proprio.adaptive_microscopy_metrology import run_adaptive_microscopy_metrology
+from proprio.adaptive_microscopy_study import (
+    run_live_adaptive_microscopy_causal_repair,
+    run_live_adaptive_microscopy_curve_metrology,
+    run_live_adaptive_microscopy_preflight,
+    run_live_adaptive_microscopy_reset_battery,
+    run_live_adaptive_microscopy_search,
+    run_live_adaptive_microscopy_uncertainty_battery,
+)
+from proprio.adaptive_validation import run_live_adaptive_microscopy_locked
 from proprio.artifacts import write_canonical_json
 from proprio.confirmatory_metrology import run_confirmatory_metrology
 from proprio.confirmatory_study import (
@@ -29,6 +39,7 @@ from proprio.judge_metrology import (
     summarize_judge_metrology,
 )
 from proprio.locked_validation import run_locked_validation_once
+from proprio.method_freeze import freeze_adaptive_method, verify_adaptive_method_freeze
 from proprio.metrology import run_metrology
 from proprio.microscopy import capture_live_microscopy_reference
 from proprio.microscopy_evolution import (
@@ -155,6 +166,75 @@ def _parser() -> argparse.ArgumentParser:
     microscopy_reference = subparsers.add_parser("microscopy-reference-live")
     microscopy_reference.add_argument("--output-dir", type=Path, required=True)
     microscopy_reference.add_argument("--base-url", default="http://127.0.0.1:5100")
+
+    adaptive_microscopy_preflight = subparsers.add_parser("adaptive-microscopy-preflight")
+    adaptive_microscopy_preflight.add_argument("--output-dir", type=Path, required=True)
+    adaptive_microscopy_preflight.add_argument("--base-url", default="http://127.0.0.1:5100")
+
+    adaptive_reset = subparsers.add_parser("adaptive-microscopy-reset")
+    adaptive_reset.add_argument("--output-dir", type=Path, required=True)
+    adaptive_reset.add_argument(
+        "--base-urls",
+        nargs="+",
+        default=["http://127.0.0.1:5100"],
+    )
+    adaptive_reset.add_argument("--cases-per-simulator", type=int, default=5)
+
+    adaptive_curve = subparsers.add_parser("adaptive-microscopy-curve-metrology")
+    adaptive_curve.add_argument("--output-dir", type=Path, required=True)
+    adaptive_curve.add_argument(
+        "--base-urls",
+        nargs="+",
+        default=["http://127.0.0.1:5100"],
+    )
+    adaptive_curve.add_argument("--cases-per-group", type=int, default=20)
+
+    adaptive_microscopy_search = subparsers.add_parser("adaptive-microscopy-search-live")
+    adaptive_microscopy_search.add_argument("--output-dir", type=Path, required=True)
+    adaptive_microscopy_search.add_argument("--base-url", default="http://127.0.0.1:5100")
+    adaptive_microscopy_search.add_argument("--seed-base", type=int, default=920000)
+    adaptive_microscopy_search.add_argument("--smoke", action="store_true")
+
+    adaptive_uncertainty = subparsers.add_parser("adaptive-microscopy-uncertainty")
+    adaptive_uncertainty.add_argument("--output-dir", type=Path, required=True)
+    adaptive_uncertainty.add_argument(
+        "--base-urls",
+        nargs="+",
+        default=["http://127.0.0.1:5100"],
+    )
+    adaptive_uncertainty.add_argument("--cases-per-group", type=int, default=20)
+
+    adaptive_metrology = subparsers.add_parser("adaptive-microscopy-metrology")
+    adaptive_metrology.add_argument("--output-dir", type=Path, required=True)
+    adaptive_metrology.add_argument("--cases-per-class", type=int, default=300)
+
+    adaptive_causal = subparsers.add_parser("adaptive-microscopy-causal-repair-live")
+    adaptive_causal.add_argument("--output-dir", type=Path, required=True)
+    adaptive_causal.add_argument("--candidate", type=Path, required=True)
+    adaptive_causal.add_argument(
+        "--base-urls",
+        nargs="+",
+        default=[
+            "http://127.0.0.1:5100",
+            "http://127.0.0.1:5101",
+            "http://127.0.0.1:5102",
+            "http://127.0.0.1:5103",
+        ],
+    )
+    adaptive_causal.add_argument("--seed", type=int, default=990000)
+    adaptive_causal.add_argument("--trials", type=int, default=30)
+
+    adaptive_locked = subparsers.add_parser("adaptive-microscopy-locked")
+    adaptive_locked.add_argument("--output-dir", type=Path, required=True)
+    adaptive_locked.add_argument("--search", type=Path, required=True)
+    adaptive_locked.add_argument("--base-url", default="http://127.0.0.1:5100")
+
+    method_freeze = subparsers.add_parser("adaptive-method-freeze")
+    method_freeze.add_argument("--output-dir", type=Path, required=True)
+    method_freeze.add_argument("--generated-root", type=Path)
+
+    method_verify = subparsers.add_parser("adaptive-method-verify")
+    method_verify.add_argument("--manifest", type=Path, required=True)
 
     microscopy_metrology = subparsers.add_parser("microscopy-metrology")
     microscopy_metrology.add_argument("--reference-dir", type=Path, required=True)
@@ -332,6 +412,62 @@ def main(argv: list[str] | None = None) -> int:
         result = run_live_confirmatory_judges(args.cassette_dir)
     elif args.command == "microscopy-reference-live":
         result = capture_live_microscopy_reference(args.output_dir, base_url=args.base_url)
+    elif args.command == "adaptive-microscopy-preflight":
+        result = run_live_adaptive_microscopy_preflight(
+            args.output_dir,
+            base_url=args.base_url,
+        )
+    elif args.command == "adaptive-microscopy-reset":
+        result = run_live_adaptive_microscopy_reset_battery(
+            args.output_dir,
+            base_urls=tuple(args.base_urls),
+            cases_per_simulator=args.cases_per_simulator,
+        )
+    elif args.command == "adaptive-microscopy-curve-metrology":
+        result = run_live_adaptive_microscopy_curve_metrology(
+            args.output_dir,
+            base_urls=tuple(args.base_urls),
+            cases_per_group=args.cases_per_group,
+        )
+    elif args.command == "adaptive-microscopy-search-live":
+        result = run_live_adaptive_microscopy_search(
+            args.output_dir,
+            base_url=args.base_url,
+            seed_base=args.seed_base,
+            smoke=args.smoke,
+        )
+    elif args.command == "adaptive-microscopy-uncertainty":
+        result = run_live_adaptive_microscopy_uncertainty_battery(
+            args.output_dir,
+            base_urls=tuple(args.base_urls),
+            cases_per_group=args.cases_per_group,
+        )
+    elif args.command == "adaptive-microscopy-metrology":
+        result = run_adaptive_microscopy_metrology(
+            args.output_dir,
+            cases_per_class=args.cases_per_class,
+        )
+    elif args.command == "adaptive-microscopy-causal-repair-live":
+        result = run_live_adaptive_microscopy_causal_repair(
+            args.output_dir,
+            candidate_path=args.candidate,
+            base_urls=tuple(args.base_urls),
+            seed=args.seed,
+            trials=args.trials,
+        )
+    elif args.command == "adaptive-microscopy-locked":
+        result = run_live_adaptive_microscopy_locked(
+            args.output_dir,
+            search_path=args.search,
+            base_url=args.base_url,
+        )
+    elif args.command == "adaptive-method-freeze":
+        result = freeze_adaptive_method(
+            args.output_dir,
+            generated_root=args.generated_root,
+        )
+    elif args.command == "adaptive-method-verify":
+        result = verify_adaptive_method_freeze(args.manifest)
     elif args.command == "microscopy-metrology":
         result = run_microscopy_metrology(
             np.load(args.reference_dir / "baseline.npy", allow_pickle=False),

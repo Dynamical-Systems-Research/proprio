@@ -1,5 +1,127 @@
 # Protocol amendments and invalidated runs
 
+## 2026-07-10: repair-episode budget before the OpenFlexure causal study
+
+The one-episode engineering pilot showed that truthful simulator feedback identified the correct
+repair mechanism in all three fault cells, but two cells needed another edit after the first
+repair: one to remove a DSL-incompatible cast and one to extend sweep coverage to the diagnosed
+boundary. Because one or two edits would conflate causal use of feedback with an artificially
+short interaction horizon, the preregistered method now permits an initial candidate followed by
+at most four evidence-conditioned repair episodes. Each episode starts from the prior candidate,
+receives a fresh simulator/verifier result under its assigned feedback arm, may submit at most one
+repair, and must replay the visible suite. All four arms receive the same maximum episode and model
+turn budgets; deterministic admission is the only early-stop condition.
+
+This amendment was made before the 30-trial causal study and before method freeze. The earlier
+one-episode run remains an excluded engineering pilot under
+`artifacts/invalidated/adaptive-microscopy-causal-pilot-one-round/`. The four-episode budget is
+also the frozen archive-search repair depth for subsequent families. Increasing the interaction
+horizon does not transfer promotion authority to the model: only external execution and physical
+checks can admit a candidate.
+
+The first four-episode engineering rerun stopped without a verdict in the third fault cell. An
+agent submitted a changed candidate at its model-turn limit before replaying it; the next episode
+correctly rejected the stale suite because its candidate hash no longer matched the current code.
+The harness now performs and records an external post-episode replay whenever those hashes differ,
+then supplies that fresh record to the next episode. It also writes each episode and locked replay
+atomically as they finish and closes provider and simulator transports on every path. The crashed
+run is excluded and retained under
+`artifacts/invalidated/adaptive-microscopy-causal-pilot-four-episode/`.
+
+The same pilot showed that a valid sweep-coverage recovery can reposition in bounded increments
+and then perform a second autofocus without increasing the maximum sweep width. The original AST
+classifier labeled that composite procedure only as a stage correction. Before confirmatory
+execution, the mechanism contract was corrected: increased repeat count maps to repeated evidence;
+an increased autofocus width or an additional autofocus call maps to coverage recovery; otherwise
+an added relative move maps to stage correction. Deterministic physical admission remains the
+authority, and the no-feedback arm's successful source-only coverage guess remains negative causal
+evidence in the preserved pilot rather than being relabeled or removed.
+
+A later engineering attempt stopped during sweep coverage after GMICloud returned a transient
+HTTP 502. The completed temporal-precision cell and every finished sweep episode are preserved,
+but the attempt has no panel verdict and is excluded. Before the binding 30-trial study, the
+transport policy was fixed at three attempts per model turn for connection errors, timeouts,
+HTTP 408/409/429, and HTTP 5xx, with fixed one- and two-second backoff. Failed transport attempts
+are recorded raw and do not consume a model turn because no model generation was returned.
+Non-retryable errors and a third failed attempt still stop the run. Completed trials may resume
+only when their episode and locked-replay artifacts are complete and the hash-bound run manifest
+matches every protocol input and setting.
+
+The first binding attempt then exposed a second transport failure mode: the provider returned a
+response object with no choice or assistant message. Four trials completed and a fifth was
+partial, but the attempt stopped twice on this malformed response shape before a panel verdict
+could be computed. The entire attempt is excluded and retained under
+`artifacts/invalidated/adaptive-microscopy-causal-binding-transport-incomplete-v1/`; its trial
+outcomes do not contribute to any reported rate or causal test. Before restarting the binding
+study from trial zero, response-shape validation was added to the already registered three-attempt
+transport policy. A missing choice or assistant message is captured raw and retried with the same
+request, seed, prompt, candidate, simulator state, and model-turn budget. It does not consume a
+model turn because no usable model action was returned. Prompts, DSL, search and repair budgets,
+faults, arms, physical checks, promotion rules, thresholds, seeds, and analysis criteria remain
+unchanged. The fresh 30-trial study is the only binding causal result.
+
+## 2026-07-10: adaptive OpenFlexure focus-contract development
+
+The first v0.2 smoke occurred after the required fixture preflight passed and before the v0.2
+method freeze. DSV4 produced a bounded, executable, repeated-measurement autofocus procedure.
+The procedure reached the calibrated focus plane, passed spatial focus, and had low repeat
+spread, but the development verifier rejected its FFT improvement ratio because the start-z
+800 baseline was already moderately focused. Baseline-relative gain therefore changed with the
+starting state even when the final measurement was valid.
+
+An initial 20-valid/20-invalid development battery appeared to separate absolute FFT and
+Laplacian scores on one simulator process. A required four-process cross-check then falsified
+that contract: OpenFlexure independently generates random specimen textures, so absolute
+sharpness magnitude was specimen-dependent. It caused 7/20 false rejects on nominal
+three-repeat acquisitions and 8/20 on intended five-repeat repairs. Those runs are retained
+under `artifacts/invalidated/adaptive-microscopy-absolute-focus-calibration/` and
+`artifacts/invalidated/adaptive-microscopy-uncertainty-absolute-focus-confound/`; neither counts
+toward a claim.
+
+Before a fresh labeled battery, the replacement contract was fixed to evidence the external
+autofocus action actually exports: its raw image-sharpness-versus-stage sweep must cover the
+calibrated plane, contain a prominent peak near that plane, and agree with the independently read
+final stage position. Raw-frame integrity, detector saturation, dynamic range, repeated evidence,
+operation order, and cleanup remain required. This avoids both near-focus baseline dependence and
+cross-specimen absolute-score dependence without trusting a simulator-provided success flag.
+
+The same development pass found that single-frame spatial sharpness scores increase under high
+simulated camera noise. Absolute FFT and Laplacian checks therefore cannot establish acquisition
+precision by themselves. Before the labeled uncertainty battery, the adaptive verifier added a
+separate repeated-frame standard-error check: median temporal pixel sigma divided by the square
+root of repeat count and by spatial image contrast must be at most 1.1 percent. A provisional
+one-percent limit rejected both the intended three-repeat invalid control and the intended
+five-repeat repairable control; that run is retained and excluded. The 1.1-percent operating
+point was then fixed before the labeled battery. The exploratory noise sweep is method-development
+evidence only; it is not counted in the confirmatory battery.
+
+The first repeat-uncertainty rerun applied elevated camera noise before both autofocus and final
+measurement. Although the temporal statistic behaved as intended, 2/20 five-repeat controls lost
+autofocus-curve prominence; post-focus repetition could not repair that upstream failure. That
+run is retained under
+`artifacts/invalidated/adaptive-microscopy-uncertainty-autofocus-noise-confound/`. Before the next
+battery, the development intervention was narrowed to post-focus measurement noise while the
+autofocus sweep remains at the calibrated noise setting. No threshold changed.
+
+A subsequent partial run exposed a curve-segmentation error: prominence had been computed over
+the complete autofocus transaction, including the final return to the selected peak. That return
+could contaminate the edge baseline. Reanalysis of captured stage timestamps identified the
+primary forward sweep as the largest positive stage displacement. On the primary segment, valid
+development curves had prominence 0.607–0.859 and invalid truncated sweeps 0.130–0.336. The 0.5
+prominence threshold was unchanged; the verifier now isolates the primary segment and requires at
+least 15 camera samples on it. The confounded partial run is retained under
+`artifacts/invalidated/adaptive-microscopy-uncertainty-full-transaction-curve-confound/`.
+
+With curve acquisition isolated, the next battery showed that one five-frame series still
+exceeded the unchanged 1.1-percent standard-error limit in more than five percent of cases. The
+validity threshold was not relaxed. Before the next battery, the repair budget was increased to
+two bounded five-frame series, with all ten raw frames retained by the verifier. The failed
+five-frame run is retained under
+`artifacts/invalidated/adaptive-microscopy-uncertainty-five-frame-budget/`.
+
+No v0.1 frozen source, adapter, verifier, cassette, or result changed, and no future confirmatory
+family has been selected or evaluated.
+
 The frozen confirmatory generation and locked-validation contract is hash-bound in
 `src/proprio/data/confirmatory-preregistration.yaml`. Post-validation semantic-review
 calibration changes are recorded here so the preregistration hash remains reproducible.

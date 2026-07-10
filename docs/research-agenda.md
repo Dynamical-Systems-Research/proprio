@@ -51,6 +51,40 @@ The current cards and the resulting claim corrections are maintained in
 Passing a later gate requires all earlier gates. A simulator-only result never establishes
 unsupervised real-hardware operation.
 
+## v0.2 method revision after the external-family failure
+
+The v0.1 admission mechanism behaved correctly: it refused to promote six invalid or
+incompletely validated OpenFlexure candidates. What failed was the straight-line skill
+representation and single-trajectory repair method. OpenFlexure is therefore moved into method
+development. Its prior 4/10 result remains unchanged as failure evidence and cannot contribute
+to the next generalization claim.
+
+The v0.2 method is preregistered in
+[`adaptive-method-preregistration.yaml`](../src/proprio/data/adaptive-method-preregistration.yaml)
+before its first adaptive OpenFlexure model call. It introduces:
+
+- a bounded adaptive executor with finite loops, observation-conditioned branches, safe
+  arithmetic, explicit call limits, and no exception swallowing or hidden-state access;
+- three repeated measurements per visible condition, with deterministic ADMIT / REJECT / HOLD
+  aggregation and independent recomputation from raw evidence;
+- a visible multi-condition debug distribution rather than one fixture;
+- four independent initial drafts, a two-candidate Pareto archive, and at most two
+  evidence-grounded repair rounds, for no more than eight generated candidates;
+- deterministic fixture preflight before model invocation and one-shot locked qualification
+  after candidate selection.
+
+This is a multi-turn search/revision environment. DSV4 may inspect controller observations,
+execution traces, and immutable check records, but cannot inspect verifier code, simulator
+internals, locked conditions, or a golden patch. Physical and procedural gates remain the sole
+promotion authority. Agent review remains a supplemental veto or hold.
+
+The method is not frozen until OpenFlexure development and compute-matched search/feedback
+ablations close. Only then may at least three independently maintained external simulator
+families be selected. Those families must remain untouched by method development, and each must
+independently pass acquisition, physical qualification, causal repair, and simulated drift
+evolution over at least twenty fresh DSV4 generations. Aggregate performance cannot rescue a
+failed instrument.
+
 ## Expanded experiment matrix
 
 | Question | Unit and intervention | Authority | Frozen pass condition | Artifact |
