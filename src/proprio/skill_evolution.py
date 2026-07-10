@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -108,6 +109,8 @@ def stage_skill_evolution(
     repair: RepairEpisode,
     judge: JudgeEpisode,
     locked_validation: LockedValidationReport,
+    *,
+    evaluator: Callable[..., HardGateResult] = evaluate_instrument_skill,
 ) -> EvolutionProposal:
     """Stage a proposal without mutating the admitted parent or bypassing hardware review."""
 
@@ -119,7 +122,7 @@ def stage_skill_evolution(
         raise ValueError("evolution requires drift or unavailable simulation evidence")
 
     baseline = tuple(
-        evaluate_instrument_skill(parent.instrument_id, parent.skill_py, scenario=scenario)
+        evaluator(parent.instrument_id, parent.skill_py, scenario=scenario)
         for scenario in (SimulationScenario.NOMINAL, SimulationScenario.REPAIR)
     )
     drift_detection = repair.initial_gate
@@ -130,7 +133,7 @@ def stage_skill_evolution(
     if locked_validation.candidate_sha256 != proposed_hash:
         raise ValueError("locked validation does not bind the proposed candidate")
     qualification = tuple(
-        evaluate_instrument_skill(parent.instrument_id, proposed.skill_py, scenario=scenario)
+        evaluator(parent.instrument_id, proposed.skill_py, scenario=scenario)
         for scenario in (
             SimulationScenario.NOMINAL,
             SimulationScenario.REPAIR,

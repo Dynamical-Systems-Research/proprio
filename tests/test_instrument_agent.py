@@ -1,7 +1,11 @@
 import json
 from types import SimpleNamespace
 
-from proprio.instrument_agent import SKILL_ENGINEER_SYSTEM_PROMPT, DSV4InstrumentAgent
+from proprio.instrument_agent import (
+    INDEPENDENT_REVIEWER_SYSTEM_PROMPT,
+    SKILL_ENGINEER_SYSTEM_PROMPT,
+    DSV4InstrumentAgent,
+)
 from proprio.instrument_qualification import evaluate_instrument_skill
 from proprio.instrument_sources import load_instrument_source
 from proprio.instrument_types import (
@@ -116,6 +120,16 @@ def test_instrument_neutral_prompt_contains_no_held_out_specifics() -> None:
     lowered = SKILL_ENGINEER_SYSTEM_PROMPT.lower()
     for term in ("ot2", "hamilton", "battery", "powder", "hall", "keithley", "xrd"):
         assert term not in lowered
+
+
+def test_independent_reviewer_prompt_has_a_frozen_fail_closed_rubric() -> None:
+    prompt = INDEPENDENT_REVIEWER_SYSTEM_PROMPT
+    normalized = " ".join(prompt.split())
+    for rubric_id in ("R1", "R2", "R3", "R4", "R5", "R6", "R7"):
+        assert rubric_id in prompt
+    assert "can never rescue a hard failure" in normalized
+    assert "source bundle, both skill versions" in normalized
+    assert "empty `evidence_refs` list plus a technically correct patch is REJECT" in normalized
 
 
 def test_tool_use_draft_preserves_reasoning_and_source_provenance() -> None:

@@ -1,138 +1,227 @@
 # Proprio
 
 Proprio is an open-source method for qualifying AI-generated scientific-instrument skills in
-simulation before they are allowed near real hardware. It records whether an operation ran,
-whether the resulting evidence is physically usable, and whether that evidence lies within a
-declared support boundary. Real-hardware qualification remains a separate, required gate.
+simulation before they are allowed near real hardware. It answers three separate questions:
 
-`simulation_qualified` means that a skill passed the released simulator, physical
-postconditions, provenance checks, and locked validation set. It does not mean that the skill
-is safe or qualified for an unsupervised physical instrument.
+1. Did the control procedure execute?
+2. Did it produce physically usable evidence?
+3. Is that evidence inside a declared operating support?
 
-## Result
+The resulting self-observation record is provenance-complete and firewalled from scientific
+judgment. `simulation_qualified` means that a skill passed the released execution, physical,
+provenance, regression, and locked-validation gates. It does **not** mean that the skill is
+qualified for unsupervised use on a physical instrument. Real-hardware qualification remains a
+separate, required gate.
 
-DeepSeek V4 Flash (DSV4) generated executable skills for six instruments across optical
-measurement, calibrated delivery, and thermal control—three families held out from method
-development. Starting from the same initial draft, truthful simulator feedback produced 6/6
-qualified repairs; a no-feedback control produced 0/6. Every accepted repair preserved prior
-behavior and passed 50 conditions that were hidden during repair. Independent verifier
-metrology observed zero false admissions and zero false rejections across 9,000 labeled
-simulations.
+## What v0.1 establishes
 
-This is a held-out-method result, not a claim about the model's pretraining data. The
-generalized skill-acquisition and evolution studies use no XRD-RL or VOE-Bench data, no trained
-judgment checkpoint, and no external policy-training distribution.
-XRD remains a reference instrument, not the distribution against which the method claims to
-generalize.
+DeepSeek V4 Flash (DSV4) can acquire runnable instrument procedures from source bundles, use
+simulator evidence to repair some failed drafts, and submit those repairs to an admission
+system it cannot overrule. The strongest systematic result remains the frozen six-instrument
+panel: 60/60 independent generations qualified across optical measurement, calibrated
+delivery, and thermal control.
 
-| Question | Result | Evidence |
-| --- | --- | --- |
-| Can DSV4 draft runnable skills? | 6/6 initial drafts executed | [`cassettes/confirmatory-dsv4/summary.json`](cassettes/confirmatory-dsv4/summary.json) |
-| Did simulator feedback cause the repairs? | 6/6 with truthful feedback versus 0/6 without feedback; paired uplift 1.0, bootstrap 95% interval [1.0, 1.0] | [`cassettes/confirmatory-dsv4/summary.json`](cassettes/confirmatory-dsv4/summary.json) |
-| Did the independent gates separate valid from invalid operations? | 0 false admissions and 0 false rejections across 9,000 labeled simulations | [`artifacts/evidence/confirmatory-metrology/summary.json`](artifacts/evidence/confirmatory-metrology/summary.json) |
-| Is the result reproducible without a hosted model? | 12/12 episodes replayed byte-identically and reset-idempotently, including 600 locked conditions | [`artifacts/evidence/confirmatory-replay/summary.json`](artifacts/evidence/confirmatory-replay/summary.json) |
-| Could an agent reviewer override a physical failure? | No; 24/24 semantic cases passed with zero hard-gate overrides | [`cassettes/judge-metrology-confirmatory/summary.json`](cassettes/judge-metrology-confirmatory/summary.json) |
-| Can an existing skill be updated after simulated drift? | 8/8 proposals were validated and staged; 0 unsafe promotions | [`cassettes/dsv4-evolution/summary.json`](cassettes/dsv4-evolution/summary.json) |
+The harder external-simulator test did **not** clear the preregistered generalization bar.
+Against a pinned OpenFlexure microscope server, all 10 drafts executed, but only 4/10 repaired
+candidates passed target replay, history, provenance, terminal-status, and all locked physical
+checks. The frozen requirement was at least 8/10 for every instrument. Proprio rejected the
+other six and did not add a microscope skill to the public catalog.
 
-The six confirmatory skills are:
+Across the full 70-generation panel:
 
-| Instrument family | Simulation-qualified skills |
+| Claim | Result | Frozen gate | Evidence |
+| --- | ---: | ---: | --- |
+| Initial code executed | 68/70 (97.1%; Wilson 95% CI 90.2–99.2%) | at least 75% per instrument | [`summary.json`](cassettes/replication-dsv4/summary.json) |
+| Initial measurement was physically valid | 61/70 (87.1%) | reported separately | [`summary.json`](cassettes/replication-dsv4/summary.json) |
+| Candidate fully qualified | 64/70 (91.4%; Wilson 95% CI 82.5–96.0%) | at least 80% per instrument | **FAIL**: OpenFlexure was 4/10 |
+| Unqualified candidate promoted | 0/6 | zero | PASS |
+| Original six-instrument panel | 60/60 qualified | at least 80% per instrument | PASS |
+
+This is a held-out-method result, not a claim about model pretraining. These experiments
+use no XRD-RL or VOE-Bench data, trained judgment checkpoint, or external policy-training
+distribution. XRD remains a reference instrument, not the dataset against which generalization is
+claimed.
+
+## The proof ladder
+
+Proprio advances one claim at a time. A later claim cannot pass when an earlier gate fails.
+
+| Question | Evidence |
 | --- | --- |
-| Optical measurement | absorbance plate read; fluorescence plate read |
-| Calibrated delivery | calibrated pump dose; dual-pump blend |
-| Thermal control | isothermal hold; thermal cycle |
+| Can DSV4 draft executable skills? | 68/70 independent drafts executed. |
+| Can independent checks separate execution from valid evidence? | OpenFlexure produced 10/10 executable drafts but only 3/10 initially valid measurements; the gate preserved that distinction. |
+| Did simulator feedback cause repair on the frozen panel? | From byte-identical drafts, truthful feedback qualified 6/6 while no feedback qualified 0/6; paired uplift 1.0, bootstrap 95% interval [1.0, 1.0]. |
+| Does the method replicate across held-out families? | Yes for the original three reduced-order families (60/60); no for the external OpenFlexure family (4/10). |
+| Can a model promote its own mistake? | No observed promotion: locked-validation failures and `MAX_TURNS` episodes remained rejected. |
+| Can an admitted skill evolve under simulated drift? | 8/8 reduced-order development cases staged regression-safe proposals. The external OpenFlexure evolution attempt failed its hard gate and was not staged. |
 
-They are packaged under [`skills/simulated/`](skills/simulated/) and bound to their source,
-code, verifier, and evidence hashes in [`catalog.json`](catalog.json).
+Raw DSV4 messages, reasoning state, tool calls, simulator records, seeds, provider route, and
+usage are retained under [`cassettes/replication-dsv4/`](cassettes/replication-dsv4/). The 70
+generations used unique panel-global seeds, temperature 0.7, top-p 0.95, the pinned GMICloud
+route, and 2,527,902 total tokens. The inspected sample includes one replicate from every
+instrument and every failed microscope candidate.
 
-## Why instrument operation needs observability
-
-An instrument can execute every command and still produce unusable evidence. A detector can
-saturate, a sample can be displaced, a calibration can be stale, or an integration can fail.
-Passing a command-level check is therefore necessary but insufficient for a scientific agent.
-
-Proprio evaluates the complete path:
+## How qualification works
 
 ```text
-operate -> procedural status -> measurement validity -> declared support -> judge
+instrument sources
+      |
+      v
+draft skill -> execute in simulator -> inspect physical evidence -> repair and replay
+                                                           |
+                                                           v
+                  provenance + history + locked conditions + semantic veto
+                                                           |
+                                      simulation-qualified or rejected
 ```
-
-- **Procedural status** records whether the plan completed, degraded, failed, or was
-  unavailable.
-- **Measurement validity** checks acquisition and preprocessing against simulator state and
-  instrument-specific physical postconditions.
-- **Declared support** reports whether the evidence is within the operating domain declared by
-  the consuming policy or substrate.
-
-These results form one provenance-complete self-observation record. The record is deliberately
-firewalled from scientific judgment: it may say that a diffraction pattern is valid evidence,
-but it may not say that a phase assignment or scientific decision is correct.
-
-## How a generated skill is qualified
 
 1. The agent reads an instrument source bundle and drafts `SKILL.md` plus executable control
    code.
-2. The draft runs against a simulator with explicit execution state and physical
-   postconditions.
-3. If the draft fails, the agent must inspect the simulator record before editing, cite the
-   evidence identifiers it used, and replay the revised skill.
-4. Deterministic gates check execution, physical validity, provenance, prior behavior, and a
-   locked validation set that the agent cannot inspect during repair.
-5. A stateful semantic reviewer may inspect sources, diffs, traces, and simulator state. It may
-   veto or hold a candidate, but it cannot rescue a deterministic failure.
-6. Only a qualifying candidate is added to the catalog, with exact hashes and
+2. The draft runs against a simulator with explicit state, failure semantics, and
+   instrument-specific physical postconditions.
+3. A repair must cite evidence identifiers actually exposed by the failed run, then replay the
+   changed condition and prior behavior.
+4. A locked condition set is revealed only after candidate selection. The agent cannot edit
+   after seeing it.
+5. A stateful semantic reviewer may inspect sources, diffs, traces, and fresh replay. It may
+   veto or hold, but cannot rescue a deterministic failure.
+6. A qualifying package is content-addressed and marked
    `hardware_qualification_required=true`.
 
-Hosted generation is not assumed to be byte-deterministic. The release stores raw model
-messages, reasoning state, tool calls, simulator records, and validation results as cassettes;
-CI replays the captured candidates deterministically.
+Hosted generation is not assumed to be byte-deterministic. CI replays captured candidates and
+canonical evidence; fresh hosted generation is a separate release experiment.
+
+## External OpenFlexure stress test
+
+The additional confirmatory family uses the
+[OpenFlexure microscope server](https://gitlab.com/openflexure/openflexure-microscope-server)
+at revision `d26b93e1be1093e9d696b634dd1f7dde3bb7142a`, run as an external GPL-3.0 process through
+its public LabThings/FastAPI interface. Proprio redistributes no OpenFlexure source. The model
+received only the frozen instrument source bundle and public controller contract.
+
+The physical verifier never imports the simulator's focus score. It checks public stage state,
+frame integrity, calibrated focus position, normalized FFT high-frequency energy, and an
+alternate SciPy Laplacian implementation. Both image checks must pass.
+
+| OpenFlexure verifier result | Value |
+| --- | ---: |
+| Labeled cases | 2,700 |
+| Invalid classes | 8 |
+| False-valid | 0 |
+| False-reject | 1/300 valid cases (0.33%) |
+| Valid-case FFT/Laplacian concordance | 99.67% |
+| Overall agreement | 90.59% |
+
+The two image metrics share the exported frame and are therefore not statistically
+independent. They use different domains, neither reads simulator internals, and public stage
+position provides a third calibrated reference. The residual correlation is reported rather
+than claimed away. See the [metrology record](artifacts/evidence/microscopy/locked/metrology/summary.json)
+and [manual frame inspection](artifacts/evidence/microscopy/locked/manual-inspection.md).
+
+The 4/10 qualification rate exposes two failure modes that a single demonstration would hide:
+
+- four agents exhausted the turn budget without a terminal candidate;
+- two plausible candidates passed the visible repair case but failed locked offsets.
+
+One of those locked failures was a strict false rejection consistent with the measured
+non-zero valid-case false-reject rate. The other was a fixture-specific repair. Both correctly
+remained outside the catalog.
+
+## Independent semantic review
+
+Qwen 3.7 Plus served as a separately prompted, stateful reviewer. Its frozen rubric covers
+provenance, hard-evidence consistency, API grounding, causal correspondence, regression and
+cleanup, the simulation/hardware claim boundary, and honest uncertainty. The reviewer reads
+sources, both skill versions, their diff, the complete execution record, and fresh replay. It
+can reject or hold; deterministic gates remain authoritative.
+
+The reviewer passed all 56 diagnostic calibration cases and all 42 cases on the original six
+confirmatory instruments. The full 49-case confirmatory panel nevertheless failed two frozen
+bars:
+
+- the OpenFlexure `valid-repair` case was expected to be accepted, but fresh nominal replay
+  failed FFT focus and regression checks, so Qwen correctly rejected the hard failure;
+- the OpenFlexure `unavailable-evidence` case was expected to be held, but the captured fixture
+  had silently changed the skill despite no repair submission, and fresh replay failed, so
+  Qwen correctly rejected the unsupported change.
+
+The raw result is therefore 47/49 label matches, 100% critical-defect recall, 14.3% valid-case
+false alarm against the preregistered labels, 85.7% unavailable-label accuracy, and zero hard-
+gate overrides. The semantic-review confirmatory verdict is **FAIL**, not a post-hoc pass. The
+released fixture builder corrects the unavailable-case construction for future use, but the
+captured result is unchanged.
+
+On the 24 original cases shared with the DSV4 reviewer, exact agreement was 100% and Cohen's
+κ was 1.0. That measures correlation; it does not make two agent judgments independent
+physical evidence. See the [study summary](cassettes/independent-review/summary.json) and
+[raw inspection](cassettes/independent-review/manual-inspection.md).
 
 ## XRD reference implementation
 
-Powder X-ray diffraction is the reference instrument because operation quality and evidence
-quality are tightly coupled. The hardware-free reference uses Bluesky RunEngine and
-`ophyd.sim` for procedural execution, an analytic NumPy forward model for Cu Kα LaB6 area-
-detector frames, and pyFAI plus separate telemetry and statistical checks for verification.
-The generator and verifier are intentionally different implementations.
+Powder X-ray diffraction is the reference because operation quality and evidence quality are
+tightly coupled. The hardware-free implementation uses Bluesky RunEngine and `ophyd.sim` for
+procedural execution, an analytic NumPy forward model for Cu Kα LaB6 area-detector frames,
+and pyFAI plus separate telemetry and statistical checks for verification. The generator and
+verifier are intentionally different implementations.
 
 The validity battery covers geometry miscalibration, zero shift, sample displacement,
 detector saturation, dead-time distortion, insufficient counting statistics, cake-integration
-failure, unindexed peaks, and an implausible lower tail of reduced chi-squared. Rietveld-style
-fit checks are permitted only for calibrant or quality-control scans; unknown samples are
-checked for acquisition and preprocessing integrity, not phase-model agreement.
+failure, unindexed peaks, and an implausible lower tail of reduced chi-squared. Fit checks are
+restricted to calibrant or quality-control scans. Unknown samples are checked for acquisition
+and preprocessing integrity, never phase-model correctness.
 
-| XRD check | Release result | Evidence |
+| XRD check | Result | Evidence |
 | --- | --- | --- |
-| Procedural fault injection | 5/5 failure classes detected; dropped frame labeled `degraded` | [`artifacts/evidence/procedural/summary.json`](artifacts/evidence/procedural/summary.json) |
-| Valid calibrant controls | 0/300 false rejections | [`artifacts/evidence/metrology/report.md`](artifacts/evidence/metrology/report.md) |
-| Invalid calibrant measurements | 0 observed false-valid results in 300 cases for each of 9 classes | [`artifacts/evidence/metrology/summary.json`](artifacts/evidence/metrology/summary.json) |
-| Always-valid adversary | 2,700/2,700 invalid cases rejected | [`artifacts/evidence/metrology/summary.json`](artifacts/evidence/metrology/summary.json) |
-| Declared-support battery | 100% out-of-support detection; 0% false alarms | [`artifacts/evidence/support/report.md`](artifacts/evidence/support/report.md) |
-| Composed record | Valid path passed; a procedurally successful saturated frame failed validity | [`artifacts/evidence/composition/summary.json`](artifacts/evidence/composition/summary.json) |
+| Procedural fault injection | 5/5 classes detected; dropped frame labeled `degraded` | [`summary.json`](artifacts/evidence/procedural/summary.json) |
+| Valid calibrant controls | 0/300 false rejections | [`report.md`](artifacts/evidence/metrology/report.md) |
+| Invalid calibrant measurements | 0 observed false-valids in 300 cases for each of 9 classes | [`summary.json`](artifacts/evidence/metrology/summary.json) |
+| Always-valid adversary | 2,700/2,700 invalid cases rejected | [`summary.json`](artifacts/evidence/metrology/summary.json) |
+| Declared-support battery | 100% detection; 0% false alarms | [`report.md`](artifacts/evidence/support/report.md) |
+| Composed record | Valid path passed; procedurally successful saturated frame failed validity | [`summary.json`](artifacts/evidence/composition/summary.json) |
 
 The sample-displacement attribution check missed its specific label in 19/300 injected cases,
-although every affected case was still rejected by an adjacent shift or indexing check. The
-release-level false-valid requirement is closed; the attribution limitation is retained in the
-report.
+although adjacent shift or indexing checks still rejected every affected measurement. The
+false-valid gate passes; the weaker attribution result remains visible.
 
-## Skill evolution under simulated drift
+## Engineering burden
 
-The evolution study begins with eight history-safe skills spanning liquid handling, battery
-cycling, additive manufacturing, and quantum-transport measurements. After a versioned
-simulator change, DSV4 must inspect the new failure, submit a bounded repair, replay the changed
-condition, replay prior history, and pass 50 locked conditions. All eight proposals passed and
-were staged with immutable parent, rollback, evidence, simulator, verifier, and validation
-hashes. Staging does not replace the parent and does not cross the hardware gate.
+Instrument-specific verification is real work. Proprio measures nonblank source lines,
+declared checks, labeled failure classes, and external dependencies; it does not infer person-
+hours from Git history.
 
-The diagnostic model ablations and invalidated protocol runs are preserved under
-[`cassettes/model-ablations/`](cassettes/model-ablations/) and
-[`artifacts/invalidated/`](artifacts/invalidated/). They are not included in the confirmatory
-generalization result.
+| Family | Simulator / adapter LOC | Verifier LOC | Source-bundle LOC | Physical checks | Invalid classes |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Optical measurement (2 instruments) | 130 | 107 | 30 | 7 each | 4 |
+| Calibrated delivery (2 instruments) | 113 | 80 | 24 | 5 / 6 | 4 |
+| Thermal control (2 instruments) | 100 | 50 | 24 | 7 each | 4 |
+| OpenFlexure microscopy (external simulator) | 333 adapter | 162 | 32 | 10 | 8 |
 
-## Reproduce the released evidence
+The microscopy integration also required a 185-line metrology harness. Person-hours are
+unavailable because prospective labor logging was not active. See the
+[burden manifest](artifacts/evidence/engineering-burden/summary.json).
 
-Requirements: Python 3.12 or 3.13 and [uv](https://docs.astral.sh/uv/). These commands require
-no hardware and make no hosted-model calls.
+## Relationship to prior work
+
+[Chen et al.](https://www.nature.com/articles/s42256-026-01261-5) directly demonstrate
+iterative interaction with a virtual six-circle X-ray beamline and adaptation to an
+approximately 1.22° motor offset on a real beamline. Their simulation benchmark used ten
+independent runs per model; the authors explicitly state that the limited real-beamline trials
+do not statistically establish the offset capability.
+
+[Liu et al.](https://www.nature.com/articles/s41524-026-02005-0) demonstrate real scientific-
+instrument operation and reusable memory from human feedback. That is operational
+teachability, not simulator-grounded autonomous skill repair.
+
+Proprio does not claim those systems lack adaptation, memory, simulation, or instrument
+control. Its narrower contribution is a reproducible source-to-skill protocol in which
+execution, physical validity, provenance, regression, and locked checks—not the drafting
+model's confidence—control promotion. The protocol also adopts ASPIRE's separation between
+debug feedback and locked validation while using instrument-specific physical postconditions
+as authority ([ASPIRE](https://research.nvidia.com/labs/gear/aspire/)).
+
+## Reproduce the hardware-free evidence
+
+Requirements: Python 3.12 or 3.13 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 git clone https://github.com/Dynamical-Systems-Research/proprio.git
@@ -142,16 +231,15 @@ uv sync --locked --extra dev
 uv run proprio composition-battery \
   --output-dir artifacts/generated/composition
 
-uv run proprio skill-admission \
-  --cassette-dir cassettes/dsv4 \
-  --output-dir artifacts/generated/skill-admission
-
 uv run proprio confirmatory-study-replay \
   --cassette-dir cassettes/confirmatory-dsv4 \
   --output-dir artifacts/generated/confirmatory-replay
+
+uv run proprio replication-study-summary \
+  --cassette-dir cassettes/replication-dsv4
 ```
 
-Run the full XRD and cross-family metrology batteries with:
+Run XRD and cross-family metrology with:
 
 ```bash
 uv run proprio metrology \
@@ -161,53 +249,60 @@ uv run proprio metrology \
 uv run proprio confirmatory-metrology \
   --cases-per-class 300 \
   --output-dir artifacts/generated/confirmatory-metrology
+
+uv run proprio microscopy-metrology \
+  --reference-dir artifacts/evidence/microscopy/locked/reference \
+  --output-dir artifacts/generated/microscopy-metrology \
+  --cases-per-class 300
 ```
 
-Live generation is a separate release gate. To intentionally regenerate the development
-skills through OpenRouter:
+Live generation is a separate, intentional gate:
 
 ```bash
 OPENAI_API_KEY="$OPENROUTER_API_KEY" \
 OPENAI_BASE_URL=https://openrouter.ai/api/v1 \
 MODEL=deepseek/deepseek-v4-flash \
 OPENROUTER_PROVIDER=GMICloud \
-  uv run proprio draft-skills --cassette-dir artifacts/live/dsv4
+DSV4_REASONING_EFFORT=high \
+  uv run proprio replication-study-live \
+    --output-dir artifacts/live/replication
 ```
 
-## Integrating a policy or instrument
+## Add an instrument
 
-- Start with the complete XRD reference skill at
-  [`skills/xrd-reference/SKILL.md`](skills/xrd-reference/SKILL.md).
-- Implement the typed support boundary in `DistributionSupportHook`; v0.1 binds the reference
-  to synthetic-substrate support, not DSV4's training distribution.
-- Preserve the raw Bluesky event stream separately from the canonical record. The raw stream
-  retains wall-clock timestamps and UIDs; the canonical record uses logical time,
-  content-addressed IDs, and normalized values for byte-identical replay.
-- Treat `failed`, `degraded`, and `unavailable` as distinct outcomes. A missing simulator or
-  adapter is never a clean pass.
-- Use [`schemas/skill.schema.json`](schemas/skill.schema.json) and the packaged confirmatory
-  skills as the reusable template for another instrument family.
+- Begin with [`skills/xrd-reference/SKILL.md`](skills/xrd-reference/SKILL.md) and the packaged
+  examples under [`skills/simulated/`](skills/simulated/).
+- Define honest `succeeded`, `failed`, `degraded`, and `unavailable` outcomes.
+- Separate simulator implementation from physical verification wherever possible; document
+  residual shared assumptions.
+- Author labeled valid and invalid batteries before model generation, then freeze thresholds,
+  prompts, provider route, support, and locked conditions.
+- Use [`schemas/skill.schema.json`](schemas/skill.schema.json), capture raw event provenance,
+  and require historical replay before staging evolution.
+- Keep operation records free of phase assignments, decisions, or other scientific-judgment
+  claims.
 
 The optional MatteriX adapter remains honestly `unavailable`; see
-[`docs/matterix-adapter.md`](docs/matterix-adapter.md). GSAS-II and xrayutilities are not core
-dependencies and belong behind external adapters that retain their upstream licenses.
+[`docs/matterix-adapter.md`](docs/matterix-adapter.md). GSAS-II and xrayutilities remain behind
+external adapters that preserve their upstream licenses.
 
 ## Scope and limitations
 
-Proprio v0.1 establishes a reproducible pre-deployment qualification method within the released
-simulators. It does not establish safe autonomous operation on physical hardware. A real
-deployment still requires instrument-specific adapters, interlock validation, real calibrant or
-reference measurements, uncertainty and drift studies, reset and recovery testing, and an
-independent instrument expert's sign-off.
+Proprio v0.1 supports a rigorous simulation-only qualification method. It does not establish
+safe autonomous operation on physical hardware. Deployment still requires hardware adapters,
+interlock and recovery tests, reference measurements on the target geometry, uncertainty and
+drift studies, supervised canaries, and instrument-expert sign-off.
 
-The confirmatory panel contains six instruments and reduced-order simulators. It supports a
-cross-family existence and replication claim, not universal generalization across scientific
-instrumentation. DSV4 also served as the stateful semantic reviewer, so that reviewer is
-correlated evidence; deterministic execution and physical gates remain the promotion authority.
+The reduced-order panel demonstrates repeatable acquisition and causal repair within three
+families; it is not universal generalization. The external OpenFlexure result is deliberately
+reported as a failed breadth gate. Simulator–verifier independence is imperfect, model
+generation remains stochastic, and per-instrument physical contracts require specialist
+engineering. These are the research boundary, not release footnotes.
 
-See the [technical note](docs/technical-note.md) for methods, related work, model ablations,
-protocol amendments, and the complete claim boundary. Release status and approvals are recorded
-in [`docs/release-status.md`](docs/release-status.md), and every evidence artifact is bound in
+See the [technical note](docs/technical-note.md), [research protocol](docs/research-agenda.md),
+[protocol amendments](docs/protocol-amendments.md), and
+[release status](docs/release-status.md). Every released skill remains hash-bound in
+[`catalog.json`](catalog.json); every evidence artifact is bound in
 [`artifacts/evidence/manifest.json`](artifacts/evidence/manifest.json).
 
 ## Repository map
@@ -215,12 +310,12 @@ in [`docs/release-status.md`](docs/release-status.md), and every evidence artifa
 | Path | Contents |
 | --- | --- |
 | [`src/proprio/`](src/proprio/) | simulators, verifiers, agent loop, replay, and CLI |
-| [`skills/`](skills/) | XRD reference, Keithley development case, and simulation-qualified skills |
+| [`skills/`](skills/) | XRD reference, Keithley development case, and qualified skills |
 | [`sources/`](sources/) | model-visible instrument source bundles |
-| [`cassettes/`](cassettes/) | captured model messages, tool calls, reviews, and deterministic results |
-| [`artifacts/evidence/`](artifacts/evidence/) | release metrology, raw samples, records, and manifest |
-| [`artifacts/invalidated/`](artifacts/invalidated/) | superseded or invalidated protocol evidence retained for audit |
-| [`docs/`](docs/) | technical note, research protocol, amendments, and release status |
+| [`cassettes/`](cassettes/) | raw model messages, tool calls, reviews, and deterministic results |
+| [`artifacts/evidence/`](artifacts/evidence/) | metrology, raw samples, canonical records, and manifest |
+| [`artifacts/invalidated/`](artifacts/invalidated/) | excluded protocol runs retained for audit |
+| [`docs/`](docs/) | technical note, protocol, amendments, and release status |
 
-Proprio is licensed under Apache-2.0. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for development and
-validation requirements and [`CITATION.cff`](CITATION.cff) for citation metadata.
+Proprio is Apache-2.0 licensed. External simulators retain their upstream licenses. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CITATION.cff`](CITATION.cff).

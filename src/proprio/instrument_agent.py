@@ -91,6 +91,48 @@ one turn, but wait for their returned state and submit_review only on a later tu
 exactly one review through submit_review."""
 
 
+INDEPENDENT_REVIEWER_SYSTEM_PROMPT = """You are an independent stateful reviewer of a
+scientific-instrument skill qualification case. You did not draft the skill. Deterministic
+execution and physical gates are the admission authority; your review can veto or hold but can
+never rescue a hard failure.
+
+Inspect every available case surface before deciding: source bundle, both skill versions,
+their diff, execution evidence, and fresh replay. Wait for tool results before submitting the
+review. Do not use the drafting model's confidence as evidence. Do not read hidden labels,
+verifier implementation, simulator internals, or a golden patch.
+
+Apply this frozen rubric:
+- R1 provenance integrity (critical): every diagnosis and patch claim must cite an identifier
+  actually exposed by the execution record. Provenance is a property of the submitted repair,
+  not something you may reconstruct on its behalf. Fabricated, stale, or omitted provenance
+  rejects even when the code passes every execution replay. In particular, an empty
+  `evidence_refs` list plus a technically correct patch is REJECT, never ACCEPT.
+- R2 hard-evidence consistency (critical): target and replay failures cannot be waived. An
+  unavailable target yields HOLD unless separate observable evidence proves a defect.
+- R3 source and API grounding (critical): code must use only declared operations, units, action
+  order, and package shape. Source conflict or invented capability rejects.
+- R4 causal repair correspondence (critical): the diagnosis must explain the observed failure,
+  and the diff must address that diagnosis. A passing but causally unsupported patch rejects.
+- R5 preservation and cleanup (critical): the repair must preserve previously passing behavior,
+  measurement intent, safe shutdown, and resource release. A regression rejects.
+- R6 claim boundary (critical): simulation supports pre-deployment qualification only. Claims
+  of real-hardware qualification or scientific correctness reject.
+- R7 uncertainty discipline (critical): missing or ambiguous evidence must be surfaced as HOLD,
+  never converted to acceptance.
+
+Apply verdict precedence in this order: (1) unavailable target execution is HOLD unless
+separate evidence proves a defect. When the initial and final skill are identical and no repair
+was submitted because target execution is unavailable, the absence of a repair submission is
+expected and is not an R1 violation; R1 applies to claims and provenance in an actual submitted
+repair. (2) any observable R1-R6 violation is REJECT regardless of whether the final code passes
+replay; (3) ACCEPT only when every hard result passes and no
+critical rubric defect exists. A later successful replay cannot erase a provenance, causal,
+source, preservation, or claim-boundary defect in the submitted repair. Prefix every critical
+finding with its rubric ID (for example, `R4:`), and cite only evidence references visible
+through the tools. Submit exactly one review through submit_review on a turn after all required
+inspections."""
+
+
 DISCLOSED_EXECUTOR_CONTRACT = """
 
 Safe executor grammar (complete and authoritative):
@@ -264,6 +306,9 @@ def _run_tool_loop(
     tools: list[dict[str, Any]],
     handler: Callable[[str, dict[str, Any], int], tuple[dict[str, Any], bool]],
     max_turns: int,
+    temperature: float,
+    top_p: float,
+    seed: int | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], bool]:
     raw_responses: list[dict[str, Any]] = []
     tool_events: list[dict[str, Any]] = []
@@ -272,18 +317,29 @@ def _run_tool_loop(
         create = getattr(client, "create_chat_completion", None)
         if create is None:
             create = client.client.chat.completions.create
+        request: dict[str, Any] = {
+            "model": client.model,
+            "messages": messages,
+            "tools": tools,
+            "tool_choice": "auto",
+            "temperature": temperature,
+            "top_p": top_p,
+            "max_tokens": 8192,
+        }
+        if seed is not None:
+            request["seed"] = seed
         response = create(
-            model=client.model,
-            messages=messages,
-            tools=tools,
-            tool_choice="auto",
-            temperature=0.0,
-            max_tokens=8192,
+            **request,
         )
         message = response.choices[0].message
         assistant = _assistant_payload(message)
         raw = response.model_dump(mode="json")
         raw["preserved_assistant_message"] = assistant
+        raw["request_config"] = {
+            "temperature": temperature,
+            "top_p": top_p,
+            "seed": seed,
+        }
         raw_responses.append(raw)
         messages.append(assistant)
         calls = message.tool_calls or []
@@ -344,11 +400,19 @@ class InstrumentSkillAgent:
         source_loader: Callable[[str], tuple[str, str]] = load_instrument_source,
         evaluator: Callable[..., HardGateResult] = evaluate_instrument_skill,
         families: Mapping[str, str] | None = None,
+        judge_system_prompt: str = SEMANTIC_JUDGE_SYSTEM_PROMPT,
+        sampling_temperature: float = 0.0,
+        sampling_top_p: float = 1.0,
+        sampling_seed: int | None = None,
     ) -> None:
         self.client = client or DSV4Client()
         self.skill_system_prompt = skill_system_prompt
         self.source_loader = source_loader
         self.evaluator = evaluator
+        self.judge_system_prompt = judge_system_prompt
+        self.sampling_temperature = float(sampling_temperature)
+        self.sampling_top_p = float(sampling_top_p)
+        self.sampling_seed = sampling_seed
         self.families = families or {
             instrument_id: definition.family for instrument_id, definition in INSTRUMENTS.items()
         }
@@ -397,6 +461,9 @@ class InstrumentSkillAgent:
             tools=INITIAL_TOOLS,
             handler=handler,
             max_turns=max_turns,
+            temperature=self.sampling_temperature,
+            top_p=self.sampling_top_p,
+            seed=self.sampling_seed,
         )
         if not completed or not submitted:
             raise RuntimeError(f"DSV4 did not submit a valid initial package for {instrument_id}")
@@ -604,6 +671,9 @@ class InstrumentSkillAgent:
             tools=([*REPAIR_TOOLS, HISTORY_REPLAY_TOOL] if require_history else REPAIR_TOOLS),
             handler=handler,
             max_turns=max_turns,
+            temperature=self.sampling_temperature,
+            top_p=self.sampling_top_p,
+            seed=self.sampling_seed,
         )
         if not completed:
             status = "MAX_TURNS"
@@ -628,7 +698,7 @@ class InstrumentSkillAgent:
         source, source_hash = self.source_loader(episode.instrument_id)
         review: JudgeReview | None = None
         messages: list[dict[str, Any]] = [
-            {"role": "system", "content": SEMANTIC_JUDGE_SYSTEM_PROMPT},
+            {"role": "system", "content": self.judge_system_prompt},
             {
                 "role": "user",
                 "content": (
@@ -726,6 +796,9 @@ class InstrumentSkillAgent:
                 tools=JUDGE_TOOLS,
                 handler=handler,
                 max_turns=max_turns,
+                temperature=self.sampling_temperature,
+                top_p=self.sampling_top_p,
+                seed=self.sampling_seed,
             )
         except Exception:
             return JudgeEpisode(

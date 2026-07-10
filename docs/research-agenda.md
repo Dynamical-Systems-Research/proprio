@@ -12,6 +12,8 @@ This agenda is tracked in Linear project
 [Proprio: Simulator-Grounded Skill Evolution](https://linear.app/mach-10/project/proprio-simulator-grounded-skill-evolution-d146f2fb244c).
 The preregistered machine-readable contract is
 [`skill-evolution-preregistration.yaml`](../src/proprio/data/skill-evolution-preregistration.yaml).
+The expanded replication and independent-review contract is
+[`expanded-confirmatory-preregistration.yaml`](../src/proprio/data/expanded-confirmatory-preregistration.yaml).
 
 ## Decision and stakeholder
 
@@ -20,6 +22,23 @@ to advance from documentation into a supervised hardware qualification. Instrume
 facility owners, scientific-policy authors, and skill-library maintainers need the decision.
 The useful artifact is an immutable skill package accompanied by source, simulator, verifier,
 repair, replay, support, and admission provenance.
+
+## Prior-art fidelity gate
+
+Before an adjacent system can appear in public positioning or determine an experiment, its
+primary paper must be read and reduced to a claim card with six separate fields: demonstrated
+mechanism, interaction environment, adaptation loop, hardware involvement, statistical
+support, and author-stated limitation. Summary language cannot replace this card. Similar
+surface language such as "learns on the job" or "operates an instrument" is not evidence that
+two systems use the same feedback, repair, or qualification authority.
+
+Every related-work row must cite the exact primary location supporting each field. If a paper
+shows an effect but explicitly reports that it was not statistically established, Proprio must
+preserve both facts. Public copy and the experiment matrix remain blocked until this fidelity
+check is complete.
+
+The current cards and the resulting claim corrections are maintained in
+[`prior-art-claim-cards.md`](prior-art-claim-cards.md).
 
 ## Claim gates
 
@@ -31,6 +50,16 @@ repair, replay, support, and admission provenance.
 
 Passing a later gate requires all earlier gates. A simulator-only result never establishes
 unsupervised real-hardware operation.
+
+## Expanded experiment matrix
+
+| Question | Unit and intervention | Authority | Frozen pass condition | Artifact |
+|---|---|---|---|---|
+| Does generation success survive replication variance? | Ten fresh DSV4 histories and unique provider seeds per confirmatory instrument at temperature 0.7 | Simulator, physical checks, historical replay, and sealed conditions | At least 75% initial executable and 80% qualified for every instrument; zero unsafe promotions | `cassettes/replication-dsv4/` |
+| How much instrument-specific engineering is hidden in each result? | Nonblank source lines, physical checks, invalid classes, dependencies, and prospectively logged execution latency | Repository source and generated manifests | Report every family; person-hours remain unavailable unless actually logged | `artifacts/evidence/engineering-burden/` |
+| Is a non-XRD verifier coupled to its simulator? | OpenFlexure images scored by frequency-domain energy and an independently implemented spatial Laplacian measure | Conjunctive physical gate; public stage state is a third check | Zero false-valids, at most 5% false rejects, at least 90% valid-case concordance; invalid disagreement reported | `artifacts/evidence/microscopy/` |
+| Does the frozen method cross another instrument-family boundary? | OpenFlexure camera, stage, calibration, and autofocus through its public LabThings API | External simulator at a pinned revision plus Proprio's independent checks | Same acquisition, repair, provenance, and locked-condition rules as the original panel | `sources/confirmatory/microscope-autofocus/` |
+| Is semantic review merely correlated self-judgment? | Qwen 3.7 Plus, separately prompted, reviews labeled diagnostic and confirmatory cases with stateful tools | Supplemental veto only; deterministic gates remain authoritative | At least 95% critical recall, at most 10% valid false alarms, 100% honest holds, zero hard-failure overrides | `cassettes/independent-review/` |
 
 ## Development and confirmatory split
 
@@ -53,6 +82,7 @@ before its first valid model call:
 | Calibrated delivery | `dual-pump-blend` | two calibrated pump channels | total-volume and blend-ratio conservation |
 | Thermal control | `isothermal-hold` | setpoint, timed transition, hold | transition-time support, stability, final temperature |
 | Thermal control | `thermal-cycle` | ordered setpoints and transitions | cycle order, ramp support, stability at both plateaus |
+| Optical microscopy | `microscope-autofocus` | camera calibration, centered z-sweep, image acquisition | calibrated focus plane, dual-domain focus evidence, frame integrity, resource release |
 
 The names identify reference simulation contracts, not claims of compatibility with a
 specific commercial device. Source bundles cite PyLabRobot's plate-reader, pump, and
@@ -153,6 +183,46 @@ and zero hard-gate overrides. The model, provider, resolved revision, raw reason
 tool calls, simulator traces, and usage are retained in the cassettes. None of these results
 uses XRD-RL data, VOE-Bench data, or a trained judgment checkpoint.
 
+### Expanded replication result
+
+Ten independent DSV4 generations were then run for every confirmatory instrument with fresh
+histories and panel-global unique seeds. The original six reduced-order instruments qualified
+60/60 candidates. The externally simulated OpenFlexure microscope did not reproduce that
+result: 10/10 drafts executed, 3/10 initial measurements passed the physical gate, and only
+4/10 repaired candidates cleared target replay, historical replay, provenance, terminal
+status, and all ten locked offsets. The preregistered requirement was at least 80%
+qualification for every instrument, so the four-family systematic-generalization claim is
+**failed** rather than averaged away.
+
+Across all seven instruments, 68/70 initial drafts executed and 64/70 candidates qualified.
+The six unqualified microscope episodes comprised four `MAX_TURNS` outcomes and two locked-
+validation failures. None was promoted. One locked failure was a strict physical false
+rejection consistent with the separately measured non-zero valid-case false-reject rate; the
+other caught a fixture-specific repair. The full records and Wilson intervals are in
+[`cassettes/replication-dsv4/summary.json`](../cassettes/replication-dsv4/summary.json), with
+direct inspection of every failure in
+[`manual-inspection.md`](../cassettes/replication-dsv4/manual-inspection.md).
+
+This result supports repeated source-to-skill acquisition across the original three families
+and an external-family generation-verification gap. It does not support systematic
+generalization across all four families.
+
+### Independent-review result
+
+The frozen Qwen 3.7 Plus reviewer passed 56/56 diagnostic calibration cases and 42/42 cases on
+the original six confirmatory instruments. Across the full seven-instrument panel it matched
+47/49 preregistered labels. Both mismatches occurred on OpenFlexure fixtures whose fresh replay
+did not support the expected label: the nominally valid repair regressed FFT focus, and the
+unavailable case contained an unsubmitted skill change plus a replay failure. Qwen rejected
+both under the hard-evidence rubric.
+
+Consequently, critical-defect recall remained 100% and hard-gate overrides remained zero, but
+the 14.3% valid-label false-alarm rate and 85.7% unavailable-label accuracy failed their frozen
+bars. The full independent-review claim gate is `FAIL`. The released unavailable fixture is
+corrected for future experiments, while the captured confirmatory result remains unchanged.
+Qwen and DSV4 agreed on all 24 original shared cases (Cohen's κ=1.0); that agreement is
+reported as reviewer correlation, not independent physical evidence.
+
 ## Skill evolution after simulated deployment
 
 An admitted package is immutable. A versioned simulator change creates deployment-like
@@ -169,6 +239,14 @@ The executed evolution battery detected simulated drift in 8/8 diagnostic instru
 staged 8/8 repaired proposals after historical replay, locked validation, provenance checks,
 and semantic review. Deterministic replay reproduced all eight statuses byte-identically, with
 zero unsafe promotions and every proposal still blocked on hardware qualification.
+
+The same evolution procedure did not close on the external OpenFlexure family. Starting from
+the lowest-index qualified replication candidate, DSV4 inspected the drift evidence and tried
+five autofocus sweep widths, but exhausted its turn budget with a candidate that still failed
+the target Laplacian-focus threshold and regressed nominal FFT focus. The independent Qwen
+reviewer rejected the hard failure. Proprio therefore did not stage or package an OpenFlexure
+evolution proposal. The reduced-order evolution result remains an existence proof; it is not
+evidence that evolution generalizes to the external simulator.
 
 ## Source and simulator strategy
 
