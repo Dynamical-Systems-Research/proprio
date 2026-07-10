@@ -391,9 +391,7 @@ def test_no_feedback_arm_withholds_check_identity_and_cannot_claim_candidate() -
         feedback_arm=FeedbackArm.NONE,
     )
     result = next(
-        event["result"]
-        for event in episode.tool_events
-        if event["name"] == "run_debug_suite"
+        event["result"] for event in episode.tool_events if event["name"] == "run_debug_suite"
     )
     assert episode.feedback_arm is FeedbackArm.NONE
     assert episode.agent_status == "HOLD"
@@ -459,9 +457,7 @@ def test_mismatched_arm_can_receive_a_coherent_opposite_fault_suite() -> None:
         mismatched_suite=mismatched_suite,
     )
     result = next(
-        event["result"]
-        for event in episode.tool_events
-        if event["name"] == "run_debug_suite"
+        event["result"] for event in episode.tool_events if event["name"] == "run_debug_suite"
     )
     assert "range-coverage" in str(result)
     assert "noise-precision" not in str(result)

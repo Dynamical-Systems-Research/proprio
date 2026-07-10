@@ -59,7 +59,7 @@ def _curve(fault: MicroscopyFault) -> tuple[dict[str, Any], int]:
         final_z = 300
     else:
         center = 0.0
-    sharpness = 1000.0 + 9000.0 * np.exp(-((z - center) / 220.0) ** 2)
+    sharpness = 1000.0 + 9000.0 * np.exp(-(((z - center) / 220.0) ** 2))
     times = np.arange(len(z), dtype=np.float64)
     if fault is MicroscopyFault.FLAT_PEAK:
         sharpness = np.full_like(sharpness, 1000.0)
@@ -131,10 +131,7 @@ def generate_microscopy_case(
         {"sequence": 1, "operation": "full_auto_calibrate"},
         curve,
         {"sequence": 3, "operation": "settle"},
-        *(
-            {"sequence": 4 + index, "operation": "capture_frame"}
-            for index in range(repeats)
-        ),
+        *({"sequence": 4 + index, "operation": "capture_frame"} for index in range(repeats)),
         {"sequence": 4 + repeats, "operation": "release"},
     )
     return observation, frames, trace
@@ -193,17 +190,13 @@ def run_adaptive_microscopy_metrology(
         }
     valid = classes[MicroscopyFault.VALID.value]
     invalid = [
-        classes[fault.value]
-        for fault in MicroscopyFault
-        if fault is not MicroscopyFault.VALID
+        classes[fault.value] for fault in MicroscopyFault if fault is not MicroscopyFault.VALID
     ]
-    passed = (
-        valid["false_reject"] / valid["cases"] <= 0.05
-        and all(row["false_valid"] == 0 and row["expected_check_missed"] == 0 for row in invalid)
+    passed = valid["false_reject"] / valid["cases"] <= 0.05 and all(
+        row["false_valid"] == 0 and row["expected_check_missed"] == 0 for row in invalid
     )
     inspection_rows = [
-        next(row for row in rows if row["fault_class"] == fault.value)
-        for fault in MicroscopyFault
+        next(row for row in rows if row["fault_class"] == fault.value) for fault in MicroscopyFault
     ]
     inspection = {
         "schema_version": "proprio.adaptive_microscopy_raw_inspection.v0.2",
