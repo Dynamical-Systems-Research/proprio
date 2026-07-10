@@ -42,10 +42,9 @@ Status date: 2026-07-09
   domain-competent human reviewer on 2026-07-09.
 - COMPLETE: Jarrod Barnes confirmed `Dynamical-Systems-Research` as the GitHub organization
   slug on 2026-07-09.
-- PENDING: the agent completed the separate 30-record
-  [confirmatory inspection](../artifacts/evidence/confirmatory-metrology/manual-inspection.md),
-  but its human countersign remains open before public release. The earlier XRD countersign is
-  not silently reused for these new records.
+- COMPLETE: Jarrod Barnes countersigned the separate 30-record
+  [confirmatory inspection](../artifacts/evidence/confirmatory-metrology/manual-inspection.md)
+  on 2026-07-09.
 
 ## Claim boundary
 

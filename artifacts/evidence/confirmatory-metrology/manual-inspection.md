@@ -4,7 +4,7 @@ Inspection date: 2026-07-09
 
 Inspector: Codex agent
 
-Human countersign: pending before public release
+Human countersign: Jarrod Barnes, approved 2026-07-09
 
 ## Sample
 
