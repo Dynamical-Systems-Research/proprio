@@ -15,9 +15,12 @@ def build_evidence_manifest(root: Path, output: Path) -> dict[str, Any]:
     for path in sorted(item for item in evidence_root.rglob("*") if item.is_file()):
         if path.resolve() == excluded:
             continue
+        relative = path.relative_to(root)
+        if relative.match("artifacts/evidence/microscopy/calibration/reference/*.npy"):
+            continue
         artifacts.append(
             {
-                "path": str(path.relative_to(root)),
+                "path": str(relative),
                 "sha256": file_sha256(path),
                 "bytes": path.stat().st_size,
             }

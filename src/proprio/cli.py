@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from proprio.artifacts import write_canonical_json
 from proprio.confirmatory_metrology import run_confirmatory_metrology
 from proprio.confirmatory_study import (
@@ -14,7 +16,9 @@ from proprio.confirmatory_study import (
     run_live_confirmatory_judges,
     run_live_confirmatory_study,
 )
+from proprio.engineering_burden import run_engineering_burden
 from proprio.history_repair import run_live_history_repair
+from proprio.independent_review import run_live_independent_review, summarize_independent_study
 from proprio.instrument_metrology import run_instrument_metrology
 from proprio.instrument_study import replay_instrument_study, run_live_instrument_study
 from proprio.instrument_types import CandidatePackage
@@ -26,13 +30,22 @@ from proprio.judge_metrology import (
 )
 from proprio.locked_validation import run_locked_validation_once
 from proprio.metrology import run_metrology
+from proprio.microscopy import capture_live_microscopy_reference
+from proprio.microscopy_evolution import (
+    replay_microscopy_evolution,
+    run_live_microscopy_evolution,
+    summarize_microscopy_evolution,
+)
+from proprio.microscopy_metrology import run_microscopy_metrology
 from proprio.model_ablation import run_live_model_ablation
 from proprio.procedural import ProceduralFault, run_fault_battery, run_procedural
 from proprio.reference_xrd import run_composition_battery, run_reference_xrd
 from proprio.release import build_evidence_manifest, verify_evidence_manifest
+from proprio.replication_study import INSTRUMENT_IDS as REPLICATION_INSTRUMENT_IDS
+from proprio.replication_study import run_live_replication_study, summarize_replication_study
 from proprio.skill_drafter import draft_skill_cassettes, run_skill_admission
 from proprio.skill_evolution import replay_evolution_study, run_live_evolution_study
-from proprio.skill_library import package_confirmatory_skills
+from proprio.skill_library import package_confirmatory_skills, package_microscopy_skill
 from proprio.support import run_support_battery
 from proprio.xrd_types import ValidityFault
 
@@ -139,6 +152,60 @@ def _parser() -> argparse.ArgumentParser:
     confirmatory_judge = subparsers.add_parser("confirmatory-judge-live")
     confirmatory_judge.add_argument("--cassette-dir", type=Path, required=True)
 
+    microscopy_reference = subparsers.add_parser("microscopy-reference-live")
+    microscopy_reference.add_argument("--output-dir", type=Path, required=True)
+    microscopy_reference.add_argument("--base-url", default="http://127.0.0.1:5100")
+
+    microscopy_metrology = subparsers.add_parser("microscopy-metrology")
+    microscopy_metrology.add_argument("--reference-dir", type=Path, required=True)
+    microscopy_metrology.add_argument("--output-dir", type=Path, required=True)
+    microscopy_metrology.add_argument("--cases-per-class", type=int, default=300)
+
+    microscopy_evolution = subparsers.add_parser("microscopy-evolution-live")
+    microscopy_evolution.add_argument("--replication-root", type=Path, required=True)
+    microscopy_evolution.add_argument("--output-dir", type=Path, required=True)
+    microscopy_evolution.add_argument("--base-url", default="http://127.0.0.1:5100")
+
+    microscopy_evolution_replay = subparsers.add_parser("microscopy-evolution-replay")
+    microscopy_evolution_replay.add_argument("--cassette-dir", type=Path, required=True)
+    microscopy_evolution_replay.add_argument("--output-dir", type=Path, required=True)
+
+    microscopy_evolution_summary = subparsers.add_parser("microscopy-evolution-summary")
+    microscopy_evolution_summary.add_argument("--cassette-dir", type=Path, required=True)
+
+    replication = subparsers.add_parser("replication-study-live")
+    replication.add_argument("--output-dir", type=Path, required=True)
+    replication.add_argument("--base-url", default="http://127.0.0.1:5100")
+    replication.add_argument(
+        "--instrument-id",
+        action="append",
+        choices=REPLICATION_INSTRUMENT_IDS,
+    )
+    replication.add_argument("--replicate", action="append", type=int)
+
+    replication_summary = subparsers.add_parser("replication-study-summary")
+    replication_summary.add_argument("--cassette-dir", type=Path, required=True)
+
+    independent_review = subparsers.add_parser("independent-review-live")
+    independent_review.add_argument("--output-dir", type=Path, required=True)
+    independent_review.add_argument("--base-url", default="http://127.0.0.1:5100")
+    independent_review.add_argument(
+        "--dsv4-confirmatory-root",
+        type=Path,
+        default=Path("cassettes/judge-metrology-confirmatory"),
+    )
+
+    independent_review_summary = subparsers.add_parser("independent-review-summary")
+    independent_review_summary.add_argument("--cassette-dir", type=Path, required=True)
+    independent_review_summary.add_argument(
+        "--dsv4-confirmatory-root",
+        type=Path,
+        default=Path("cassettes/judge-metrology-confirmatory"),
+    )
+
+    engineering_burden = subparsers.add_parser("engineering-burden")
+    engineering_burden.add_argument("--output-dir", type=Path, required=True)
+
     history_repair = subparsers.add_parser("history-repair-live")
     history_repair.add_argument("--candidate-dir", type=Path, required=True)
     history_repair.add_argument("--output-dir", type=Path, required=True)
@@ -146,6 +213,10 @@ def _parser() -> argparse.ArgumentParser:
     package_skills.add_argument("--cassette-dir", type=Path, required=True)
     package_skills.add_argument("--root", type=Path, default=Path.cwd())
     package_skills.add_argument("--output-dir", type=Path, required=True)
+    package_microscopy = subparsers.add_parser("package-microscopy-skill")
+    package_microscopy.add_argument("--evolution-dir", type=Path, required=True)
+    package_microscopy.add_argument("--root", type=Path, default=Path.cwd())
+    package_microscopy.add_argument("--output-dir", type=Path, required=True)
     model_ablation.add_argument(
         "--prompt-condition",
         choices=["original", "disclosed_executor_contract"],
@@ -259,11 +330,60 @@ def main(argv: list[str] | None = None) -> int:
         result = replay_confirmatory_study(args.cassette_dir, args.output_dir)
     elif args.command == "confirmatory-judge-live":
         result = run_live_confirmatory_judges(args.cassette_dir)
+    elif args.command == "microscopy-reference-live":
+        result = capture_live_microscopy_reference(args.output_dir, base_url=args.base_url)
+    elif args.command == "microscopy-metrology":
+        result = run_microscopy_metrology(
+            np.load(args.reference_dir / "baseline.npy", allow_pickle=False),
+            np.load(args.reference_dir / "focused.npy", allow_pickle=False),
+            np.load(args.reference_dir / "underfocused.npy", allow_pickle=False),
+            output_dir=args.output_dir,
+            cases_per_class=args.cases_per_class,
+        )
+    elif args.command == "microscopy-evolution-live":
+        result = run_live_microscopy_evolution(
+            args.replication_root,
+            args.output_dir,
+            base_url=args.base_url,
+        )
+    elif args.command == "microscopy-evolution-replay":
+        result = replay_microscopy_evolution(args.cassette_dir, args.output_dir)
+    elif args.command == "microscopy-evolution-summary":
+        result = summarize_microscopy_evolution(args.cassette_dir)
+    elif args.command == "replication-study-live":
+        result = run_live_replication_study(
+            args.output_dir,
+            instrument_ids=tuple(args.instrument_id or REPLICATION_INSTRUMENT_IDS),
+            replicate_ids=None if args.replicate is None else tuple(args.replicate),
+            microscopy_base_url=args.base_url,
+        )
+    elif args.command == "replication-study-summary":
+        result = summarize_replication_study(args.cassette_dir)
+        write_canonical_json(args.cassette_dir / "summary.json", result)
+    elif args.command == "independent-review-live":
+        result = run_live_independent_review(
+            args.output_dir,
+            microscopy_base_url=args.base_url,
+            dsv4_confirmatory_root=args.dsv4_confirmatory_root,
+        )
+    elif args.command == "independent-review-summary":
+        result = summarize_independent_study(
+            args.cassette_dir,
+            dsv4_confirmatory_root=args.dsv4_confirmatory_root,
+        )
+    elif args.command == "engineering-burden":
+        result = run_engineering_burden(args.output_dir)
     elif args.command == "history-repair-live":
         result = run_live_history_repair(args.candidate_dir, args.output_dir)
     elif args.command == "package-confirmatory-skills":
         result = package_confirmatory_skills(
             args.cassette_dir,
+            args.root,
+            args.output_dir,
+        )
+    elif args.command == "package-microscopy-skill":
+        result = package_microscopy_skill(
+            args.evolution_dir,
             args.root,
             args.output_dir,
         )

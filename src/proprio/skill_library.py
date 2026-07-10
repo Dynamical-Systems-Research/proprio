@@ -10,7 +10,9 @@ from proprio.artifacts import write_bytes, write_canonical_json
 from proprio.catalog import validate_catalog
 from proprio.confirmatory_qualification import CONFIRMATORY_FAMILIES
 from proprio.confirmatory_study import summarize_confirmatory_study
-from proprio.instrument_types import RepairEpisode
+from proprio.instrument_types import EvolutionProposal, RepairEpisode
+from proprio.microscopy import INSTRUMENT_ID as MICROSCOPY_INSTRUMENT_ID
+from proprio.microscopy_evolution import summarize_microscopy_evolution
 
 
 def _relative(path: Path, root: Path) -> str:
@@ -99,6 +101,73 @@ def package_confirmatory_skills(
         "hardware_qualification_required": True,
         "catalog": _relative(catalog_path, root),
         "skills": packaged,
+    }
+    write_canonical_json(output_dir / "summary.json", result)
+    return result
+
+
+def package_microscopy_skill(
+    evolution_dir: Path,
+    root: Path,
+    output_dir: Path,
+) -> dict[str, Any]:
+    """Publish only the staged, simulation-qualified microscope proposal."""
+
+    summary = summarize_microscopy_evolution(evolution_dir)
+    if summary["verdict"] != "PASS":
+        raise ValueError("microscope evolution has not passed every release gate")
+    proposal = EvolutionProposal.model_validate_json(
+        (evolution_dir / "evolution.json").read_text(encoding="utf-8")
+    )
+    if proposal.status != "STAGED" or not proposal.lineage.hardware_gate_required:
+        raise ValueError("microscope proposal is not eligible for simulation-only packaging")
+    candidate = proposal.proposed_candidate
+    if candidate.instrument_id != MICROSCOPY_INSTRUMENT_ID:
+        raise ValueError("evolution artifact does not contain the microscope skill")
+
+    skill_dir = root / "skills" / "simulated" / MICROSCOPY_INSTRUMENT_ID
+    skill_ref = write_bytes(
+        skill_dir / "SKILL.md",
+        candidate.skill_md.rstrip().encode("utf-8") + b"\n",
+        "text/markdown",
+    )
+    code_ref = write_bytes(
+        skill_dir / "skill.py",
+        candidate.skill_py.rstrip().encode("utf-8") + b"\n",
+        "text/x-python",
+    )
+    entry = {
+        "id": MICROSCOPY_INSTRUMENT_ID,
+        "version": "0.1.0",
+        "instrument": "OpenFlexure simulated microscope autofocus",
+        "path": _relative(skill_dir / "SKILL.md", root),
+        "code_path": _relative(skill_dir / "skill.py", root),
+        "status": "simulation_qualified",
+        "hardware_qualification_required": True,
+        "verification": {
+            "artifact": _relative(evolution_dir / "summary.json", root),
+            "artifact_verdict": "PASS",
+            "skill_sha256": skill_ref.sha256,
+            "code_sha256": code_ref.sha256,
+            "verifier_sha256": proposal.qualification[-1].verifier_sha256,
+            "source_sha256": candidate.source_sha256,
+        },
+    }
+    catalog_path = root / "catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    catalog["skills"] = [
+        *[item for item in catalog["skills"] if item["id"] != MICROSCOPY_INSTRUMENT_ID],
+        entry,
+    ]
+    write_canonical_json(catalog_path, catalog)
+    validate_catalog(root)
+    result = {
+        "schema_version": "proprio.microscopy_skill_package.v0.1",
+        "verdict": "PASS",
+        "packaged_skills": 1,
+        "hardware_qualification_required": True,
+        "catalog": _relative(catalog_path, root),
+        "skill": entry,
     }
     write_canonical_json(output_dir / "summary.json", result)
     return result
