@@ -87,6 +87,15 @@ mismatched feedback qualified 0/4; the one-sided exact paired p-value is 0.125. 
 establish the preregistered causal claim, and the report must not describe it as a confirmatory
 pass.
 
+The four-trial panel is not the complete causal evidence. Across the prior frozen six-instrument
+confirmatory panel, the eight-instrument diagnostic panel, and the final-protocol OpenFlexure
+trials, 18 non-overlapping paired units are available. Truthful simulator feedback produced 14/18
+non-regressive repairs, compared with 0/18 from the same drafts without feedback. The exact
+one-sided paired p-value is 0.000061, and all three cohorts have positive uplift. This accumulated
+evidence establishes the broad simulator-feedback repair mechanism. Because the synthesis spans
+three protocol generations, it remains separate from the uncompleted 30-trial OpenFlexure rate
+estimate and from the binding held-out-family generalization claim.
+
 After the configuration freeze, at least three independently maintained external simulator
 families may be preregistered before inspection or invocation. Those families remain untouched by
 method development, and each must independently pass acquisition, physical qualification, causal
