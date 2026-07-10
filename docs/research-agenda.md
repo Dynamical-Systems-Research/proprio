@@ -102,6 +102,27 @@ method development, and each must independently pass acquisition, physical quali
 repair, and simulated drift evolution over at least twenty fresh DSV4 generations. Aggregate
 performance cannot rescue a failed instrument.
 
+## Binding held-out simulator preflight result
+
+The three-family panel was registered and committed before the selected upstream implementations
+were cloned or imported. Deterministic capability and live-smoke preflight then failed all three
+families before any DSV4 call:
+
+| Family | Binding preflight result | Reason |
+|---|---|---|
+| OctoPrint virtual printer | `HOLD` | Nominal printing works, but upstream declares no maximum hotend/bed temperatures and cannot produce the registered heater-response or readback-offset drift. |
+| PyMoDAQ `MockSpectro` | `HOLD` | The pinned runtime exposes `Mock`, not `MockSpectro`; cleanup is unobservable, one retained channel fails the registered Gaussian-fit threshold, and the registered drift API is absent. |
+| sinstruments Pace pressure controller | `HOLD` | The emulator has no reset, range/unit queries, vent, bounds, or setpoint-coupled pressure dynamics; the Pace plugin was also not revision-pinned by the selected repository. |
+
+The panel verdict is `FAIL`: zero of three families cleared fixture preflight, zero model calls were
+made, and no family was replaced or rescued by aggregate performance. This result does not show
+that DSV4 failed an executable held-out task. It shows that repository metadata and nominal mock
+execution are insufficient to establish that an external simulator can support a physics-grounded
+qualification contract. Cross-family generalization of the frozen v0.2 method remains not
+established. Raw probe transcripts, runtime versions, source references, and per-requirement
+outcomes are retained in
+[`artifacts/evidence/heldout-generalization/preflight/`](../artifacts/evidence/heldout-generalization/preflight/).
+
 ## Expanded experiment matrix
 
 | Question | Unit and intervention | Authority | Frozen pass condition | Artifact |

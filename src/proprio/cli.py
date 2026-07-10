@@ -29,6 +29,7 @@ from proprio.confirmatory_study import (
     run_live_confirmatory_study,
 )
 from proprio.engineering_burden import run_engineering_burden
+from proprio.heldout_preflight import import_heldout_preflight_evidence
 from proprio.history_repair import run_live_history_repair
 from proprio.independent_review import run_live_independent_review, summarize_independent_study
 from proprio.instrument_metrology import run_instrument_metrology
@@ -248,6 +249,11 @@ def _parser() -> argparse.ArgumentParser:
     causal_evidence.add_argument("--confirmatory", type=Path, required=True)
     causal_evidence.add_argument("--diagnostic", type=Path, required=True)
     causal_evidence.add_argument("--openflexure-lock", type=Path, required=True)
+
+    heldout_preflight = subparsers.add_parser("heldout-preflight-import")
+    heldout_preflight.add_argument("--output-dir", type=Path, required=True)
+    heldout_preflight.add_argument("--preregistration", type=Path, required=True)
+    heldout_preflight.add_argument("--evidence", type=Path, nargs="+", required=True)
 
     microscopy_metrology = subparsers.add_parser("microscopy-metrology")
     microscopy_metrology.add_argument("--reference-dir", type=Path, required=True)
@@ -493,6 +499,12 @@ def main(argv: list[str] | None = None) -> int:
             confirmatory_path=args.confirmatory,
             diagnostic_path=args.diagnostic,
             openflexure_lock_path=args.openflexure_lock,
+        )
+    elif args.command == "heldout-preflight-import":
+        result = import_heldout_preflight_evidence(
+            args.output_dir,
+            preregistration_path=args.preregistration,
+            evidence_paths=tuple(args.evidence),
         )
     elif args.command == "microscopy-metrology":
         result = run_microscopy_metrology(

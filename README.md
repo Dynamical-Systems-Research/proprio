@@ -23,6 +23,22 @@ provider route, prompt, sampling settings, simulator, verifier, and test evidenc
 The method and its generalization studies use no XRD-RL or VOE-Bench data and no trained
 judgment checkpoint.
 
+## Current evidence boundary
+
+Accumulated paired evidence establishes that simulator feedback changes DSV4's repair success:
+across 18 non-overlapping repair units, truthful feedback produced 14 non-regressive repairs and
+the same drafts without feedback produced none (exact one-sided paired p = 0.000061). The pooled
+analysis spans three protocol generations, so it establishes the broad feedback-repair mechanism,
+not a single-protocol rate estimate.
+
+The next frozen-method generalization panel was preregistered across OctoPrint, PyMoDAQ, and
+sinstruments before their simulator implementations were inspected. All three failed deterministic
+fixture preflight before any model call: the pinned simulators could not execute their complete
+registered physical and drift contracts. Proprio returned `HOLD`, spent zero generation calls, and
+did not replace a failing family. Cross-family generalization of the frozen v0.2 method therefore
+remains **not established**. This is a simulator-suitability failure, not evidence that DSV4 failed
+an executable held-out task. See the [preflight summary](artifacts/evidence/heldout-generalization/preflight/summary.json).
+
 | Part | Definition |
 | --- | --- |
 | Instrument sources | The manual, API or driver documentation, safety limits, and simulator interface shown to the model. |
