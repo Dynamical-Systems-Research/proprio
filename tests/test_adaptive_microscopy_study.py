@@ -15,6 +15,7 @@ from proprio.adaptive_microscopy_study import (
     adaptive_microscopy_causal_conditions,
     adaptive_microscopy_debug_conditions,
     adaptive_microscopy_preflight_cases,
+    lock_causal_development_panel,
     run_live_adaptive_microscopy_curve_metrology,
     run_live_adaptive_microscopy_reset_battery,
     run_live_adaptive_microscopy_uncertainty_battery,
@@ -209,6 +210,51 @@ def test_causal_summary_requires_repeated_paired_uplift_and_mechanism_match() ->
     confounded = summarize_causal_trials(rows, required_trials=30)
     assert confounded["verdict"] == "FAIL"
     assert confounded["truthful_minus_none"] == 0.0
+
+
+def test_causal_development_lock_preserves_incomplete_claim(tmp_path: Path) -> None:
+    attempt = tmp_path / "attempt"
+    faults = [fault.value for fault in CausalFault] * 10
+    manifest = {
+        "schema_version": "proprio.causal_run_manifest.v0.2",
+        "paired_seed_base": 990000,
+        "trials": 30,
+        "fault_assignment": faults,
+    }
+    attempt.mkdir()
+    (attempt / "run-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    for trial_index in range(4):
+        trial_dir = attempt / "trials" / f"trial-{trial_index:03d}"
+        trial_dir.mkdir(parents=True)
+        fault = CausalFault(faults[trial_index])
+        outcomes = {}
+        for arm in ("truthful", "generic", "mismatched", "none"):
+            outcomes[arm] = {
+                "qualified": arm == "truthful" and trial_index != 1,
+                "rounds_used": 1,
+                "repair_signature": (
+                    CAUSAL_EXPECTED_REPAIR[fault] if arm == "truthful" else "other"
+                ),
+            }
+            (trial_dir / f"repair-{arm}-round-1.json").write_text("{}\n", encoding="utf-8")
+            (trial_dir / f"locked-{arm}.json").write_text("{}\n", encoding="utf-8")
+        row = {
+            "schema_version": "proprio.causal_repair_trial.v0.2",
+            "trial_index": trial_index,
+            "model_seed": 990000 + trial_index,
+            "fault": fault.value,
+            "maximum_repair_episodes_per_arm": ADAPTIVE_REPAIR_EPISODES,
+            "outcomes": outcomes,
+        }
+        (trial_dir / "summary.json").write_text(json.dumps(row), encoding="utf-8")
+    (attempt / "trials" / "trial-004").mkdir()
+
+    locked = lock_causal_development_panel(attempt, tmp_path / "locked")
+    assert locked["status"] == "EXPLORATORY_LOCKED"
+    assert locked["confirmatory_status"] == "NOT_ESTABLISHED"
+    assert locked["analysis"]["verdict"] == "INCOMPLETE"
+    assert locked["analysis"]["arm_qualification_rates"]["truthful"] == 0.75
+    assert locked["excluded_partial_trial_indices"] == [4]
 
 
 def test_uncertainty_battery_reports_failure_classes(

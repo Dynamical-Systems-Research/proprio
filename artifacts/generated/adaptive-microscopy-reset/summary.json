@@ -1,0 +1,1 @@
+{"cases":20,"cases_per_simulator":5,"failures":0,"instrument_id":"microscope-autofocus","schema_version":"proprio.adaptive_reset_battery.v0.2","simulator_base_urls":["http://127.0.0.1:5100","http://127.0.0.1:5101","http://127.0.0.1:5102","http://127.0.0.1:5103"],"verdict":"PASS"}

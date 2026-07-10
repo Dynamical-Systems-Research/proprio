@@ -11,6 +11,7 @@ import numpy as np
 
 from proprio.adaptive_microscopy_metrology import run_adaptive_microscopy_metrology
 from proprio.adaptive_microscopy_study import (
+    lock_causal_development_panel,
     run_live_adaptive_microscopy_causal_repair,
     run_live_adaptive_microscopy_curve_metrology,
     run_live_adaptive_microscopy_preflight,
@@ -223,6 +224,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     adaptive_causal.add_argument("--seed", type=int, default=990000)
     adaptive_causal.add_argument("--trials", type=int, default=30)
+
+    causal_lock = subparsers.add_parser("adaptive-microscopy-causal-lock")
+    causal_lock.add_argument("--attempt-dir", type=Path, required=True)
+    causal_lock.add_argument("--output-dir", type=Path, required=True)
+    causal_lock.add_argument("--completed-trials", type=int, default=4)
 
     adaptive_locked = subparsers.add_parser("adaptive-microscopy-locked")
     adaptive_locked.add_argument("--output-dir", type=Path, required=True)
@@ -454,6 +460,12 @@ def main(argv: list[str] | None = None) -> int:
             base_urls=tuple(args.base_urls),
             seed=args.seed,
             trials=args.trials,
+        )
+    elif args.command == "adaptive-microscopy-causal-lock":
+        result = lock_causal_development_panel(
+            args.attempt_dir,
+            args.output_dir,
+            completed_trials=args.completed_trials,
         )
     elif args.command == "adaptive-microscopy-locked":
         result = run_live_adaptive_microscopy_locked(
