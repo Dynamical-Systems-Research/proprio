@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
 from openai import OpenAI
 
 from proprio.artifacts import write_canonical_json
@@ -15,6 +16,7 @@ from proprio.schema import JudgmentRecord, SelfObservationRecord
 
 DEFAULT_BASE_URL = "http://100.70.91.108:8000/v1"
 DEFAULT_MODEL = "dsv4"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 JUDGE_SYSTEM_PROMPT = """You are DSV4 acting as an untrained baseline evidence-gating policy.
 
@@ -62,25 +64,62 @@ class DSV4Client:
         base_url: str | None = None,
         model: str | None = None,
         api_key: str | None = None,
+        provider: str | None = None,
+        reasoning_effort: str | None = None,
+        include_reasoning: bool | None = None,
     ) -> None:
         self.base_url = base_url or os.getenv("OPENAI_BASE_URL", DEFAULT_BASE_URL)
         self.model = model or os.getenv("MODEL", DEFAULT_MODEL)
+        self.provider = provider or os.getenv("OPENROUTER_PROVIDER")
+        self.reasoning_effort = reasoning_effort or os.getenv("DSV4_REASONING_EFFORT")
+        if include_reasoning is None:
+            include_reasoning = os.getenv("AGENT_INCLUDE_REASONING", "").lower() in {
+                "1",
+                "true",
+                "yes",
+            }
+        self.include_reasoning = include_reasoning or bool(self.reasoning_effort)
         self.client = OpenAI(
             base_url=self.base_url,
             api_key=api_key or os.getenv("OPENAI_API_KEY", "local-dsv4"),
-            timeout=120.0,
+            timeout=httpx.Timeout(300.0, connect=10.0),
+            max_retries=0,
         )
+
+    def create_chat_completion(self, **kwargs: Any) -> Any:
+        """Create one completion with a frozen OpenRouter route when configured."""
+
+        extra_body = dict(kwargs.pop("extra_body", {}) or {})
+        if self.provider:
+            extra_body["provider"] = {
+                "order": [self.provider],
+                "allow_fallbacks": False,
+                "require_parameters": True,
+            }
+        if self.include_reasoning:
+            extra_body["reasoning"] = (
+                {"effort": self.reasoning_effort} if self.reasoning_effort else {"enabled": True}
+            )
+            extra_body["include_reasoning"] = True
+        if extra_body:
+            kwargs["extra_body"] = extra_body
+        return self.client.chat.completions.create(**kwargs)
 
     def health(self) -> dict[str, Any]:
         models = self.client.models.list()
+        model_ids = [item.id for item in models.data]
         return {
             "base_url": self.base_url,
             "requested_model": self.model,
-            "available_models": [item.id for item in models.data],
+            "requested_model_available": self.model in model_ids,
+            "available_model_count": len(model_ids),
+            "provider": self.provider,
+            "reasoning_effort": self.reasoning_effort,
+            "include_reasoning": self.include_reasoning,
         }
 
     def judge(self, record: SelfObservationRecord) -> dict[str, Any]:
-        response = self.client.chat.completions.create(
+        response = self.create_chat_completion(
             model=self.model,
             messages=[
                 {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
@@ -92,7 +131,10 @@ class DSV4Client:
         message = response.choices[0].message
         raw = response.model_dump(mode="json")
         message_payload = message.model_dump(mode="json")
-        message_payload["reasoning_content"] = getattr(message, "reasoning_content", None)
+        for field in ("reasoning", "reasoning_details", "reasoning_content"):
+            value = getattr(message, field, None)
+            if value is not None:
+                message_payload[field] = value
         raw["preserved_assistant_message"] = message_payload
         content = message.content or ""
         parsed = _extract_json(content)

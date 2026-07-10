@@ -1,0 +1,47 @@
+schema_version: proprio.locked_validation_preregistration.v0.1
+frozen_at: "2026-07-09"
+scope: simulated_deployment_support
+claim_boundary: >-
+  This locked suite tests a selected candidate across continuous conditions inside the
+  declared simulated deployment support. It is not real-hardware qualification.
+protocol:
+  cases_per_instrument: 50
+  master_seed: 917431
+  scenario: drift
+  candidate_sealed_before_execution: true
+  validation_feedback_to_agent: prohibited
+  execution_count_during_selection: 1
+  pass_rule: every case must be admitted by the deterministic execution and physical gate
+conditions:
+  ot2-transfer:
+    parameter: max_transfer_ul
+    minimum: 40.0
+    maximum: 45.0
+  star-transfer:
+    parameter: max_transfer_ul
+    minimum: 40.0
+    maximum: 45.0
+  constant-current-cycle:
+    parameter: current_limit_a
+    minimum: 0.55
+    maximum: 0.65
+  pulse-characterization:
+    parameter: current_limit_a
+    minimum: 0.70
+    maximum: 0.85
+  powder-bed-scan:
+    parameter: absorptivity
+    minimum: 1.50
+    maximum: 1.65
+  directed-energy-deposition:
+    parameter: coupling
+    minimum: 1.55
+    maximum: 1.70
+  hall-sweep:
+    parameter: required_settle_s
+    minimum: 0.85
+    maximum: 1.00
+  cryogenic-resistance:
+    parameter: current_limit_a
+    minimum: 0.00020
+    maximum: 0.00030

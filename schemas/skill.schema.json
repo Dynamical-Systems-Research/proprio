@@ -4,14 +4,15 @@
   "title": "Proprio skill catalog entry",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "version", "instrument", "path", "status", "verification"],
+  "required": ["id", "version", "instrument", "path", "status", "hardware_qualification_required", "verification"],
   "properties": {
     "id": {"type": "string", "minLength": 1},
     "version": {"type": "string", "minLength": 1},
     "instrument": {"type": "string", "minLength": 1},
     "path": {"type": "string", "pattern": "^skills/.+/SKILL\\.md$"},
     "code_path": {"type": ["string", "null"]},
-    "status": {"enum": ["reference", "admitted"]},
+    "status": {"enum": ["reference", "simulation_qualified"]},
+    "hardware_qualification_required": {"const": true},
     "verification": {
       "type": "object",
       "additionalProperties": false,

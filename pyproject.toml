@@ -48,12 +48,14 @@ dev = [
   "pytest-cov>=6.0",
   "ruff>=0.11",
 ]
-
 [project.scripts]
 proprio = "proprio.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/proprio"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"sources" = "proprio/sources"
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"
