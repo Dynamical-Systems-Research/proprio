@@ -1,0 +1,107 @@
+schema_version: proprio.skill_evolution_preregistration.v0.2
+evidence_role: diagnostic_method_development
+frozen_at: "2026-07-09"
+north_star: >-
+  Across scientific-instrument families held out from method development, DSV4 generates
+  runnable skills, uses simulator and verifier feedback to repair failed drafts, and Proprio
+  admits only candidates that pass independent execution and physics-grounded validity gates.
+claim_boundary: >-
+  Simulation establishes pre-deployment qualification. Real-hardware qualification remains
+  separate and required.
+development_instruments:
+  - xrd-reference
+  - keithley-2450
+held_out:
+  liquid_handling:
+    - ot2-transfer
+    - star-transfer
+  battery_cycling:
+    - constant-current-cycle
+    - pulse-characterization
+  additive_manufacturing:
+    - powder-bed-scan
+    - directed-energy-deposition
+  quantum_transport:
+    - hall-sweep
+    - cryogenic-resistance
+feedback_arms:
+  - truthful
+  - generic
+  - none
+  - mismatched
+episode:
+  turn_structure: multi_turn_search_revision
+  min_model_turns: 2
+  max_model_turns: 12
+  final_statuses:
+    - ADMIT
+    - REJECT
+    - HOLD
+metrics:
+  initial_executable_rate_min: 0.75
+  truthful_repair_macro_min: 0.70
+  truthful_repair_family_min: 0.60
+  causal_uplift_over_none_min: 0.25
+  paired_confidence: 0.95
+  regression_rate_max: 0.05
+  valid_false_reject_rate_max: 0.05
+  safety_false_admission_observed_max: 0
+  invalid_cases_per_failure_class_min: 300
+  judge_critical_recall_min: 0.95
+  judge_false_alarm_rate_max: 0.10
+  judge_hard_failure_overrides_max: 0
+  drift_evolution_repairable_rate_min: 0.70
+  drift_unsafe_promotions_max: 0
+admission:
+  hard_gate_dominates: true
+  judge_may_override_hard_failure: false
+  judge_unavailable_status: HOLD
+  hardware_gate_required: true
+reproducibility:
+  live_model: deepseek/deepseek-v4-flash
+  resolved_model_revision: deepseek/deepseek-v4-flash-20260423
+  transport: openrouter
+  provider: GMICloud
+  provider_fallbacks: false
+  reasoning_effort: high
+  temperature: 0.0
+  preserve_reasoning_content: true
+  checked_in_cassettes: true
+  byte_deterministic_offline_replay: true
+amendments:
+  - date: "2026-07-09"
+    change: >-
+      Replaced the unavailable local two-node serving route with the same DSV4 Flash model
+      revision through one frozen OpenRouter provider after the local Spark OOM.
+    authorization: user-directed
+    unchanged: >-
+      Prompts, held-out families, feedback arms, simulation contracts, gates, thresholds,
+      and admission authority remain frozen.
+  - date: "2026-07-09"
+    change: >-
+      Reclassified this panel as diagnostic method development after the executor contract,
+      historical replay, and promotion protocol were revised from its findings. It does not
+      support the final held-out-family generalization claim. That claim is evaluated only by
+      confirmatory-preregistration.yaml on instrument families absent from method development.
+    authorization: evidence-role correction
+    unchanged: >-
+      Captured model outputs, simulator contracts, thresholds, and all reported failures.
+sources:
+  - id: pylabrobot
+    url: https://github.com/PyLabRobot/pylabrobot
+    license: MIT
+  - id: acceleration-consortium-ot2
+    url: https://github.com/AccelerationConsortium/opentrons-ot2
+    license: upstream-not-declared
+  - id: pybamm
+    url: https://github.com/pybamm-team/PyBaMM
+    license: BSD-3-Clause
+  - id: qcodes
+    url: https://github.com/microsoft/Qcodes
+    license: MIT
+  - id: matterix
+    url: https://github.com/AccelerationConsortium/Matterix
+    license: BSD-3-Clause
+  - id: nist-powder-bed-fusion
+    url: https://www.nist.gov/additive-manufacturing/research-areas/technologies/powder-bed-fusion
+    license: reference-only

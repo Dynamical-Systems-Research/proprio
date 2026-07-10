@@ -1,0 +1,142 @@
+schema_version: proprio.confirmatory_preregistration.v0.1
+frozen_at: "2026-07-09"
+method_and_panel_frozen_before_first_confirmatory_model_call: true
+claim: >-
+  With the method frozen after diagnostic development, DSV4 Flash drafts and repairs
+  executable skills across instrument families absent from method development, while
+  deterministic execution and physical gates prevent invalid promotion.
+claim_boundary: >-
+  Instruments are held out from Proprio method development. No claim is made about whether
+  their public concepts or APIs occurred in model pretraining. Simulation establishes only
+  pre-deployment qualification; real-hardware qualification remains separate.
+data_policy:
+  xrd_rl_dataset: not_used
+  voe_bench_dataset: not_used
+  trained_judgment_checkpoint: not_used
+  external_policy_training_distribution: not_used
+  allowed_inputs:
+    - public instrument source bundles
+    - synthetic simulator state and traces
+    - deterministic execution and physical verifier records
+method_development_panel:
+  - xrd-reference
+  - keithley-2450
+  - ot2-transfer
+  - star-transfer
+  - constant-current-cycle
+  - pulse-characterization
+  - powder-bed-scan
+  - directed-energy-deposition
+  - hall-sweep
+  - cryogenic-resistance
+confirmatory_panel:
+  optical_measurement:
+    - absorbance-plate-read
+    - fluorescence-plate-read
+  calibrated_delivery:
+    - calibrated-pump-dose
+    - dual-pump-blend
+  thermal_control:
+    - isothermal-hold
+    - thermal-cycle
+method:
+  acquisition_prompt_sha256: 8c2146c15aa993d07e73ec359d2050401b46b122293a8e9d869248799030a50d
+  evolution_prompt_sha256: 16ec819776f45f4d378e52121cf413deb0bb218566e59a39b387c26335a27f40
+  executor_contract: straight_line_controller_calls
+  feedback_arms:
+    - truthful
+    - none
+  max_model_turns: 12
+  temperature: 0.0
+  hard_gate_dominates: true
+  semantic_judge_may_veto: true
+  semantic_judge_may_rescue_hard_failure: false
+  direct_simulator_state_reads: forbidden
+model:
+  id: deepseek/deepseek-v4-flash
+  resolved_revision: deepseek/deepseek-v4-flash-20260423
+  provider: GMICloud
+  provider_fallbacks: false
+  reasoning_effort: high
+  reasoning_state_preserved: true
+evaluation:
+  initial_scenario: nominal
+  repair_scenario: repair
+  locked_cases_per_instrument: 50
+  locked_feedback_to_agent: prohibited
+  candidate_sealed_before_locked_validation: true
+  historical_replay_required: true
+  repair_comparison_history_scenarios:
+    - nominal
+  target_scenario_may_appear_in_history: false
+  pass_rule: >-
+    A qualified candidate must pass nominal history, repair support, every locked condition,
+    provenance checks, and the simulator-information firewall.
+  invalid_cases_per_failure_class: 300
+locked_conditions:
+  absorbance-plate-read:
+    parameter: max_integration_ms
+    minimum: 100.0
+    maximum: 130.0
+  fluorescence-plate-read:
+    parameter: max_gain
+    minimum: 7.0
+    maximum: 9.0
+  calibrated-pump-dose:
+    parameter: max_speed_rpm
+    minimum: 75.0
+    maximum: 90.0
+  dual-pump-blend:
+    parameter: max_speed_rpm
+    minimum: 60.0
+    maximum: 75.0
+  isothermal-hold:
+    parameter: required_transition_s
+    minimum: 150.0
+    maximum: 180.0
+  thermal-cycle:
+    parameter: required_transition_s
+    minimum: 180.0
+    maximum: 240.0
+metrics:
+  initial_executable_rate_min: 0.75
+  truthful_qualification_rate_min: 0.70
+  truthful_family_rate_min: 0.50
+  causal_uplift_over_none_min: 0.25
+  regression_rate_max: 0.05
+  unsafe_promotions_max: 0
+  reasoning_state_missing_max: 0
+sources:
+  - id: pylabrobot-plate-reader
+    url: https://github.com/PyLabRobot/pylabrobot/blob/main/pylabrobot/plate_reading/plate_reader.py
+    license: MIT
+  - id: pylabrobot-pump
+    url: https://github.com/PyLabRobot/pylabrobot/blob/main/pylabrobot/pumps/pump.py
+    license: MIT
+  - id: pylabrobot-temperature-controller
+    url: https://github.com/PyLabRobot/pylabrobot/blob/main/pylabrobot/temperature_controlling/temperature_controller.py
+    license: MIT
+  - id: self-driving-lab-demo
+    url: https://github.com/sparks-baird/self-driving-lab-demo
+    license: MIT
+reporting:
+  - per-instrument and per-family results
+  - paired truthful versus no-feedback outcomes
+  - clean protocol completion separate from gate qualification
+  - token, reasoning-token, latency, cost, provider, and resolved-model evidence
+  - raw model messages, tool calls, simulator traces, and physical checks
+  - all failures and exclusions
+amendments:
+  - date: "2026-07-09"
+    timing: after_confirmatory_generation_started
+    change: >-
+      Added the explicit zero-XRD-RL data policy and public claim wording requested by the
+      user. No instrument, source bundle, prompt, tool, simulator, verifier, condition range,
+      metric, model route, or admission rule changed.
+  - date: "2026-07-09"
+    timing: before_corrected_confirmatory_rerun
+    change: >-
+      Invalidated the first partial capture because the history tool exposed the repair target
+      to the no-feedback arm. The corrected runner allows nominal history only during the
+      repair comparison and rejects any history configuration containing the target scenario.
+      No partial outcome is used in the confirmatory result.

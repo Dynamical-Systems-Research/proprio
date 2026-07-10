@@ -8,11 +8,31 @@ from pathlib import Path
 from typing import Any
 
 from proprio.artifacts import write_canonical_json
+from proprio.confirmatory_metrology import run_confirmatory_metrology
+from proprio.confirmatory_study import (
+    replay_confirmatory_study,
+    run_live_confirmatory_judges,
+    run_live_confirmatory_study,
+)
+from proprio.history_repair import run_live_history_repair
+from proprio.instrument_metrology import run_instrument_metrology
+from proprio.instrument_study import replay_instrument_study, run_live_instrument_study
+from proprio.instrument_types import CandidatePackage
+from proprio.judge_metrology import (
+    CONFIRMATORY_INSTRUMENT_IDS,
+    run_live_confirmatory_judge_metrology,
+    run_live_judge_metrology,
+    summarize_judge_metrology,
+)
+from proprio.locked_validation import run_locked_validation_once
 from proprio.metrology import run_metrology
+from proprio.model_ablation import run_live_model_ablation
 from proprio.procedural import ProceduralFault, run_fault_battery, run_procedural
 from proprio.reference_xrd import run_composition_battery, run_reference_xrd
 from proprio.release import build_evidence_manifest, verify_evidence_manifest
 from proprio.skill_drafter import draft_skill_cassettes, run_skill_admission
+from proprio.skill_evolution import replay_evolution_study, run_live_evolution_study
+from proprio.skill_library import package_confirmatory_skills
 from proprio.support import run_support_battery
 from proprio.xrd_types import ValidityFault
 
@@ -57,6 +77,80 @@ def _parser() -> argparse.ArgumentParser:
     skill_admission = subparsers.add_parser("skill-admission")
     skill_admission.add_argument("--cassette-dir", type=Path, required=True)
     skill_admission.add_argument("--output-dir", type=Path, required=True)
+
+    instrument_metrology = subparsers.add_parser("instrument-metrology")
+    instrument_metrology.add_argument("--output-dir", type=Path, required=True)
+    instrument_metrology.add_argument("--cases-per-class", type=int, default=300)
+
+    instrument_study_live = subparsers.add_parser("instrument-study-live")
+    instrument_study_live.add_argument("--cassette-dir", type=Path, required=True)
+    instrument_study_live.add_argument("--skip-judge", action="store_true")
+
+    instrument_study_replay = subparsers.add_parser("instrument-study-replay")
+    instrument_study_replay.add_argument("--cassette-dir", type=Path, required=True)
+    instrument_study_replay.add_argument("--output-dir", type=Path, required=True)
+
+    evolution_live = subparsers.add_parser("evolution-live")
+    evolution_live.add_argument("--study-cassette-dir", type=Path, required=True)
+    evolution_live.add_argument("--output-dir", type=Path, required=True)
+
+    evolution_replay = subparsers.add_parser("evolution-replay")
+    evolution_replay.add_argument("--cassette-dir", type=Path, required=True)
+    evolution_replay.add_argument("--output-dir", type=Path, required=True)
+
+    judge_metrology_live = subparsers.add_parser("judge-metrology-live")
+    judge_metrology_live.add_argument("--output-dir", type=Path, required=True)
+
+    judge_metrology_replay = subparsers.add_parser("judge-metrology-replay")
+    judge_metrology_replay.add_argument("--cassette-dir", type=Path, required=True)
+
+    confirmatory_judge_metrology_live = subparsers.add_parser("confirmatory-judge-metrology-live")
+    confirmatory_judge_metrology_live.add_argument("--output-dir", type=Path, required=True)
+
+    confirmatory_judge_metrology_replay = subparsers.add_parser(
+        "confirmatory-judge-metrology-replay"
+    )
+    confirmatory_judge_metrology_replay.add_argument("--cassette-dir", type=Path, required=True)
+
+    model_ablation = subparsers.add_parser("model-ablation-live")
+    model_ablation.add_argument("--primary-cassette-dir", type=Path, required=True)
+    model_ablation.add_argument("--output-dir", type=Path, required=True)
+    model_ablation.add_argument(
+        "--study",
+        choices=["native_draft", "shared_failure_repair"],
+        required=True,
+    )
+
+    locked_validation = subparsers.add_parser("locked-validation")
+    locked_validation.add_argument("--candidate", type=Path, required=True)
+    locked_validation.add_argument("--output-dir", type=Path, required=True)
+
+    confirmatory_metrology = subparsers.add_parser("confirmatory-metrology")
+    confirmatory_metrology.add_argument("--output-dir", type=Path, required=True)
+    confirmatory_metrology.add_argument("--cases-per-class", type=int)
+
+    confirmatory_study = subparsers.add_parser("confirmatory-study-live")
+    confirmatory_study.add_argument("--output-dir", type=Path, required=True)
+
+    confirmatory_replay = subparsers.add_parser("confirmatory-study-replay")
+    confirmatory_replay.add_argument("--cassette-dir", type=Path, required=True)
+    confirmatory_replay.add_argument("--output-dir", type=Path, required=True)
+
+    confirmatory_judge = subparsers.add_parser("confirmatory-judge-live")
+    confirmatory_judge.add_argument("--cassette-dir", type=Path, required=True)
+
+    history_repair = subparsers.add_parser("history-repair-live")
+    history_repair.add_argument("--candidate-dir", type=Path, required=True)
+    history_repair.add_argument("--output-dir", type=Path, required=True)
+    package_skills = subparsers.add_parser("package-confirmatory-skills")
+    package_skills.add_argument("--cassette-dir", type=Path, required=True)
+    package_skills.add_argument("--root", type=Path, default=Path.cwd())
+    package_skills.add_argument("--output-dir", type=Path, required=True)
+    model_ablation.add_argument(
+        "--prompt-condition",
+        choices=["original", "disclosed_executor_contract"],
+        required=True,
+    )
 
     manifest = subparsers.add_parser("evidence-manifest")
     manifest.add_argument("--root", type=Path, default=Path.cwd())
@@ -113,6 +207,66 @@ def main(argv: list[str] | None = None) -> int:
         result = draft_skill_cassettes(args.cassette_dir)
     elif args.command == "skill-admission":
         result = run_skill_admission(args.cassette_dir, args.output_dir)
+    elif args.command == "instrument-metrology":
+        result = run_instrument_metrology(
+            args.output_dir,
+            cases_per_class=args.cases_per_class,
+        )
+    elif args.command == "instrument-study-live":
+        result = run_live_instrument_study(
+            args.cassette_dir,
+            run_judge=not args.skip_judge,
+        )
+    elif args.command == "instrument-study-replay":
+        result = replay_instrument_study(args.cassette_dir, args.output_dir)
+    elif args.command == "evolution-live":
+        result = run_live_evolution_study(args.study_cassette_dir, args.output_dir)
+    elif args.command == "evolution-replay":
+        result = replay_evolution_study(args.cassette_dir, args.output_dir)
+    elif args.command == "judge-metrology-live":
+        result = run_live_judge_metrology(args.output_dir)
+    elif args.command == "judge-metrology-replay":
+        result = summarize_judge_metrology(args.cassette_dir)
+    elif args.command == "confirmatory-judge-metrology-live":
+        result = run_live_confirmatory_judge_metrology(args.output_dir)
+    elif args.command == "confirmatory-judge-metrology-replay":
+        result = summarize_judge_metrology(
+            args.cassette_dir,
+            instrument_ids=CONFIRMATORY_INSTRUMENT_IDS,
+        )
+    elif args.command == "model-ablation-live":
+        result = run_live_model_ablation(
+            args.primary_cassette_dir,
+            args.output_dir,
+            study=args.study,
+            prompt_condition=args.prompt_condition,
+        )
+    elif args.command == "locked-validation":
+        candidate = CandidatePackage.model_validate_json(args.candidate.read_text(encoding="utf-8"))
+        result = run_locked_validation_once(
+            candidate,
+            args.output_dir / "selection-seal.json",
+            args.output_dir / "locked-validation.json",
+        ).model_dump(mode="json")
+    elif args.command == "confirmatory-metrology":
+        result = run_confirmatory_metrology(
+            args.output_dir,
+            cases_per_class=args.cases_per_class,
+        )
+    elif args.command == "confirmatory-study-live":
+        result = run_live_confirmatory_study(args.output_dir)
+    elif args.command == "confirmatory-study-replay":
+        result = replay_confirmatory_study(args.cassette_dir, args.output_dir)
+    elif args.command == "confirmatory-judge-live":
+        result = run_live_confirmatory_judges(args.cassette_dir)
+    elif args.command == "history-repair-live":
+        result = run_live_history_repair(args.candidate_dir, args.output_dir)
+    elif args.command == "package-confirmatory-skills":
+        result = package_confirmatory_skills(
+            args.cassette_dir,
+            args.root,
+            args.output_dir,
+        )
     elif args.command == "evidence-manifest":
         result = build_evidence_manifest(args.root, args.output)
         errors = verify_evidence_manifest(args.root, result)

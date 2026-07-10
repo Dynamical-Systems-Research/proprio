@@ -1,0 +1,90 @@
+schema_version: proprio.model_ablation_preregistration.v0.1
+frozen_at: "2026-07-09"
+frozen_before_primary_completion: true
+purpose: >-
+  Determine whether failures in the primary DSV4 Flash study arise from model capacity,
+  model family, or the simulator-grounded repair method.
+baseline:
+  id: deepseek/deepseek-v4-flash
+  provider: GMICloud
+  reasoning:
+    effort: high
+models:
+  - id: deepseek/deepseek-v4-pro
+    provider: DeepSeek
+    reasoning:
+      effort: high
+    provider_fallbacks: false
+  - id: qwen/qwen3.7-plus
+    provider: Alibaba
+    reasoning:
+      enabled: true
+    provider_fallbacks: false
+  - id: qwen/qwen3.6-flash
+    provider: Alibaba
+    reasoning:
+      enabled: true
+    provider_fallbacks: false
+instruments:
+  - constant-current-cycle
+  - cryogenic-resistance
+  - directed-energy-deposition
+  - hall-sweep
+  - ot2-transfer
+  - powder-bed-scan
+  - pulse-characterization
+  - star-transfer
+feedback_arms:
+  - truthful
+  - none
+studies:
+  native_draft:
+    description: Each model drafts its own candidate and receives paired truthful or no feedback.
+  shared_failure_repair:
+    description: >-
+      Every model starts from the exact DSV4 Flash candidate cassette, isolating repair ability
+      from initial drafting differences.
+  disclosed_executor_contract:
+    description: >-
+      DSV4 Flash receives the same instrument sources plus the exact safe executor grammar,
+      isolating hidden interface inference from instrument-procedure acquisition.
+    allowed_syntax:
+      - one run(controller) function
+      - assignments
+      - controller method calls
+      - numeric, string, boolean, list, tuple, and dictionary literals
+      - unary negative numeric literals
+      - return dictionary
+    forbidden_syntax:
+      - imports
+      - loops
+      - branches
+      - exception handling
+      - arithmetic operators
+      - boolean operators
+      - non-controller calls
+constants:
+  system_prompts: identical
+  source_bundles: identical
+  tool_protocol: identical
+  temperature: 0.0
+  max_model_turns: 12
+  simulator_and_verifier: identical
+  agent_judge: disabled
+metrics:
+  initial_executable_rate_min: 0.75
+  truthful_repair_rate_min: 0.70
+  truthful_repair_family_min: 0.50
+  causal_uplift_over_none_min: 0.25
+  regression_rate_max: 0.05
+reporting:
+  - per-model initial executable rate
+  - per-model and per-family repair rate
+  - paired truthful-minus-none uplift
+  - shared-failure repair rate
+  - turn count and submitted revisions
+  - provider, resolved model revision, reasoning continuity, and token usage
+  - exact simulator and verifier hashes
+claim_boundary: >-
+  These are diagnostic model ablations on an already defined instrument suite. They do not
+  convert that suite into a new diagnostic method-development test and do not weaken any gate.

@@ -9,10 +9,14 @@ authors:
   - name: "Dynamical Systems"
 abstract: >-
   A simulation-validated pre-deployment substrate for instrument operation,
-  measurement-validity verification, support checks, and self-verifying skill
-  acquisition.
+  measurement-validity verification, support checks, simulator-grounded skill
+  acquisition, causal repair, and staged evolution across scientific-instrument
+  families.
 keywords:
   - instrument control
   - observability
-  - X-ray diffraction
   - scientific agents
+  - self-driving laboratories
+  - simulation qualification
+  - skill acquisition
+  - X-ray diffraction

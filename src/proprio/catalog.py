@@ -39,7 +39,8 @@ class SkillCatalogEntry(BaseModel):
     instrument: str
     path: str
     code_path: str | None = None
-    status: Literal["reference", "admitted"]
+    status: Literal["reference", "simulation_qualified"]
+    hardware_qualification_required: Literal[True]
     verification: SkillVerification
 
 

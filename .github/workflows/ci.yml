@@ -25,4 +25,8 @@ jobs:
       - run: uv run proprio support-battery --output-dir artifacts/generated/ci/support
       - run: uv run proprio composition-battery --output-dir artifacts/generated/ci/composition
       - run: uv run proprio skill-admission --cassette-dir cassettes/dsv4 --output-dir artifacts/generated/ci/skill-admission
+      - run: uv run proprio confirmatory-metrology --cases-per-class 300 --output-dir artifacts/generated/ci/confirmatory-metrology
+      - run: uv run proprio confirmatory-study-replay --cassette-dir cassettes/confirmatory-dsv4 --output-dir artifacts/generated/ci/confirmatory-replay
+      - run: uv run proprio confirmatory-judge-metrology-replay --cassette-dir cassettes/judge-metrology-confirmatory
+      - run: uv run proprio evolution-replay --cassette-dir cassettes/dsv4-evolution --output-dir artifacts/generated/ci/evolution-replay
       - run: uv run proprio evidence-manifest --root . --output artifacts/generated/ci/evidence-manifest.json

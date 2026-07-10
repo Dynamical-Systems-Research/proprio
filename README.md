@@ -25,7 +25,12 @@ correct.
 | Adversarial validity | always-valid bot rejected on 2700/2700 invalid cases | [`artifacts/evidence/metrology/summary.json`](artifacts/evidence/metrology/summary.json) |
 | Substrate support | 100% detection, 0% false alarms on the labeled battery | [`artifacts/evidence/support/report.md`](artifacts/evidence/support/report.md) |
 | Composed trajectory | valid path passes; procedurally successful saturation fails validity | [`artifacts/evidence/composition/summary.json`](artifacts/evidence/composition/summary.json) |
-| Skill admission | DSV4 self-accepted both; physics gate admitted the correct draft and rejected the stale draft | [`artifacts/evidence/skill-admission/summary.json`](artifacts/evidence/skill-admission/summary.json) |
+| Skill admission | DSV4 self-accepted both; physics gate simulation-qualified the correct draft and rejected the stale draft | [`artifacts/evidence/skill-admission/summary.json`](artifacts/evidence/skill-admission/summary.json) |
+| Cross-family verifier metrology | 0 false admissions and 0 false rejections across 9,000 labeled simulations | [`artifacts/evidence/confirmatory-metrology/summary.json`](artifacts/evidence/confirmatory-metrology/summary.json) |
+| Confirmatory acquisition and repair | 6/6 executable drafts; 6/6 truthful-feedback repairs; 0/6 no-feedback repairs; 0 regressions | [`cassettes/confirmatory-dsv4/summary.json`](cassettes/confirmatory-dsv4/summary.json) |
+| Deterministic confirmatory replay | 12/12 episodes byte-identical and reset-idempotent, including 600 locked conditions | [`artifacts/evidence/confirmatory-replay/summary.json`](artifacts/evidence/confirmatory-replay/summary.json) |
+| Stateful reviewer metrology | 24/24 unseen semantic cases; 100% critical recall, 0% valid false alarms, 100% unavailable `HOLD` | [`cassettes/judge-metrology-confirmatory/summary.json`](cassettes/judge-metrology-confirmatory/summary.json) |
+| Simulated skill evolution | drift detected and 8/8 proposals staged after history, locked validation, provenance, and review; 0 unsafe promotions | [`cassettes/dsv4-evolution/summary.json`](cassettes/dsv4-evolution/summary.json) |
 
 The sample-displacement target check missed attribution in 19/300 injected cases. Every one
 was still rejected by an adjacent shift/indexing check, so the release-level false-valid bar
@@ -45,14 +50,19 @@ uv run proprio composition-battery --output-dir artifacts/generated/composition
 uv run proprio skill-admission \
   --cassette-dir cassettes/dsv4 \
   --output-dir artifacts/generated/skill-admission
+uv run proprio confirmatory-study-replay \
+  --cassette-dir cassettes/confirmatory-dsv4 \
+  --output-dir artifacts/generated/confirmatory-replay
 ```
 
-Both commands are hardware-free. The Skill acquisition command replays checked-in DSV4 drafts; it does
-not call a hosted model. Regenerate drafts only when intentionally running the live release
-gate:
+These commands are hardware-free. Skill admission and confirmatory replay use checked-in DSV4
+cassettes; they do not call a hosted model. Regenerate drafts only when intentionally running
+the live release gate:
 
 ```bash
-OPENAI_BASE_URL=http://100.70.91.108:8000/v1 MODEL=dsv4 \
+OPENAI_API_KEY="$OPENROUTER_API_KEY" \
+OPENAI_BASE_URL=https://openrouter.ai/api/v1 \
+MODEL=deepseek/deepseek-v4-flash OPENROUTER_PROVIDER=GMICloud \
   uv run proprio draft-skills --cassette-dir artifacts/live/dsv4
 ```
 
@@ -94,13 +104,23 @@ calls DSV4 only to prove that a real baseline policy can consume the record; the
 honestly labeled `untrained_baseline` and stored separately under
 [`artifacts/evidence/xrd-live/judgment/`](artifacts/evidence/xrd-live/judgment/).
 
+The generalized skill-acquisition and evolution studies use no XRD-RL or VOE-Bench data and
+no trained judgment checkpoint. Their model-visible inputs are public instrument sources and
+simulator feedback; their admission inputs are synthetic traces and deterministic physical
+checks. XRD remains a reference instrument, not the distribution against which the method
+claims to generalize.
+
 ## For skill authors
 
 [`catalog.json`](catalog.json) binds each release skill to its file hashes and verification
 artifact. [`schemas/skill.schema.json`](schemas/skill.schema.json) specifies catalog entries.
-The admitted Keithley skill was drafted and self-accepted by DSV4, executed through
+Catalog status is `simulation_qualified`, never an assertion of hardware readiness, and every
+entry carries `hardware_qualification_required=true`. The Keithley skill was drafted and
+self-accepted by DSV4, executed through
 `pyvisa-sim`, and checked against an independent 1 kΩ circuit fixture. The rejected cassette
-is retained as first-class evidence.
+is retained as first-class evidence. The six confirmatory skills are packaged from the exact
+model-authored source only after hard gates, provenance checks, locked validation, and
+stateful semantic review pass.
 
 ## Scope and licensing
 

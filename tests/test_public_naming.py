@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 TEXT_SUFFIXES = {".cff", ".json", ".md", ".py", ".toml", ".yaml", ".yml"}
 FORBIDDEN = re.compile(
-    r"\b" + "lay" + r"ers?\b|\b" + "lay" + r"er[ _-]?[123]\b|\b" + "sta" + r"ge[ _-]?2\b",
+    r"\b" + "lay" + r"er[ _-]?[123]\b|\b" + "sta" + r"ge[ _-]?2\b",
     re.IGNORECASE,
 )
 

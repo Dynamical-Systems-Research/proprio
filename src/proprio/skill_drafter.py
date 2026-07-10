@@ -122,7 +122,7 @@ class DSV4SkillDrafter:
             raise ValueError("variant must be correct or legacy")
         source_text, source_hash = _source_bundle(variant)
         prompt = _prompt(source_text, variant)
-        response = self.client.client.chat.completions.create(
+        response = self.client.create_chat_completion(
             model=self.client.model,
             messages=[
                 {
@@ -144,7 +144,10 @@ class DSV4SkillDrafter:
         markdown = SkillMarkdownDraft.model_validate(parsed["skill_md"])
         raw = response.model_dump(mode="json")
         message_payload = message.model_dump(mode="json")
-        message_payload["reasoning_content"] = getattr(message, "reasoning_content", None)
+        for field in ("reasoning", "reasoning_details", "reasoning_content"):
+            value = getattr(message, field, None)
+            if value is not None:
+                message_payload[field] = value
         raw["preserved_assistant_message"] = message_payload
         raw["request"] = {
             "variant": variant,

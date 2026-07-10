@@ -9,7 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_release_catalog_is_evidence_bound() -> None:
     catalog = validate_catalog(ROOT)
-    assert {entry.status for entry in catalog.skills} == {"reference", "admitted"}
+    assert {entry.status for entry in catalog.skills} == {
+        "reference",
+        "simulation_qualified",
+    }
+    assert all(entry.hardware_qualification_required for entry in catalog.skills)
 
 
 def test_skill_markdown_requires_closed_frontmatter_and_body() -> None:

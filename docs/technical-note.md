@@ -15,6 +15,11 @@ of deployment. v0.1 intentionally imports neither that checkpoint's training dis
 XRD-RL/VOE-Bench data. Its live policy call uses DSV4 as an explicitly untrained baseline, and
 the future trained-policy binding remains a typed support hook.
 
+The generalized skill-acquisition protocol is likewise independent of the judgment-policy
+work: it uses public instrument source bundles, synthetic execution traces, and deterministic
+physical-verifier records only. XRD is the reference operation, not training data, an
+evaluation distribution, or a prerequisite for adding another instrument family.
+
 ## The composed gap
 
 The ingredients are established, but serve different purposes. Bluesky documents both plan
@@ -102,6 +107,24 @@ feedback, execution errors, and self-verification
 ([Hermes slash-command reference](https://hermes-agent.nousresearch.com/docs/reference/slash-commands)).
 Proprio adopts the learn-from-sources interface and changes the admission authority.
 
+Two 2026 instrument-agent demonstrations sharpen the boundary. The agentic X-ray scientist
+developed a sample-alignment workflow in a six-circle virtual beamline and then relayed its
+commands through a human safety intermediary at SSRL
+([Chen et al.](https://www.nature.com/articles/s42256-026-01261-5)). Vriza et al. describe a
+human-in-the-loop, multi-agent pipeline for an X-ray nanoprobe and autonomous robotic station,
+including iterative learning and code writer/reviewer roles
+([Vriza et al.](https://www.nature.com/articles/s41524-026-02005-0)). Proprio does not claim a
+stronger hardware result; it contributes a different simulator-only result: source-to-skill
+acquisition, causal repair from execution evidence, independent physical admission, and
+staged evolution under one reproducible protocol across instrument families.
+
+Hermes `/learn` demonstrates open-ended skill authoring from local directories, URLs, prior
+workflow, or notes, while Microsoft SkillOpt optimizes reusable text skills behind validation
+gates ([Hermes](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills#learning-a-skill-from-sources-learn),
+[SkillOpt](https://github.com/microsoft/SkillOpt)). Proprio uses the same procedural-knowledge
+shape but makes simulator execution, physical postconditions, provenance, and historical replay
+the promotion authority for instrument-control code.
+
 DSV4 drafted two Keithley 2450-style skills from supplied driver and fixture documents, then
 self-judged both `ACCEPT`. The correct revision uses a 1 kΩ fixture at 1 V with 2 mA compliance
 and a 10 mA range. A plausible stale worksheet instead specifies a 100 kΩ fixture, 200 µA
@@ -110,9 +133,84 @@ their commands/properties
 ([PyVISA-sim documentation](https://pyvisa.readthedocs.io/projects/pyvisa-sim/en/latest/definitions.html));
 Proprio executes both drafts against that transport and independently checks the current
 against the 1 kΩ circuit law and the active range/compliance contract. The correct skill is
-admitted; the self-accepted stale skill is rejected on range and compliance
+simulation-qualified; the self-accepted stale skill is rejected on range and compliance
 ([skill-admission artifact](../artifacts/evidence/skill-admission/summary.json),
 [captured DSV4 cassettes](../cassettes/dsv4/)).
+
+That Keithley result is a development case, not the generalization result. An initial
+eight-instrument diagnostic panel spanning liquid handling, batteries, additive manufacturing,
+and quantum transport showed that a hidden executor grammar was the dominant failure mode.
+After the executor contract, historical replay, simulator-information firewall, and locked
+validation protocol were fixed, those instruments remained method-development evidence and
+were excluded from the confirmatory claim.
+
+The separate confirmatory panel contains six source bundles across optical measurement,
+calibrated delivery, and thermal control. These families were absent from method development.
+The frozen method uses only public instrument sources, simulated execution state, and
+deterministic physical records; it uses no XRD-RL data, VOE-Bench data, trained judgment
+checkpoint, or external policy-training distribution. No claim is made about model pretraining.
+DSV4 produced an executable nominal skill for all six instruments. Under a paired intervention
+from the same initial draft, truthful simulator feedback produced 6/6 qualified repairs while
+the no-feedback arm produced 0/6; the paired uplift was 1.0 with a bootstrap 95% interval of
+[1.0, 1.0]. Every truthful repair preserved nominal behavior and passed 50 sealed conditions
+that were unavailable during repair. The deterministic replay regenerated all 12 arm episodes,
+including 600 locked-condition results, byte-identically with reset/idempotence intact
+([confirmatory cassette](../cassettes/confirmatory-dsv4/summary.json),
+[replay artifact](../artifacts/evidence/confirmatory-replay/summary.json)).
+
+Independent verifier metrology generated 9,000 labeled simulations: 1,800 valid cases and
+7,200 invalid cases covering wrong order, unsafe setting, wrong physical target, and omitted
+cleanup for every confirmatory instrument. It observed zero false admissions and zero false
+rejections. Thirty records selected by a fixed index rule were read individually; every trace,
+telemetry record, failed check, and verdict matched its analytic label
+([metrology artifact](../artifacts/evidence/confirmatory-metrology/summary.json),
+[manual inspection](../artifacts/evidence/confirmatory-metrology/manual-inspection.md)).
+
+The repair agent must inspect simulator output before editing, cite evidence identifiers that
+actually appeared in the trace, and replay after the edit. A successful patch with fabricated
+provenance is ineligible for packaging. The supplemental stateful agent judge can inspect
+sources, diffs, traces, and replay, but it may only veto or hold; it cannot rescue a deterministic
+failure. Invalidated judge-calibration runs are retained rather than folded into pass metrics
+([protocol amendments](protocol-amendments.md)). This separation follows the debug-versus-locked
+validation discipline of [NVIDIA ASPIRE](https://research.nvidia.com/labs/gear/aspire/) while
+making instrument-specific execution and physical postconditions the admission authority.
+
+The judge prompt was calibrated only on the diagnostic panel, then frozen. Its final battery
+used 24 previously unseen semantic-mutation cases on the six confirmatory instruments. It
+recorded 100% critical-defect recall, 0% false alarms on valid repairs, 100% honest `HOLD`
+decisions for unavailable target execution, and zero hard-gate overrides. DSV4 serving as both
+drafter and reviewer remains correlated secondary evidence; the deterministic simulator,
+physical checks, provenance gate, and locked replay remain promotion authority
+([judge metrology](../cassettes/judge-metrology-confirmatory/summary.json)).
+
+Alternative-model runs were diagnostic, not confirmatory. On the shared eight-instrument
+failure set, Qwen 3.7 Plus repaired all target failures but preserved history in only 6/8;
+DeepSeek V4 Pro repaired and preserved 6/8. DSV4 Flash with the disclosed executor contract
+repaired all eight and preserved 7/8. All three therefore failed the frozen zero-regression
+gate, which is why the method added historical replay and why none of those runs supports the
+final generalization claim. Qwen 3.6 Flash was stopped incomplete once DSV4 passed the separate
+confirmatory panel; its partial artifacts are excluded from comparisons
+([model-ablation cassettes](../cassettes/model-ablations/)).
+
+## Simulation-valid skill evolution
+
+The evolution study starts from eight history-safe parent skills in the diagnostic panel. A
+versioned simulator change makes every parent fail under a new operating condition. DSV4 must
+inspect the failure, cite its evidence, submit a bounded edit, replay the changed condition,
+replay nominal and prior-repair history, and stop without seeing the locked validation set.
+All eight evolved candidates passed nominal, prior-repair, drift, and 50 sealed conditions;
+the stateful reviewer accepted all eight after receiving the complete intermediate event chain.
+The proposals were staged with parent, rollback, evidence, simulator, verifier, and validation
+hashes plus `hardware_gate_required=true`. None replaced its parent or crossed the hardware
+gate. Offline replay regenerated all eight proposal statuses byte-identically with zero unsafe
+promotions ([evolution result](../cassettes/dsv4-evolution/summary.json),
+[replay](../artifacts/evidence/evolution-replay/summary.json)).
+
+The first two additive-manufacturing reviews had falsely rejected real intermediate evidence
+because their review tool exposed only the endpoint gates. Those reviews are preserved; the
+replacement reviews received the same complete event closure as the deterministic provenance
+gate, while candidate code and locked results remained unchanged
+([protocol amendments](protocol-amendments.md)).
 
 Hosted generation is not treated as byte-deterministic. CI deterministically replays the
 captured drafts and verifies admission; fresh DSV4 generation is a separate release gate.
