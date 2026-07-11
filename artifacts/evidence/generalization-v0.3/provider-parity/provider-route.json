@@ -1,0 +1,41 @@
+{
+  "allow_same_revision_fallbacks": true,
+  "checked_at": "2026-07-11",
+  "endpoint": "https://openrouter.ai/api/v1",
+  "model": "deepseek/deepseek-v4-flash",
+  "provider_order": [
+    "DeepInfra",
+    "GMICloud"
+  ],
+  "provider_allowlist": [
+    "DeepInfra",
+    "GMICloud"
+  ],
+  "routing_contract": "Requests set both provider.order and provider.only; same-revision fallback is allowed only within this allowlist.",
+  "providers": {
+    "DeepInfra": {
+      "evidence": "artifacts/evidence/generalization-v0.3/provider-parity/deepinfra.json",
+      "reasoning_present": true,
+      "resolved_model": "deepseek/deepseek-v4-flash-20260423",
+      "tool_call_passed": true
+    },
+    "GMICloud": {
+      "evidence": "artifacts/evidence/generalization-v0.3/provider-parity/allowlist-probe.json",
+      "reasoning_present": true,
+      "resolved_model": "deepseek/deepseek-v4-flash-20260423",
+      "tool_call_passed": true
+    }
+  },
+  "required_parameters": [
+    "include_reasoning",
+    "max_tokens",
+    "reasoning",
+    "reasoning_effort",
+    "seed",
+    "temperature",
+    "tool_choice",
+    "tools",
+    "top_p"
+  ],
+  "verdict": "PASS"
+}

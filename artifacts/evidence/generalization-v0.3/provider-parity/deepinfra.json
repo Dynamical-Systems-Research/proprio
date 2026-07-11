@@ -1,0 +1,25 @@
+{
+  "checked_at": "2026-07-11",
+  "endpoint": "https://openrouter.ai/api/v1",
+  "finish_reason": "tool_calls",
+  "model": "deepseek/deepseek-v4-flash",
+  "provider": "DeepInfra",
+  "reasoning_present": true,
+  "resolved_model": "deepseek/deepseek-v4-flash-20260423",
+  "required_parameters": [
+    "include_reasoning",
+    "max_tokens",
+    "reasoning",
+    "reasoning_effort",
+    "seed",
+    "temperature",
+    "tool_choice",
+    "tools",
+    "top_p"
+  ],
+  "tool_names": [
+    "inspect_state"
+  ],
+  "total_tokens": 327,
+  "verdict": "PASS"
+}

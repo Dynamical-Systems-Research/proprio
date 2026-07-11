@@ -1,0 +1,1 @@
+{"hardware_qualification_required":true,"instrument_id":"clslab-light-spectrometer","parent_sha256":"fbb7b75c2efcb1b8090c5fa67463c856c9774caaed68404570a004ff91ae3fe9","reason":"registered deployment drift did not invalidate the admitted parent","schema_version":"proprio.generalization_evolution_proposal.v0.3","status":"HOLD"}
