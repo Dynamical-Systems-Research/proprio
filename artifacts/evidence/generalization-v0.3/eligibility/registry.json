@@ -1,0 +1,71 @@
+{
+  "claim_boundary": "Eligibility screening occurred before target-family DSV4 generation. Inclusion reflects executable simulator suitability, not model success.",
+  "model_calls_during_screening": 0,
+  "rows": [
+    {
+      "candidate": "North pipette calibration",
+      "decision": "SELECT",
+      "family": "calibrated_liquid_delivery",
+      "repository": "https://github.com/AccelerationConsortium/North-Cytation",
+      "revision": "3f49b5faba803a4a5d22544aa2ea5923ec513e20",
+      "simulator_sha256": "c6b2412ac0e87963acb83fe219e1a5ca21f9853cb99129f9707508c685e8a0dc",
+      "source_sha256": "603830524af472ce51c943d3be42be208ed1fea4ab83b548f27f043154830933",
+      "reason": "Public protocol documentation, state-changing stochastic volume simulator, reproducible reset after dual-RNG seeding, independent volume and repeatability checks. External-only because the upstream repository has no declared license."
+    },
+    {
+      "candidate": "HELAO Gamry cyclic voltammetry",
+      "decision": "SELECT",
+      "family": "electrochemical_measurement",
+      "repository": "https://github.com/helgestein/helao-pub",
+      "revision": "d644716e17c40c2bdfce74d5ebe82a04ff70cc6a",
+      "simulator_sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35",
+      "source_sha256": "516947ba0734af5e5bbb75a825e7b23f542e8a3e22e8e62e83edee275e19b0f0",
+      "reason": "Public potentiostat interface and finite-difference CV simulator with independently checked waveform, acquisition, response, limits, and cleanup."
+    },
+    {
+      "candidate": "CLSLab Light spectrometer",
+      "decision": "SELECT",
+      "family": "spectral_measurement",
+      "repository": "https://github.com/sparks-baird/self-driving-lab-demo",
+      "revision": "34e4e8cd880bc7b788109d8a56da3f6fae978518",
+      "simulator_sha256": "b5d5150e600d210e0f3514269c53bbff31f2f82bf9f46e83b3ef60887d374628",
+      "source_sha256": "bf6bde5e2a60da2eaae628451e84314303e42b1cc068ec11a9197db8a533292f",
+      "reason": "Public simulator based on measured RGB spectra and documented detector integration and gain behavior, with independent range, frame, dark, and cleanup checks."
+    },
+    {
+      "candidate": "AC xArm Translocation",
+      "decision": "EXCLUDE_BEFORE_BINDING",
+      "repository": "https://github.com/AccelerationConsortium/xarm-translocation",
+      "revision": "ae8eba4e556e85f0fb9676b80fd6a0abf7a28bf3",
+      "reason": "Pinned AMD64 simulator image could not be pulled after three attempts because Docker Desktop's macOS credential helper failed before registry contact. No execution or model evidence was produced."
+    },
+    {
+      "candidate": "Matterix",
+      "decision": "EXCLUDE_BEFORE_BINDING",
+      "repository": "https://github.com/AccelerationConsortium/Matterix",
+      "revision": "f36180bd4ffe43733eee358e29b98ea02f3e702f",
+      "reason": "Isaac Sim GPU runtime was not qualified on the available ARM systems and Matterix already influenced development architecture."
+    },
+    {
+      "candidate": "AC Opentrons OT-2",
+      "decision": "DEVELOPMENT_ONLY",
+      "repository": "https://github.com/AccelerationConsortium/opentrons-ot2",
+      "revision": "47fc8eed1e7824891fbe4884d67d99e1905d800b",
+      "reason": "Executable simulator exists, but OT-2 and liquid-transfer behavior already appear in Proprio development evidence."
+    },
+    {
+      "candidate": "MADSci virtual example lab",
+      "decision": "EXCLUDE_BEFORE_BINDING",
+      "repository": "https://github.com/AD-SDL/MADSci",
+      "reason": "Example plate reader and robot modules are explicitly fake/test implementations and do not provide the required physical measurement model."
+    },
+    {
+      "candidate": "CADET paired with AC Agilent HPLC-MS sources",
+      "decision": "RESERVE",
+      "repository": "https://github.com/fau-advanced-separations/CADET-Process",
+      "reason": "Strong chromatography physics and public instrument sources, but requires a new translation adapter; retained as the first reserve family rather than delaying this CPU panel."
+    }
+  ],
+  "schema_version": "proprio.generalization_eligibility_registry.v0.3",
+  "selected_count": 3
+}

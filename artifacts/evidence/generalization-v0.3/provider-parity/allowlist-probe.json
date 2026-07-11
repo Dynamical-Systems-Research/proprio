@@ -1,0 +1,23 @@
+{
+  "checked_at": "2026-07-11",
+  "completion_id": "gen-1783781961-rGnjWvbs7QiN9UhuTsPw",
+  "content": "READY",
+  "endpoint": "https://openrouter.ai/api/v1",
+  "model": "deepseek/deepseek-v4-flash",
+  "provider": "GMICloud",
+  "provider_request": {
+    "allow_fallbacks": true,
+    "only": [
+      "DeepInfra",
+      "GMICloud"
+    ],
+    "order": [
+      "DeepInfra",
+      "GMICloud"
+    ],
+    "require_parameters": true
+  },
+  "reasoning_present": true,
+  "resolved_model": "deepseek/deepseek-v4-flash-20260423",
+  "verdict": "PASS"
+}
