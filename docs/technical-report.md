@@ -6,13 +6,13 @@
 [Skill catalog](https://github.com/Dynamical-Systems-Research/proprio/blob/main/catalog.json) ·
 [Example skill: calibrated pump dose](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/simulated/calibrated-pump-dose) ·
 [Example skill: Keithley 2450](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/keithley-2450) ·
-[Demo video — link pending]
+[Demo video (OpenFlexure)](https://github.com/Dynamical-Systems-Research/proprio/blob/main/public/proprio-openflexure-flagship.mp4)
 
-*Numbers in this report are recomputed from repository evidence artifacts. Baseline evidence is
-pinned to `main` at
-[`07868d8`](https://github.com/Dynamical-Systems-Research/proprio/commit/07868d8); the frozen
-cross-family round (§4.2, §5.4) is bound to method digest `eef835…6b1`. Each result links to the
-record it comes from.*
+*Every number in this report is recomputed from evidence artifacts committed to `main` at
+[`61a1caa`](https://github.com/Dynamical-Systems-Research/proprio/commit/61a1caa). The frozen
+cross-family round (§4.2, §5.4) is bound to method digest `eef835…6b1`
+([freeze manifest](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/generalization-v0.3/method-freeze/manifest.json)).
+Each result links to the record it comes from.*
 
 ## Abstract
 
@@ -256,7 +256,7 @@ public catalog carries `hardware_qualification_required: true`, without exceptio
 | Replication | Ten fresh generations per confirmatory instrument plus the external OpenFlexure microscope | Variance and breadth under the frozen protocol |
 | External integration | [OpenFlexure microscope server](https://gitlab.com/openflexure/openflexure-microscope-server) (pinned revision `d26b93e`), run as a separate GPL-3.0 process via its public API | Externally authored simulator; breadth and evolution stress test |
 | Preflight suitability round | OctoPrint virtual 3D printer, PyMoDAQ mock spectrometer, sinstruments pressure controller | Preregistered v0.2 panel that exercised the deterministic fixture-suitability gate (§5.4) |
-| Frozen cross-family round | North Robotics pipette calibration (liquid handling), HELAO Gamry cyclic voltammetry (electrochemistry), CLSLab light spectrometer (optical spectroscopy) | Externally authored control interfaces under the frozen v0.3 method; digest hash-bound before exposure; no failing family may be replaced |
+| Frozen cross-family round | North Robotics pipette calibration (liquid handling), HELAO Gamry cyclic voltammetry (electrochemistry), CLSLab light spectrometer (optical spectroscopy) | Externally authored control interfaces under the frozen v0.3 method; digest hash-bound before exposure; no failing family may be replaced; preserved as a bounded baseline (§5.4) |
 
 **Table 2.** Cohorts and their evidentiary roles. Development evidence never counts toward the
 confirmatory claim; both external rounds were preregistered — families, thresholds, and
@@ -295,8 +295,9 @@ and recorded per run. The v0.3 method was frozen before binding exposure at dige
 the three cross-family instruments, upstream revisions, source bundles, prompts, control dialect,
 search budgets, thresholds, provider allowlist, and promotion rules are hash-bound, and no failing
 family may be replaced. The **provider allowlist** names the model-provider routes permitted for a
-binding run; **transport provenance** is the route each call actually used. A result whose
-transport provenance falls outside the allowlist cannot be promoted.
+binding run (DeepInfra and GMICloud for the v0.3 round); **transport provenance** is the route
+each call actually used. A result whose transport provenance falls outside the allowlist cannot
+be promoted.
 
 Evidence is tiered. A **binding** run executes under the frozen method digest and counts toward a
 preregistered claim. An **engineering** run is exploratory, used to build and exercise the
@@ -308,9 +309,11 @@ for audit rather than deleted.
 
 Canonical records are byte-deterministic, and captured model interactions are stored as cassettes
 so CI replays the full admission chain offline; fresh generation is a separate release gate. The
-locked test suite (196 tests) asserts the *failed* research claims — the external-family
-rejection, the reviewer-panel mismatch, the rejected evolution proposal — so they cannot silently
-become passes. The evidence manifest binds 158 release artifacts by hash.
+locked test suite (266 tests at the [v0.3
+handoff](https://github.com/Dynamical-Systems-Research/proprio/blob/main/docs/handoff.md)) asserts
+the *failed* research claims — the external-family rejection, the reviewer-panel mismatch, the
+rejected evolution proposals — so they cannot silently become passes. The evidence manifest binds
+158 release artifacts by hash.
 
 ## 5. Results
 
@@ -335,9 +338,11 @@ skill admitted. In the separate development cohort, DSV4 also compiled a correct
 
 The frozen cross-family round extends the acquisition result to externally authored control
 interfaces. Under the v0.3 protocol, DSV4 produced an executable, physically qualified,
-locked-condition skill for each of the three families (North Robotics pipette calibration, HELAO
-Gamry cyclic voltammetry, and the CLSLab light spectrometer), with independent gate decisions of
-`ADMIT`/`PASS` (§5.4).
+locked-condition skill for each of the three families
+([North](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/generalization-v0.3-binding/north-pipette-calibration/session-000/summary.json),
+[HELAO](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/generalization-v0.3/run-stop.json),
+[CLSLab](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/generalization-v0.3/clslab-light-spectrometer/session-000/summary.json)),
+with independent gate decisions of `ADMIT`/`PASS` (§5.4).
 
 ### 5.2 Simulator evidence causes successful repair
 
@@ -366,11 +371,14 @@ target volume (10.0 mL), halt, and return shape preserved."* The edited skill th
 changed condition, the historical nominal scenario, and 50 locked conditions. The no-feedback
 arm, given the same failing draft and the same budget, did not repair it.
 
-The frozen cross-family round reproduced the same signature where paired arms completed: on the
-North pipette-calibration family, the truthful-feedback episode qualified in a single episode
-while the identical no-feedback arm failed across four, and a CLSLab engineering pair behaved the
-same way: truthful feedback qualified, no feedback did not. These pairs are reported alongside,
-not folded into, the 18-unit synthesis.
+The frozen cross-family round reproduced the same signature. In both completed binding pairs
+([North](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/generalization-v0.3-binding/north-pipette-calibration/session-000/causal/summary.json)
+and
+[HELAO](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/generalization-v0.3-binding/helao-gamry-cv/session-000/causal/summary.json)),
+the truthful-feedback arm qualified in a single episode with locked `ADMIT` while the identical
+no-feedback arm failed across four episodes with locked `REJECT`, and a
+[CLSLab engineering pair](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/generalization-v0.3-smoke-final/clslab-light-spectrometer/session-003/causal/summary.json)
+behaved the same way. These pairs are reported alongside, not folded into, the 18-unit synthesis.
 
 ### 5.3 Independent gates prevent self-promotion
 
@@ -411,10 +419,13 @@ The gates themselves were then measured:
   ([composition artifact](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/composition/summary.json)).
 - **Cross-family round verifiers (frozen v0.3):** 4,200 labeled simulations across the North,
   HELAO Gamry, and CLSLab fixtures (900 valid and 3,300 invalid cases over 11 failure classes),
-  with zero false admissions and 3/900 false rejections, all on the North fixture.
-- **Provenance gate:** a staged CLSLab evolution proposal with otherwise strong physical evidence
-  was reduced to `HOLD` because its transport used a provider outside the frozen allowlist. The
-  drafting model could not override the decision.
+  with zero false admissions and 3/900 false rejections, all on the North fixture
+  ([metrology records](https://github.com/Dynamical-Systems-Research/proprio/tree/main/artifacts/evidence/generalization-v0.3/metrology)).
+- **Provenance gate:** a CLSLab engineering session with a staged evolution proposal and a passing
+  locked sweep was reduced to `HOLD` because part of its transport ran on a provider outside the
+  frozen allowlist
+  ([session record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/generalization-v0.3-smoke-final/clslab-light-spectrometer/session-003/summary.json)).
+  The drafting model could not override the decision.
 
 Model judgment was measured under the same discipline. The DSV4 review prompt, frozen after
 calibration, scored 100% critical-defect recall with zero false alarms on 24 unseen review cases
@@ -444,10 +455,10 @@ Across every battery, no model — drafter or reviewer — overrode a failed det
 | Spectral measurement (PyMoDAQ, held-out) | — | — | — | — | — | — | ✓ (`HOLD` at preflight) |
 | Pressure control (sinstruments, held-out) | — | — | — | — | — | — | ✓ (`HOLD` at preflight) |
 | Liquid handling (North pipette calibration, external) | ✓ | ✓ | ✓ `ADMIT`/`PASS` | ✓ (paired) | 1/1 | 0/1 (**rejected**) | ✓ |
-| Electrochemistry (HELAO Gamry CV, external) | ✓ | ✓ | ✓ `ADMIT`/`PASS` | ✓ (truthful) | — | — | ✓ |
+| Electrochemistry (HELAO Gamry CV, external) | ✓ | ✓ | ✓ (locked `PASS`) | ✓ (paired) | 1/1 | **rejected** (2 episodes) | ✓ |
 | Optical spectroscopy (CLSLab light spectrometer, external) | ✓‡ | ✓‡ | ✓‡ `ADMIT`/`PASS` | ✓‡ (paired) | 1/1‡ | staged → `HOLD`‡ | ✓ (provenance) |
 
-**Table 4.** Cross-family claim matrix from recorded evidence. `n/m` counts passes over attempts;
+**Table 4.** Cross-family claim matrix from committed evidence. `n/m` counts passes over attempts;
 ✓ marks a capability demonstrated in the linked records; — marks a capability not exercised.
 Confirmatory rows report the ten-generation replication; their causal-repair column reports the
 paired study. † Diagnostic-panel parents were qualified on visible and historical conditions
@@ -456,9 +467,9 @@ executable before the fix), which is why the panel is diagnostic evidence rather
 confirmatory claim
 ([archive](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/dsv4-history-repair/summary.json));
 their 50-condition locked sweeps ran on the evolution proposals (§5.5). ‡ Engineering-run
-evidence under the frozen v0.3 method (§4.5); the North row reports a complete binding session.
-Paired truthful/no-feedback repair is reported where both arms completed (North, and a CLSLab
-engineering pair); the HELAO cell reports the qualified truthful-feedback episode.
+evidence under the frozen v0.3 method (§4.5). The North row reports a complete binding session;
+the HELAO row reports the binding evidence recorded in the
+[stop record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/generalization-v0.3/run-stop.json).
 
 Simulator suitability is checked by a deterministic gate before any model call. The v0.2 panel
 was preregistered against three externally authored simulators whose pinned revisions turned out
@@ -472,12 +483,17 @@ calls, and did not swap in easier families
 The successor cross-family round binds three externally authored control interfaces that passed
 that same deterministic preflight (North Robotics pipette calibration, HELAO Gamry cyclic
 voltammetry, and the CLSLab light spectrometer) under the frozen v0.3 method (§4.5). Every family
-produced an independently qualified, locked-condition skill, and the North session completed the
-full ladder through paired causal repair, with its drift-evolution proposal rejected fail-closed
-rather than promoted. **Skill acquisition and independent qualification generalize across the
-three external families tested; the complete acquisition → causal repair → drift-evolution ladder
-is not yet established across all three.** No repeated-generation success-rate claim is made for
-the frozen panel.
+produced an independently qualified, locked-condition skill; the North and HELAO binding sessions
+completed paired causal repair; and the North session carried the ladder through a
+drift-evolution attempt whose proposal was rejected fail-closed rather than promoted. **Skill
+acquisition and independent qualification generalize across the three external families tested;
+the complete acquisition → causal repair → drift-evolution ladder is not yet established across
+all three.** No repeated-generation success-rate claim is made for the frozen panel. The v0.3
+round is preserved as a bounded baseline: its records are immutable
+([stop record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/generalization-v0.3/run-stop.json)),
+and the specified successor method — a minimal persistent agent context across repair and
+evolution episodes — is to be frozen before the next binding exposure
+([handoff note](https://github.com/Dynamical-Systems-Research/proprio/blob/main/docs/handoff.md)).
 
 ### 5.5 Skill evolution is gated rather than assumed
 
@@ -491,12 +507,15 @@ attempt exhausted its turn budget with a candidate that still failed the Laplaci
 and regressed the nominal FFT check; only 6/10 locked drift offsets passed, the independent
 reviewer rejected it, and the parent skill was left untouched
 ([cassette](https://github.com/Dynamical-Systems-Research/proprio/tree/main/cassettes/microscopy-evolution)).
-The frozen cross-family round held to the same discipline: the North drift-evolution proposal
-failed its gates in the binding session and was rejected with promotion blocked, and a staged
-CLSLab engineering proposal was reduced to `HOLD` when its transport provenance violated the
-frozen provider allowlist. Cross-family drift evolution therefore remains mixed: demonstrated on
-the reduced-order development cases, correctly refused or held elsewhere, and never promoted
-without passing evidence.
+The frozen cross-family round held to the same discipline. The North drift-evolution proposal
+failed its gates in the binding session and was rejected with promotion blocked
+([record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/generalization-v0.3-binding/north-pipette-calibration/session-000/evolution/summary.json));
+two HELAO evolution episodes were likewise independently rejected
+([stop record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/generalization-v0.3/run-stop.json));
+and a staged CLSLab engineering proposal was reduced to `HOLD` when part of its transport ran on
+a provider outside the frozen allowlist. Cross-family drift evolution therefore remains mixed:
+demonstrated on the reduced-order development cases, correctly refused or held elsewhere, and
+never promoted without passing evidence.
 
 ### 5.6 Verification cost and engineering burden
 
