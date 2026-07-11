@@ -1,3 +1,5 @@
+"""Frozen cross-family qualification with persistent simulator-grounded repair."""
+
 from __future__ import annotations
 
 import hashlib
@@ -27,14 +29,22 @@ from proprio.agent import (
 )
 from proprio.artifacts import source_sha256, write_canonical_json
 from proprio.generalization_instruments import (
-    GENERALIZATION_INSTRUMENTS,
-    ExternalRuntimeUnavailable,
-    evaluate_generalization_skill,
-    external_simulator_identity,
-    load_generalization_source,
-    run_generalization_preflight,
+    GENERALIZATION_INSTRUMENTS as EXTERNAL_INSTRUMENTS,
 )
-from proprio.generalization_method import METHOD_INPUTS as METHOD_INPUTS_V03
+from proprio.generalization_instruments import (
+    ExternalRuntimeUnavailable,
+    external_simulator_identity,
+)
+from proprio.generalization_instruments import (
+    evaluate_generalization_skill as evaluate_external_skill,
+)
+from proprio.generalization_instruments import (
+    load_generalization_source as load_external_source,
+)
+from proprio.generalization_instruments import (
+    run_generalization_preflight as run_external_preflight,
+)
+from proprio.generalization_method import METHOD_INPUTS as PRIOR_METHOD_INPUTS
 from proprio.generalization_study import (
     EXPECTED_PROVIDER_ROUTE,
     EXPECTED_PROVIDERS,
@@ -56,9 +66,9 @@ from proprio.schema import canonical_json
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EVIDENCE_ROOT = ROOT / "artifacts/evidence/generalization-v0.3"
-DEFAULT_FREEZE_V04 = ROOT / "artifacts/evidence/generalization-v0.4/method-freeze/manifest.json"
+DEFAULT_FREEZE = ROOT / "artifacts/evidence/cross-family/method-freeze/manifest.json"
 
-BINDING_SEED_BASE_V04 = 2_400_000
+BINDING_SEED_BASE = 2_400_000
 DEFAULT_COMPACTION_BYTE_LIMIT = 240_000
 CAUSAL_VERIFIER_CYCLES = 4
 EVOLUTION_VERIFIER_CYCLES = 6
@@ -67,21 +77,21 @@ CAUSAL_TOKEN_BUDGET = 600_000
 EVOLUTION_MODEL_CALL_BUDGET = 96
 EVOLUTION_TOKEN_BUDGET = 900_000
 
-REPAIR_TRAJECTORY_SCHEMA = "proprio.generalization_repair_trajectory.v0.4"
-CAUSAL_PAIR_SCHEMA = "proprio.generalization_causal_pair.v0.4"
-EVOLUTION_SCHEMA = "proprio.generalization_evolution_proposal.v0.4"
-SESSION_SCHEMA = "proprio.generalization_session.v0.4"
-SESSION_MANIFEST_SCHEMA = "proprio.generalization_session_manifest.v0.4"
-METHOD_FREEZE_SCHEMA = "proprio.generalization_method_freeze.v0.4"
-METHOD_VERIFICATION_SCHEMA = "proprio.generalization_method_verification.v0.4"
-PANEL_SCHEMA = "proprio.generalization_panel.v0.4"
-PANEL_MANIFEST_SCHEMA = "proprio.generalization_panel_manifest.v0.4"
+REPAIR_TRAJECTORY_SCHEMA = "proprio.cross_family_repair_trajectory.v0.4"
+CAUSAL_PAIR_SCHEMA = "proprio.cross_family_causal_pair.v0.4"
+EVOLUTION_SCHEMA = "proprio.cross_family_evolution_proposal.v0.4"
+SESSION_SCHEMA = "proprio.cross_family_session.v0.4"
+SESSION_MANIFEST_SCHEMA = "proprio.cross_family_session_manifest.v0.4"
+METHOD_FREEZE_SCHEMA = "proprio.cross_family_method_freeze.v0.4"
+METHOD_VERIFICATION_SCHEMA = "proprio.cross_family_method_verification.v0.4"
+PANEL_SCHEMA = "proprio.cross_family_panel.v0.4"
+PANEL_MANIFEST_SCHEMA = "proprio.cross_family_panel_manifest.v0.4"
 
-METHOD_INPUTS_V04 = (
-    *METHOD_INPUTS_V03,
+METHOD_INPUTS = (
+    *PRIOR_METHOD_INPUTS,
     "src/proprio/agent.py",
-    "src/proprio/generalization_v04.py",
-    "src/proprio/data/generalization-v0.4-method.yaml",
+    "src/proprio/cross_family.py",
+    "src/proprio/data/cross-family-method.yaml",
 )
 
 TRAJECTORY_GOAL = (
@@ -93,7 +103,7 @@ TRAJECTORY_GOAL = (
     "replay admits. Return an honest HOLD when the execution evidence does not support a safe edit."
 )
 
-CLAIM_BOUNDARY_V04 = (
+CLAIM_BOUNDARY = (
     "Cross-family external-simulator replication of the persistent-context method. The three "
     "families are not untouched first-exposure families; they were screened before model use in "
     "v0.3 and reused here. Simulation-only pre-deployment qualification; real-hardware "
@@ -141,7 +151,7 @@ def _ensure_verifier_record(
     if record is not None and record.candidate_sha256 == current_hash:
         return state
     suite = evaluate_debug_suite(
-        state.current_candidate, conditions, evaluator=evaluate_generalization_skill
+        state.current_candidate, conditions, evaluator=evaluate_external_skill
     )
     view, _ = arm_feedback_view(suite, state.feedback_arm)
     return append_verifier_record(state, suite, exposed_view=view, checkpoint_dir=output_dir)
@@ -168,7 +178,7 @@ def _drive_persistent_trajectory(
         state = run_agent_cycle(
             state,
             client=client,
-            evaluator=evaluate_generalization_skill,
+            evaluator=evaluate_external_skill,
             source=source,
             conditions=conditions,
             checkpoint_dir=output_dir,
@@ -178,11 +188,11 @@ def _drive_persistent_trajectory(
         context_bytes_by_cycle.append(len(canonical_json(state.messages)))
 
     visible = evaluate_debug_suite(
-        state.current_candidate, conditions, evaluator=evaluate_generalization_skill
+        state.current_candidate, conditions, evaluator=evaluate_external_skill
     )
     write_canonical_json(output_dir / "visible-final.json", visible)
     locked = evaluate_debug_suite(
-        state.current_candidate, locked_conditions, evaluator=evaluate_generalization_skill
+        state.current_candidate, locked_conditions, evaluator=evaluate_external_skill
     )
     write_canonical_json(output_dir / "locked-qualification.json", locked)
 
@@ -253,7 +263,7 @@ def run_persistent_repair_trajectory(
     summary_path = output_dir / "trajectory-summary.json"
     if summary_path.is_file():
         return _read_json(summary_path)
-    source, source_hash = load_generalization_source(parent.instrument_id)
+    source, source_hash = load_external_source(parent.instrument_id)
     client = _agent_client()
     try:
         resumed = resume_agent_state(output_dir)
@@ -319,7 +329,7 @@ def run_persistent_causal_pair(
         write_canonical_json(summary_path, result)
         return result
 
-    source, source_hash = load_generalization_source(parent.instrument_id)
+    source, source_hash = load_external_source(parent.instrument_id)
     client = _agent_client()
     try:
         prefix = initial_agent_state(
@@ -372,7 +382,7 @@ def run_persistent_causal_pair(
         historical = evaluate_debug_suite(
             truthful_candidate,
             definition.acquisition_conditions,
-            evaluator=evaluate_generalization_skill,
+            evaluator=evaluate_external_skill,
         )
         write_canonical_json(output_dir / "truthful-historical-replay.json", historical)
         truthful_historical_verdict = historical.verdict
@@ -408,7 +418,7 @@ def run_persistent_evolution_proposal(
     if summary_path.is_file():
         return _read_json(summary_path)
     drift = evaluate_debug_suite(
-        parent, definition.evolution_conditions, evaluator=evaluate_generalization_skill
+        parent, definition.evolution_conditions, evaluator=evaluate_external_skill
     )
     write_canonical_json(output_dir / "drift-detection.json", drift)
     if drift.verdict != "REJECT":
@@ -439,10 +449,10 @@ def run_persistent_evolution_proposal(
     )
     proposal = CandidatePackage.model_validate(trajectory["final_candidate"])
     acquisition = evaluate_debug_suite(
-        proposal, definition.acquisition_conditions, evaluator=evaluate_generalization_skill
+        proposal, definition.acquisition_conditions, evaluator=evaluate_external_skill
     )
     evolution = evaluate_debug_suite(
-        proposal, definition.evolution_conditions, evaluator=evaluate_generalization_skill
+        proposal, definition.evolution_conditions, evaluator=evaluate_external_skill
     )
     qualified = bool(
         trajectory["qualified"] and acquisition.verdict == "ADMIT" and evolution.verdict == "ADMIT"
@@ -541,30 +551,30 @@ def _persistent_trajectories(causal: dict[str, Any], evolution: dict[str, Any]) 
     return rows
 
 
-def run_v04_session(
+def run_cross_family_session(
     instrument_id: str,
     output_dir: Path,
     *,
     session_index: int = 0,
-    freeze_path: Path = DEFAULT_FREEZE_V04,
-    seed_base: int = BINDING_SEED_BASE_V04,
+    freeze_path: Path = DEFAULT_FREEZE,
+    seed_base: int = BINDING_SEED_BASE,
     panel_manifest_sha256: str | None = None,
     compaction_byte_limit: int | None = DEFAULT_COMPACTION_BYTE_LIMIT,
 ) -> dict[str, Any]:
-    if instrument_id not in GENERALIZATION_INSTRUMENTS:
+    if instrument_id not in EXTERNAL_INSTRUMENTS:
         raise KeyError(instrument_id)
     output_dir = Path(output_dir)
-    freeze_verification = verify_v04_method(freeze_path)
+    freeze_verification = verify_cross_family_method(freeze_path)
     if freeze_verification["verdict"] != "PASS":
-        raise RuntimeError("v0.4 method freeze did not verify before model generation")
+        raise RuntimeError("cross-family method freeze did not verify before model generation")
     freeze = _read_json(freeze_path)
-    preflight = run_generalization_preflight(instrument_id)
+    preflight = run_external_preflight(instrument_id)
     if preflight.verdict != "PASS":
         raise RuntimeError("external simulator preflight failed before model generation")
 
-    definition = GENERALIZATION_INSTRUMENTS[instrument_id]
+    definition = EXTERNAL_INSTRUMENTS[instrument_id]
     session_seed = seed_base + session_index * 10_000
-    _, source_hash = load_generalization_source(instrument_id)
+    _, source_hash = load_external_source(instrument_id)
     output_dir.mkdir(parents=True, exist_ok=True)
     work_dir = output_dir / "work"
     session_manifest = _session_manifest_payload(
@@ -673,7 +683,7 @@ def run_v04_session(
         search = run_archive_search(
             instrument_id,
             conditions=definition.visible_conditions,
-            evaluator=evaluate_generalization_skill,
+            evaluator=evaluate_external_skill,
             draft=draft,
             repair=repair,
             preflight=preflight,
@@ -743,7 +753,7 @@ def run_v04_session(
 
     candidate_sha = _candidate_hash(search.selected.skill_py)
     seal = {
-        "schema_version": "proprio.generalization_selection_seal.v0.4",
+        "schema_version": "proprio.cross_family_selection_seal.v0.4",
         "instrument_id": instrument_id,
         "candidate_sha256": candidate_sha,
         "source_sha256": source_hash,
@@ -776,7 +786,7 @@ def run_v04_session(
         locked = evaluate_debug_suite(
             search.selected,
             definition.locked_conditions,
-            evaluator=evaluate_generalization_skill,
+            evaluator=evaluate_external_skill,
         )
         write_canonical_json(locked_path, locked)
         _bind_checkpoint(
@@ -923,18 +933,18 @@ def run_v04_session(
     return summary
 
 
-def run_v04_panel(
+def run_cross_family_panel(
     output_dir: Path,
     *,
-    instruments: tuple[str, ...] = tuple(GENERALIZATION_INSTRUMENTS),
-    freeze_path: Path = DEFAULT_FREEZE_V04,
-    seed_base: int = BINDING_SEED_BASE_V04,
+    instruments: tuple[str, ...] = tuple(EXTERNAL_INSTRUMENTS),
+    freeze_path: Path = DEFAULT_FREEZE,
+    seed_base: int = BINDING_SEED_BASE,
     compaction_byte_limit: int | None = DEFAULT_COMPACTION_BYTE_LIMIT,
 ) -> dict[str, Any]:
     output_dir = Path(output_dir)
-    freeze_verification = verify_v04_method(freeze_path)
+    freeze_verification = verify_cross_family_method(freeze_path)
     if freeze_verification["verdict"] != "PASS":
-        raise RuntimeError("v0.4 method freeze did not verify before the binding panel")
+        raise RuntimeError("cross-family method freeze did not verify before the binding panel")
     freeze = _read_json(freeze_path)
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
@@ -965,7 +975,7 @@ def run_v04_panel(
             families.append(_read_json(summary_path))
             continue
         try:
-            summary = run_v04_session(
+            summary = run_cross_family_session(
                 instrument_id,
                 session_dir,
                 session_index=0,
@@ -979,7 +989,7 @@ def run_v04_panel(
             summary = {
                 "schema_version": SESSION_SCHEMA,
                 "instrument_id": instrument_id,
-                "family": GENERALIZATION_INSTRUMENTS[instrument_id].family,
+                "family": EXTERNAL_INSTRUMENTS[instrument_id].family,
                 "session_index": 0,
                 "panel_manifest_sha256": panel_manifest_sha256,
                 "preflight_ok": False,
@@ -1007,7 +1017,7 @@ def run_v04_panel(
             "none; a family that fails preflight is recorded as HOLD and never substituted"
         ),
         "promotion_authority": "deterministic-execution-and-physical-gates",
-        "claim_boundary": CLAIM_BOUNDARY_V04,
+        "claim_boundary": CLAIM_BOUNDARY,
         "families": families,
         "verdict": verdict,
     }
@@ -1015,14 +1025,14 @@ def run_v04_panel(
     return result
 
 
-def freeze_v04_method(
+def freeze_cross_family_method(
     output_dir: Path,
     *,
     evidence_root: Path | None = None,
 ) -> dict[str, Any]:
     evidence_root = evidence_root or DEFAULT_EVIDENCE_ROOT
     evidence: dict[str, Any] = {}
-    for instrument_id in GENERALIZATION_INSTRUMENTS:
+    for instrument_id in EXTERNAL_INSTRUMENTS:
         preflight_path = evidence_root / "eligibility" / instrument_id / "preflight.json"
         metrology_path = evidence_root / "metrology" / instrument_id / "summary.json"
         preflight = _read_json(preflight_path)
@@ -1077,23 +1087,23 @@ def freeze_v04_method(
             "sha256": source_sha256(provider_path),
         },
     }
-    inputs = {relative: source_sha256(ROOT / relative) for relative in METHOD_INPUTS_V04}
+    inputs = {relative: source_sha256(ROOT / relative) for relative in METHOD_INPUTS}
     external_simulators = {
         instrument_id: external_simulator_identity(instrument_id)
-        for instrument_id in GENERALIZATION_INSTRUMENTS
+        for instrument_id in EXTERNAL_INSTRUMENTS
     }
     if any(row["verdict"] != "PASS" for row in external_simulators.values()):
         raise RuntimeError("an external simulator does not match its pinned revision")
     payload = {
         "schema_version": METHOD_FREEZE_SCHEMA,
         "status": "FROZEN_BEFORE_BINDING_PANEL",
-        "claim_boundary": CLAIM_BOUNDARY_V04,
+        "claim_boundary": CLAIM_BOUNDARY,
         "reused_evidence_root": str(evidence_root.relative_to(ROOT)),
         "reused_evidence_note": (
             "the committed generalization-v0.3 eligibility and verifier metrology evidence remains "
             "the verifier evidence for the persistent method and is referenced here as reused"
         ),
-        "selected_instruments": sorted(GENERALIZATION_INSTRUMENTS),
+        "selected_instruments": sorted(EXTERNAL_INSTRUMENTS),
         "inputs": inputs,
         "external_simulators": external_simulators,
         "evidence": evidence,
@@ -1106,7 +1116,7 @@ def freeze_v04_method(
     return payload
 
 
-def verify_v04_method(manifest_path: Path) -> dict[str, Any]:
+def verify_cross_family_method(manifest_path: Path) -> dict[str, Any]:
     payload = _read_json(manifest_path)
     expected = payload.pop("method_sha256", None)
     observed = hashlib.sha256(canonical_json(payload)).hexdigest()

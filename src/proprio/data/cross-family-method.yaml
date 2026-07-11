@@ -1,5 +1,5 @@
-schema_version: proprio.generalization_method.v0.4
-method_name: persistent-context v0.4
+schema_version: proprio.cross_family_method.v0.4
+method_name: persistent-agent
 status: engineering_smoke_complete_before_binding_freeze
 north_star_claim: >-
   Across three external scientific-instrument simulators screened before model use, DSV4 operating
@@ -11,7 +11,7 @@ claim_boundary: >-
   Cross-family external-simulator replication of the persistent-context method. The three families
   are not untouched first-exposure families; they were screened before model use in v0.3 and reused
   here. Simulation-only pre-deployment qualification; real-hardware qualification remains separate.
-generalization_axis:
+capability_axes:
   - exploratory across unfamiliar controller interfaces and physical observables
   - compositional across documentation use, execution, evidence inspection, repair, and cleanup
   - persistent across repeated verifier cycles within one continuous agent context

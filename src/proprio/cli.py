@@ -29,12 +29,12 @@ from proprio.confirmatory_study import (
     run_live_confirmatory_judges,
     run_live_confirmatory_study,
 )
-from proprio.engineering_burden import run_engineering_burden
-from proprio.generalization_v04 import (
-    freeze_v04_method,
-    run_v04_panel,
-    run_v04_session,
+from proprio.cross_family import (
+    freeze_cross_family_method,
+    run_cross_family_panel,
+    run_cross_family_session,
 )
+from proprio.engineering_burden import run_engineering_burden
 from proprio.heldout_preflight import import_heldout_preflight_evidence
 from proprio.history_repair import run_live_history_repair
 from proprio.independent_review import run_live_independent_review, summarize_independent_study
@@ -333,16 +333,16 @@ def _parser() -> argparse.ArgumentParser:
         required=True,
     )
 
-    generalization_v04_freeze = subparsers.add_parser("generalization-v04-freeze")
-    generalization_v04_freeze.add_argument("--output-dir", type=Path, required=True)
+    cross_family_freeze = subparsers.add_parser("cross-family-freeze")
+    cross_family_freeze.add_argument("--output-dir", type=Path, required=True)
 
-    generalization_v04_session = subparsers.add_parser("generalization-v04-session")
-    generalization_v04_session.add_argument("--instrument", required=True)
-    generalization_v04_session.add_argument("--output-dir", type=Path, required=True)
-    generalization_v04_session.add_argument("--session-index", type=int, default=0)
+    cross_family_session = subparsers.add_parser("cross-family-session")
+    cross_family_session.add_argument("--instrument", required=True)
+    cross_family_session.add_argument("--output-dir", type=Path, required=True)
+    cross_family_session.add_argument("--session-index", type=int, default=0)
 
-    generalization_v04_panel = subparsers.add_parser("generalization-v04-panel")
-    generalization_v04_panel.add_argument("--output-dir", type=Path, required=True)
+    cross_family_panel = subparsers.add_parser("cross-family-panel")
+    cross_family_panel.add_argument("--output-dir", type=Path, required=True)
 
     manifest = subparsers.add_parser("evidence-manifest")
     manifest.add_argument("--root", type=Path, default=Path.cwd())
@@ -589,16 +589,16 @@ def main(argv: list[str] | None = None) -> int:
             args.root,
             args.output_dir,
         )
-    elif args.command == "generalization-v04-freeze":
-        result = freeze_v04_method(args.output_dir)
-    elif args.command == "generalization-v04-session":
-        result = run_v04_session(
+    elif args.command == "cross-family-freeze":
+        result = freeze_cross_family_method(args.output_dir)
+    elif args.command == "cross-family-session":
+        result = run_cross_family_session(
             args.instrument,
             args.output_dir,
             session_index=args.session_index,
         )
-    elif args.command == "generalization-v04-panel":
-        result = run_v04_panel(args.output_dir)
+    elif args.command == "cross-family-panel":
+        result = run_cross_family_panel(args.output_dir)
     elif args.command == "evidence-manifest":
         result = build_evidence_manifest(args.root, args.output)
         errors = verify_evidence_manifest(args.root, result)

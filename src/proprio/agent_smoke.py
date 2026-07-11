@@ -8,6 +8,7 @@ from typing import Any
 from proprio.adaptive_search import evaluate_debug_suite
 from proprio.agent import (
     AgentModelConfig,
+    _progress,
     append_verifier_record,
     arm_feedback_view,
     initial_agent_state,
@@ -59,6 +60,7 @@ def run_persistent_smoke(
     parent_episode: Path | None = None,
 ) -> dict[str, Any]:
     definition = GENERALIZATION_INSTRUMENTS[instrument_id]
+    _progress("smoke-start", instrument=instrument_id, output=output_dir)
     identity = external_simulator_identity(instrument_id)
     source, source_sha256 = load_generalization_source(instrument_id)
     episode_path = parent_episode or DEFAULT_PARENT_EPISODES[instrument_id]
@@ -100,7 +102,12 @@ def run_persistent_smoke(
         )
         view, _ = arm_feedback_view(suite, state.feedback_arm)
         state = append_verifier_record(state, suite, exposed_view=view, checkpoint_dir=output_dir)
-        for _ in range(SMOKE_VERIFIER_CYCLES):
+        for cycle in range(SMOKE_VERIFIER_CYCLES):
+            _progress(
+                "smoke-cycle",
+                instrument=instrument_id,
+                cycle=f"{cycle + 1}/{SMOKE_VERIFIER_CYCLES}",
+            )
             state = run_agent_cycle(
                 state,
                 client=client,
@@ -192,4 +199,12 @@ def run_persistent_smoke(
         "verdict": verdict,
     }
     write_canonical_json(output_dir / "smoke-summary.json", summary)
+    _progress(
+        "smoke-finish",
+        instrument=instrument_id,
+        verdict=verdict,
+        status=state.status,
+        calls=state.consumed_model_calls,
+        tokens=state.consumed_tokens,
+    )
     return summary
