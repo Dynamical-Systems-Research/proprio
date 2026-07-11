@@ -27,6 +27,21 @@ judgment checkpoint.
 
 ## Current evidence boundary
 
+Under the frozen persistent-context protocol
+([method digest `c1a28d1e…7267`](artifacts/evidence/cross-family/method-freeze/manifest.json)),
+one binding session per external family produced an independently qualified skill on all three
+externally authored simulators — North pipette calibration, HELAO Gamry cyclic voltammetry, and
+the CLSLab light spectrometer. Each family reached `ADMIT` with locked qualification `PASS`, a
+qualified truthful-feedback repair, a `STAGED` drift-evolution proposal with zero historical
+regressions, zero invalid promotions, and transport inside the frozen provider allowlist
+([panel summary](cassettes/cross-family/summary.json)). One persistent agent context per
+trajectory carries prior actions, tool results, verifier records, and a repair ledger across
+cycles ([`src/proprio/agent.py`](src/proprio/agent.py)); promotion authority remains the
+deterministic execution, physical-validity, provenance, and locked gates. These families were
+screened during method development and are replication cases, not untouched first-exposure
+families; the no-feedback comparison arm still receives its own submission outcomes, so the
+paired contrast measures registered evidence against outcome-only iteration.
+
 Accumulated paired evidence establishes that simulator feedback changes DSV4's repair success:
 across 18 non-overlapping repair units, truthful feedback produced 14 non-regressive repairs and
 the same drafts without feedback produced none (exact one-sided paired p = 0.000061). The pooled
