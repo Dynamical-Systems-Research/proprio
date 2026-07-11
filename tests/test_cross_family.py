@@ -17,15 +17,15 @@ from proprio.adaptive_search import (
     evaluate_debug_suite,
 )
 from proprio.agent import resume_agent_state
-from proprio.generalization_instruments import load_generalization_source
-from proprio.generalization_v04 import (
-    freeze_v04_method,
+from proprio.cross_family import (
+    freeze_cross_family_method,
+    run_cross_family_session,
     run_persistent_causal_pair,
     run_persistent_evolution_proposal,
     run_persistent_repair_trajectory,
-    run_v04_session,
-    verify_v04_method,
+    verify_cross_family_method,
 )
+from proprio.generalization_instruments import load_generalization_source as load_external_source
 from proprio.instrument_types import (
     CandidatePackage,
     FeedbackArm,
@@ -207,7 +207,7 @@ def _install_client(monkeypatch, turns, *, total_tokens: int = 10) -> None:
     def factory() -> FakeClient:
         return FakeClient(turns, total_tokens=total_tokens)
 
-    monkeypatch.setattr("proprio.generalization_v04.DSV4Client", factory)
+    monkeypatch.setattr("proprio.cross_family.DSV4Client", factory)
 
 
 def _submit_args(skill_py: str, evidence: str, *, verdict: str = "ACCEPT") -> dict[str, Any]:
@@ -227,9 +227,9 @@ def _truthful_ref() -> str:
     return suite.conditions[0].failure_refs[0]
 
 
-def test_v04_method_budget_matches_v03_and_declares_persistent_context() -> None:
+def test_cross_family_method_budget_matches_v03_and_declares_persistent_context() -> None:
     protocol = yaml.safe_load(
-        (ROOT / "src/proprio/data/generalization-v0.4-method.yaml").read_text(encoding="utf-8")
+        (ROOT / "src/proprio/data/cross-family-method.yaml").read_text(encoding="utf-8")
     )
     budget = protocol["search_budget_per_session"]
     assert budget["initial_drafts"] == 6
@@ -247,15 +247,15 @@ def test_v04_method_budget_matches_v03_and_declares_persistent_context() -> None
     assert protocol["promotion"]["model_self_judgment_can_promote"] is False
 
 
-def test_v04_freeze_binds_current_bytes_and_verifies(tmp_path: Path) -> None:
-    manifest = freeze_v04_method(tmp_path)
+def test_cross_family_freeze_binds_current_bytes_and_verifies(tmp_path: Path) -> None:
+    manifest = freeze_cross_family_method(tmp_path)
     assert manifest["status"] == "FROZEN_BEFORE_BINDING_PANEL"
-    assert manifest["schema_version"] == "proprio.generalization_method_freeze.v0.4"
+    assert manifest["schema_version"] == "proprio.cross_family_method_freeze.v0.4"
     assert "src/proprio/agent.py" in manifest["inputs"]
-    assert "src/proprio/generalization_v04.py" in manifest["inputs"]
-    assert "src/proprio/data/generalization-v0.4-method.yaml" in manifest["inputs"]
+    assert "src/proprio/cross_family.py" in manifest["inputs"]
+    assert "src/proprio/data/cross-family-method.yaml" in manifest["inputs"]
     assert manifest["reused_evidence_root"] == "artifacts/evidence/generalization-v0.3"
-    verification = verify_v04_method(tmp_path / "manifest.json")
+    verification = verify_cross_family_method(tmp_path / "manifest.json")
     assert verification["verdict"] == "PASS"
     on_disk = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     assert on_disk["method_sha256"] == manifest["method_sha256"]
@@ -263,10 +263,10 @@ def test_v04_freeze_binds_current_bytes_and_verifies(tmp_path: Path) -> None:
 
 def test_session_refuses_when_freeze_verification_fails(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
-        "proprio.generalization_v04.verify_v04_method", lambda _path: {"verdict": "FAIL"}
+        "proprio.cross_family.verify_cross_family_method", lambda _path: {"verdict": "FAIL"}
     )
     with pytest.raises(RuntimeError):
-        run_v04_session(
+        run_cross_family_session(
             "helao-gamry-cv",
             tmp_path,
             freeze_path=tmp_path / "freeze.json",
@@ -274,14 +274,14 @@ def test_session_refuses_when_freeze_verification_fails(monkeypatch, tmp_path: P
 
 
 def test_trajectory_candidate_summary_carries_context_and_ledger_metrics(
-    monkeypatch, tmp_path: Path
+    monkeypatch, tmp_path: Path, capsys
 ) -> None:
     monkeypatch.setattr(
-        "proprio.generalization_v04.load_generalization_source",
+        "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.evaluate_generalization_skill", _RANGE_EVALUATOR
+        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
     )
     evidence = _truthful_ref()
     _install_client(
@@ -317,15 +317,19 @@ def test_trajectory_candidate_summary_carries_context_and_ledger_metrics(
     assert result["final_sha256"] == hashlib.sha256((REPAIRED.rstrip() + "\n").encode()).hexdigest()
     assert result["candidate_chain_sha256"][0] == result["parent_sha256"]
     assert result["model_call_efficiency"] == 1.0 / result["consumed_model_calls"]
+    progress = capsys.readouterr().err
+    assert "[proprio] provider-call turn=1 attempt=1" in progress
+    assert "[proprio] tool-result tool=submit_repair status=captured terminal=True" in progress
+    assert "[proprio] agent-finish instrument=adaptive-fixture status=CANDIDATE" in progress
 
 
 def test_trajectory_budget_exhaustion_is_not_qualified(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
-        "proprio.generalization_v04.load_generalization_source",
+        "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.evaluate_generalization_skill", _RANGE_EVALUATOR
+        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
     )
     _install_client(monkeypatch, [[("read_current_skill", {})]])
     result = run_persistent_repair_trajectory(
@@ -347,11 +351,11 @@ def test_trajectory_budget_exhaustion_is_not_qualified(monkeypatch, tmp_path: Pa
 
 def test_trajectory_locked_failure_prevents_qualification(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
-        "proprio.generalization_v04.load_generalization_source",
+        "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.evaluate_generalization_skill", _DRIFT_LOCKED_EVALUATOR
+        "proprio.cross_family.evaluate_external_skill", _DRIFT_LOCKED_EVALUATOR
     )
     evidence = _truthful_ref()
     _install_client(
@@ -382,11 +386,11 @@ def test_trajectory_locked_failure_prevents_qualification(monkeypatch, tmp_path:
 
 def test_trajectory_duplicate_and_self_accept_cannot_admit(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
-        "proprio.generalization_v04.load_generalization_source",
+        "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.evaluate_generalization_skill", _RANGE_EVALUATOR
+        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
     )
     evidence = _truthful_ref()
     _install_client(
@@ -428,11 +432,11 @@ def test_resume_of_completed_trajectory_returns_cache_without_client(
     monkeypatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(
-        "proprio.generalization_v04.load_generalization_source",
+        "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.evaluate_generalization_skill", _RANGE_EVALUATOR
+        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
     )
     evidence = _truthful_ref()
     _install_client(
@@ -460,7 +464,7 @@ def test_resume_of_completed_trajectory_returns_cache_without_client(
         def __init__(self) -> None:
             raise AssertionError("client constructed on a completed trajectory resume")
 
-    monkeypatch.setattr("proprio.generalization_v04.DSV4Client", _RaisingClient)
+    monkeypatch.setattr("proprio.cross_family.DSV4Client", _RaisingClient)
     again = run_persistent_repair_trajectory(
         _candidate(),
         definition=None,
@@ -486,14 +490,14 @@ def test_causal_arms_share_prefix_and_isolate_post_branch(monkeypatch, tmp_path:
         acquisition_conditions=(CONDITION,),
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.load_generalization_source",
+        "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.evaluate_generalization_skill", _RANGE_EVALUATOR
+        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04._select_causal_parent",
+        "proprio.cross_family._select_causal_parent",
         lambda _search, _instrument_id: parent,
     )
     truthful_ref = _truthful_ref()
@@ -556,11 +560,11 @@ def test_historical_regression_prevents_evolution_staged(monkeypatch, tmp_path: 
         ),
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.evaluate_generalization_skill", _REGRESSING_EVALUATOR
+        "proprio.cross_family.evaluate_external_skill", _REGRESSING_EVALUATOR
     )
     proposal = _candidate(DRIFT_FIX)
     monkeypatch.setattr(
-        "proprio.generalization_v04.run_persistent_repair_trajectory",
+        "proprio.cross_family.run_persistent_repair_trajectory",
         lambda *args, **kwargs: {
             "qualified": True,
             "locked_verdict": "ADMIT",
@@ -612,7 +616,7 @@ def _fake_search(instrument_id: str, source_hash: str) -> SearchReport:
 
 def test_session_summary_reports_full_evaluation_matrix(monkeypatch, tmp_path: Path) -> None:
     instrument_id = "helao-gamry-cv"
-    _, source_hash = load_generalization_source(instrument_id)
+    _, source_hash = load_external_source(instrument_id)
     search = _fake_search(instrument_id, source_hash)
     admit_suite = DebugSuiteResult(
         instrument_id=instrument_id,
@@ -622,26 +626,26 @@ def test_session_summary_reports_full_evaluation_matrix(monkeypatch, tmp_path: P
     )
 
     monkeypatch.setattr(
-        "proprio.generalization_v04.verify_v04_method", lambda _path: {"verdict": "PASS"}
+        "proprio.cross_family.verify_cross_family_method", lambda _path: {"verdict": "PASS"}
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04._read_json", lambda _path: {"method_sha256": "method"}
+        "proprio.cross_family._read_json", lambda _path: {"method_sha256": "method"}
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.run_generalization_preflight",
+        "proprio.cross_family.run_external_preflight",
         lambda _instrument_id: FixturePreflightReport(cases=(), verdict="PASS"),
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.run_archive_search", lambda *args, **kwargs: search
+        "proprio.cross_family.run_archive_search", lambda *args, **kwargs: search
     )
 
     def locked_after_seal(*args, **kwargs):
         assert (tmp_path / "selection-seal.json").is_file()
         return admit_suite
 
-    monkeypatch.setattr("proprio.generalization_v04.evaluate_debug_suite", locked_after_seal)
+    monkeypatch.setattr("proprio.cross_family.evaluate_debug_suite", locked_after_seal)
     monkeypatch.setattr(
-        "proprio.generalization_v04.run_persistent_causal_pair",
+        "proprio.cross_family.run_persistent_causal_pair",
         lambda *args, **kwargs: {
             "status": "ELIGIBLE",
             "shared_prefix_sha256": "abc",
@@ -670,7 +674,7 @@ def test_session_summary_reports_full_evaluation_matrix(monkeypatch, tmp_path: P
         },
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04.run_persistent_evolution_proposal",
+        "proprio.cross_family.run_persistent_evolution_proposal",
         lambda *args, **kwargs: {
             "status": "STAGED",
             "drift_detected": True,
@@ -685,11 +689,11 @@ def test_session_summary_reports_full_evaluation_matrix(monkeypatch, tmp_path: P
         },
     )
     monkeypatch.setattr(
-        "proprio.generalization_v04._transport_evidence",
+        "proprio.cross_family._transport_evidence",
         lambda _path: {"verdict": "PASS", "total_cost_usd": 0.0},
     )
 
-    summary = run_v04_session(
+    summary = run_cross_family_session(
         instrument_id,
         tmp_path,
         session_index=0,

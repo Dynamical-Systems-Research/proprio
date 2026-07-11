@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 import time
 from collections.abc import Sequence
 from pathlib import Path
@@ -103,6 +104,12 @@ present in this context.
 """
 
 PERSISTENT_SYSTEM_PROMPT = ADAPTIVE_SKILL_ENGINEER_SYSTEM_PROMPT + PERSISTENT_AGENT_CONTRACT
+
+
+def _progress(event: str, **fields: Any) -> None:
+    details = " ".join(f"{name}={value}" for name, value in fields.items())
+    suffix = f" {details}" if details else ""
+    print(f"[proprio] {event}{suffix}", file=sys.stderr, flush=True)
 
 
 def arm_feedback_view(
@@ -308,6 +315,13 @@ def append_verifier_record(
     )
     if checkpoint_dir is not None:
         _write_step(new_state, Path(checkpoint_dir))
+    _progress(
+        "verifier-record",
+        instrument=state.instrument_id,
+        step=step_index,
+        verdict=suite.verdict,
+        candidate=current_hash[:12],
+    )
     return new_state
 
 
@@ -343,6 +357,7 @@ def _complete_with_retry(
         "seed": request["seed"],
     }
     for attempt in range(1, TRANSPORT_ATTEMPTS_PER_MODEL_TURN + 1):
+        _progress("provider-call", turn=model_turn + 1, attempt=attempt)
         try:
             candidate = create(**request)
         except Exception as exc:
@@ -363,6 +378,12 @@ def _complete_with_retry(
             )
             if not will_retry:
                 raise
+            _progress(
+                "provider-retry",
+                turn=model_turn + 1,
+                attempt=attempt,
+                status=status_code or "transport-error",
+            )
             time.sleep(_transport_retry_delay(status_code, attempt))
             continue
         if _response_has_message(candidate):
@@ -409,6 +430,13 @@ def run_agent_cycle(
     consumed_tokens = state.consumed_tokens
     step_index = state.step_index
     exposed_refs = _exposed_refs(messages)
+    _progress(
+        "agent-cycle",
+        instrument=state.instrument_id,
+        step=step_index,
+        calls=f"{consumed_model_calls}/{state.model_call_budget}",
+        tokens=f"{consumed_tokens}/{state.token_budget}",
+    )
 
     def snapshot(status: str) -> AgentState:
         return AgentState(
@@ -554,7 +582,14 @@ def run_agent_cycle(
             "seed": state.run_config.seed,
         }
         consumed_model_calls += 1
-        consumed_tokens += _usage_total(response)
+        response_tokens = _usage_total(response)
+        consumed_tokens += response_tokens
+        _progress(
+            "model-response",
+            turn=consumed_model_calls,
+            tokens=response_tokens,
+            total_tokens=consumed_tokens,
+        )
         calls = message.tool_calls or []
         if not calls and not message.content:
             assistant["content"] = "[reasoning-only response; no action emitted]"
@@ -587,7 +622,14 @@ def run_agent_cycle(
             messages.append(
                 {"role": "tool", "tool_call_id": call.id, "content": _json_content(result)}
             )
+            _progress(
+                "tool-result",
+                tool=name,
+                status=result.get("status", status),
+                terminal=terminal,
+            )
             if terminal:
+                _progress("agent-finish", instrument=state.instrument_id, status=status)
                 return checkpoint(status)
             checkpoint("ACTIVE")
 
