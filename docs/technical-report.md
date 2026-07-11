@@ -17,26 +17,29 @@ record it comes from.*
 ## Abstract
 
 Scientific agents increasingly need to operate instruments — run a scan, deliver a reagent, hold a
-temperature — rather than only reason about datasets those instruments have already produced.
-Autonomous-laboratory infrastructure supplies open control interfaces and increasingly capable
-simulation, and recent agent demonstrations show that models can operate advanced instruments and
-accumulate reusable procedural knowledge; the unresolved question is how an agent-generated
-operating procedure earns admission into a laboratory's trusted capability set. Proprio is an
-open-source method that converts instrument documentation into executable operating skills through
-bounded inference-time search against an instrument simulator, then subjects every candidate to
-independent execution and physics checks, a one-shot locked validation on conditions hidden during
-development, and fail-closed admission that the generating model cannot override. On the recorded
-evidence, truthful simulator feedback produced 14 of 18 paired non-regressive skill repairs where
-the identical drafts produced 0 of 18 without feedback (exact one-sided paired p = 0.000061); ten
-independent generations per instrument qualified 60/60 candidates across six simulated instruments
-in three families; under a frozen documentation-to-skill protocol, the drafting model produced
-independently simulation-qualified skills across three externally authored instrument families —
-liquid handling, electrochemistry, and optical spectroscopy; and the independent gates rejected or
-held every invalid result, including a plausible draft the drafting model had itself approved and
-a proposal whose transport provenance violated the frozen provider allowlist. The implication is
-that fast simulation and independent verification can turn test-time compute into qualified
-instrument capability in simulation — cross-family drift evolution is not yet established, and
-qualification on real hardware remains a separate, explicitly unfinished gate.
+temperature — rather than only reason about data those instruments have already produced.
+Laboratory infrastructure now supplies open control interfaces and capable simulation, and recent
+agent demonstrations show that models can operate advanced instruments and accumulate reusable
+procedural knowledge. The unresolved question is narrower: how does an agent-generated operating
+procedure earn admission into a laboratory's trusted capability set?
+
+Proprio is an open-source method built around that question. It converts instrument documentation
+into executable operating skills through bounded inference-time search against a simulator. Every
+candidate then faces gates the generating model cannot override: independent execution and physics
+checks, a one-shot qualification run on locked conditions hidden during development, and
+fail-closed admission.
+
+Four results hold on the recorded evidence. Truthful simulator feedback produced 14 of 18 paired
+non-regressive repairs where the identical drafts produced 0 of 18 without feedback (exact
+one-sided paired p = 0.000061). Ten independent generations per instrument qualified 60/60
+candidates across six simulated instruments in three families. Under a frozen
+documentation-to-skill protocol, the drafting model produced independently simulation-qualified
+skills across three externally authored instrument families: liquid handling, electrochemistry,
+and optical spectroscopy. And the gates rejected or held every invalid result, including a
+plausible draft the drafting model had itself approved and a proposal whose transport provenance
+violated the frozen provider allowlist. Fast simulation and independent verification can turn
+test-time compute into qualified instrument capability in simulation. Cross-family drift evolution
+is not yet established, and qualification on real hardware remains a separate, unfinished gate.
 
 ## 1. Scientific agents need qualified instrument capabilities
 
@@ -49,11 +52,11 @@ modular composition. That argument has largely been won at the interface level: 
 laboratory hardware is reachable through documented APIs, drivers, and orchestration frameworks.
 
 An open API, however, only makes an instrument *accessible* to an agent. It does not establish
-that an operating procedure the agent wrote is correct — that the ramp rate respects the hardware,
+that an operating procedure the agent wrote is correct: that the ramp rate respects the hardware,
 that the measurement it produces is physically meaningful, or that a revision made next month
-still handles the conditions that worked last month. The missing object between "the agent can
-call the instrument" and "the laboratory can rely on the result" is a portable, inspectable,
-independently qualified **instrument skill**: an operating procedure packaged with its evidence.
+still handles the conditions that worked last month. What is missing between "the agent can call
+the instrument" and "the laboratory can rely on the result" is an independently qualified
+**instrument skill**: an operating procedure packaged with its evidence.
 
 ### 1.2 A composable laboratory also needs composable procedural capability
 
@@ -69,7 +72,7 @@ orchestration, and digital twins for exercising all of the above without consumi
 
 Proprio is not another orchestration system or instrument protocol. It is a capability and
 qualification layer that sits above these substrates: it consumes their documentation and
-simulators as inputs and emits qualified skills — with provenance and test evidence — that
+simulators as inputs and emits qualified skills, packaged with provenance and test evidence, that
 orchestration layers can then call.
 
 ### 1.3 The generation–verification gap
@@ -77,16 +80,16 @@ orchestration layers can then call.
 Recent agent systems demonstrate that instrument operation by language-model agents is feasible.
 The [agentic X-ray scientist](https://www.nature.com/articles/s42256-026-01261-5) of Chen et al.
 practiced in a virtual six-circle beamline before supervised real deployment, adapted to an
-approximately 1.22° motor offset, and reused that correction when locating a second reflection —
+approximately 1.22° motor offset, and reused that correction when locating a second reflection,
 while explicitly treating the limited real-beamline trials as proof-of-concept rather than
 statistical evidence. The ["learn on the job"
 agents](https://www.nature.com/articles/s41524-026-02005-0) of Vriza et al. operate real X-ray
 nanoprobe and robotic thin-film workflows, storing human feedback as reusable memory with human
 approval before execution.
 
-These systems establish that agents can *generate* and *adapt* operating behavior. Proprio asks
+These systems establish that agents can *generate* and *adapt* operating behavior. Proprio tests
 the complementary question: can an agent acquire and repair procedural capability from instrument
-sources alone, under a protocol in which it is structurally unable to approve its own mistakes —
+sources alone, under a protocol in which it is structurally unable to approve its own mistakes,
 and can the resulting evidence be replayed, audited, and held to preregistered thresholds?
 
 ### 1.4 Contributions
@@ -95,14 +98,13 @@ and can the resulting evidence be replayed, audited, and held to preregistered t
   open-source code with schemas, simulators, verifiers, and a hash-bound skill catalog.
 - A **causal evaluation protocol** that separates simulator-grounded repair from repeated
   generation, using paired interventions from identical drafts.
-- An **open evidence and skill format** exercised across scientific-instrument families —
-  including drift-triggered evolution and fail-closed promotion — with every failure preserved in
+- An **open evidence and skill format** exercised across scientific-instrument families,
+  including drift-triggered evolution and fail-closed promotion, with every failure preserved in
   the public record.
 
 ## 2. Related systems and the remaining seam
 
-Organized by function rather than chronology; each of these systems contributes something Proprio
-depends on or deliberately does not rebuild.
+Each system below contributes something Proprio depends on or deliberately does not rebuild.
 
 ### 2.1 Instrument and laboratory infrastructure
 
@@ -118,24 +120,24 @@ substrate a qualified skill executes against.
 spanning robotic manipulation, liquids, powders, devices, heat transfer, and reaction semantics.
 NVIDIA's [4D Digital Twins](https://research.nvidia.com/labs/amri/projects/4DDT/2026/) agenda
 frames real-to-sim-to-real physical AI around sim-ready representations and physically grounded
-training. These provide the environments in which capability can be exercised cheaply — exactly
-the property Proprio's search loop consumes. (Proprio ships an optional MatteriX adapter that
-currently reports itself honestly
+training. These provide the environments in which capability can be exercised cheaply, which is
+the property Proprio's search loop consumes. Proprio ships an optional MatteriX adapter; it
+reports
 [`unavailable`](https://github.com/Dynamical-Systems-Research/proprio/blob/main/docs/matterix-adapter.md)
-rather than claiming an untested pass.)
+rather than an untested pass.
 
 ### 2.3 Procedural skill acquisition and improvement
 
 [Hermes `/learn`](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills#learning-a-skill-from-sources-learn)
-authors reusable skills from documentation, directories, URLs, or prior workflows — Proprio adopts
+authors reusable skills from documentation, directories, URLs, or prior workflows; Proprio adopts
 this learn-from-sources interface. [SkillOpt](https://github.com/microsoft/SkillOpt) optimizes
 textual skills through trajectory-driven edits and held-out validation.
 [ASPIRE](https://research.nvidia.com/labs/gear/aspire/) inspects robotic execution traces, repairs
-control programs, validates by re-execution, and accumulates reusable skills — Proprio follows its
+control programs, validates by re-execution, and accumulates reusable skills; Proprio follows its
 debug-versus-locked-validation discipline. [Voyager](https://arxiv.org/abs/2305.16291) introduced
 the executable skill library with iterative environment feedback. On the inference side, [Snell et
 al.](https://arxiv.org/abs/2408.03314) show that adaptive search and verifier-guided selection let
-additional inference-time compute substitute for model scale — the result Proprio applies to
+additional inference-time compute substitute for model scale. Proprio applies that result to
 procedural capability rather than answer selection.
 
 ### 2.4 Where the seam remains
@@ -148,9 +150,9 @@ procedural capability rather than answer selection.
 | Robotics skill-discovery systems | Yes | Yes | Yes | Task-success validation | Varies |
 | **Proprio** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
 
-**Table 1.** Positioning against adjacent systems. No single ingredient is new; the contribution
-is the composition, and specifically where the admission authority sits: in instrument-specific
-execution and physics checks that the generating model cannot override.
+**Table 1.** Positioning against adjacent systems. No single ingredient is new. The contribution
+is the composition: admission authority sits in instrument-specific execution and physics checks
+that the generating model cannot override.
 
 ## 3. Proprio
 
@@ -159,7 +161,7 @@ execution and physics checks that the generating model cannot override.
 | Object | Definition |
 |---|---|
 | Instrument sources | Manuals, API/driver documentation, and operating limits shown to the model. |
-| Controller contract | The permitted commands and observable state — nothing else is callable. |
+| Controller contract | The permitted commands and observable state; nothing else is callable. |
 | Simulator | Executable instrument or process behavior, with explicit reset and failure semantics. |
 | Physical contract | Independent, machine-checkable requirements for a valid operation and measurement (e.g., delivered volume within 0.10 mL at certified 0.050 mL/rev calibration). |
 | Skill package | `SKILL.md` operating procedure, bounded control code, provenance hashes, and a link to the qualification record, hash-bound in [`catalog.json`](https://github.com/Dynamical-Systems-Research/proprio/blob/main/catalog.json). |
@@ -186,33 +188,36 @@ The governing principle:
 
 **Figure 1.** The complete loop. The model reads sources and drafts procedures (left), interacts
 with the simulator and repairs from execution evidence (center), and every candidate passes
-through independent execution and physical qualification, locked validation, and fail-closed
+through independent execution and physics checks, locked qualification, and fail-closed
 admission (right). Drift detection re-enters the loop as a staged evolution proposal. A separate
 hardware gate stands between everything shown here and a real instrument.
 
 ### 3.3 Inference-time skill search
 
-Skill acquisition is organized as verifier-guided test-time compute. The model produces multiple
-independent drafts (four, in the current frozen configuration) in a bounded, executable control
-dialect — finite loops, observation-conditioned branches, explicit call limits, no exception
-swallowing, no access to hidden simulator state. Each draft executes against visible simulator
-conditions with every action, instrument response, and measurement recorded. A small archive
-(two candidates, selected on execution, physical validity, safety, and provenance) survives into
-evidence-guided repair: the model must inspect the execution record, cite evidence identifiers
+Skill acquisition is organized as verifier-guided test-time compute. The model writes four
+independent drafts in a bounded, executable control dialect: a restricted command language with
+finite loops, observation-conditioned branches, and explicit call limits, and with no exception
+swallowing and no access to hidden simulator state. Each draft executes against **visible**
+simulator conditions, meaning conditions whose full execution evidence the model may read, and
+every action, instrument response, and measurement is recorded. Two candidates survive into
+repair, selected on execution, physical validity, safety, and provenance.
+
+Repair is evidence-bound. The model must inspect the execution record, cite evidence identifiers
 that actually appear in the trace, submit a bounded edit, and replay. Budgets are fixed in
-advance — at most four repair rounds and twelve generated candidates per acquisition, with
-episode horizons of 2–12 model turns in the study configurations. A successful patch with
-fabricated provenance is ineligible for packaging.
+advance: at most four repair rounds and twelve generated candidates per acquisition, with episode
+horizons of 2–12 model turns in the study configurations. A successful patch with fabricated
+provenance is ineligible for packaging.
 
 ### 3.4 Qualification and promotion
 
-Development happens on **visible** conditions, where the model sees full execution evidence.
-Qualification ends with a one-shot run on **locked** conditions that were hidden during
-development, with no feedback. Deterministic execution and physical checks are authoritative
-throughout. A model reviewer (or a human) may veto or hold a candidate, but nothing may rescue a
-failed deterministic check. Outcomes are an honest three-way `ADMIT` / `REJECT` / `HOLD`; a `HOLD`
-(insufficient evidence to decide) is reported as such rather than converted into a pass or
-silently retried.
+Development happens on visible conditions. Qualification ends with a one-shot run on **locked**
+conditions that were hidden during development, with no feedback. Deterministic execution and
+physics checks are authoritative throughout. A model reviewer (or a human) may veto or hold a
+candidate, but its opinion is advisory input to the decision, never the decision itself, and
+nothing may rescue a failed deterministic check. Admission is **fail-closed**: a candidate is
+admitted only when every deterministic check passes, and any failure, missing evidence, or
+unresolved veto resolves to `REJECT` or `HOLD` (insufficient evidence to decide), never to a
+pass. A `HOLD` is reported as such rather than converted into a pass or silently retried.
 
 ### 3.5 Drift and skill evolution
 
@@ -220,8 +225,8 @@ When a versioned simulator change makes a previously admitted skill fail, Propri
 repair as a new admission problem, not an edit-in-place. The model generates an evolution proposal
 from the observed drift evidence; the proposal must pass the changed condition, replay the full
 historical set that previously worked (nominal behavior and prior repairs), and pass a fresh
-locked sweep. Only a fully passing proposal is staged — with parent, rollback, evidence,
-simulator, verifier, and validation hashes — and the previously admitted skill remains immutable.
+locked sweep. Only a fully passing proposal is staged, with parent, rollback, evidence,
+simulator, verifier, and validation hashes, and the previously admitted skill remains immutable.
 A failed proposal is rejected and the parent is retained unchanged.
 
 ### 3.6 Pre-deployment boundary
@@ -239,7 +244,7 @@ public catalog carries `hardware_qualification_required: true`, without exceptio
 - **RQ2** — Does simulator evidence *causally* improve repair, beyond retrying generation?
 - **RQ3** — Can independent gates prevent invalid promotion, including self-approved mistakes?
 - **RQ4** — Does the method operate across distinct instrument families?
-- **RQ5** — Can it detect drift and stage regression-free evolution?
+- **RQ5** — Can it detect drift and stage non-regressive evolution?
 
 ### 4.2 Instrument families and evidence cohorts
 
@@ -263,7 +268,8 @@ Each paired unit starts from the *same* parent draft and model configuration and
 one receives truthful, structured simulator evidence (execution trace, failed checks, telemetry);
 the other receives no feedback. Success requires an actual code change, qualification on the
 visible conditions, qualification on the locked conditions, and no regression on previously
-working behavior. The principal mechanism analysis uses 18 non-overlapping paired units pooled
+working behavior; a repair meeting all four is called **non-regressive**. The principal mechanism
+analysis uses 18 non-overlapping paired units pooled
 across three protocol generations — the frozen six-instrument confirmatory panel (6 units), the
 eight-instrument diagnostic panel (8), and the final-protocol OpenFlexure development trials
 (4)&nbsp;— with an exact one-sided McNemar test on the discordant pairs
@@ -273,11 +279,11 @@ a single frozen-protocol success rate.
 
 ### 4.4 Verifier metrology
 
-Trusting the gates requires measuring the gates. Every verifier is exercised against labeled valid
-and invalid batteries with per-class false-admission and false-rejection reporting; physical
-quantities are computed independently of the simulator's own internals (e.g., the microscopy
-verifier never reads the simulator's focus score — it checks stage position, frame integrity, and
-two separately implemented image-sharpness calculations). Batteries include an always-valid
+Every verifier is exercised against labeled valid and invalid batteries with per-class
+false-admission and false-rejection reporting. Physical quantities are computed independently of
+the simulator's own internals: the microscopy verifier, for example, never reads the simulator's
+focus score, and instead checks stage position, frame integrity, and two separately implemented
+image-sharpness calculations. Batteries include an always-valid
 adversary that claims every measurement is good, and adversarial cases that execute successfully
 but are physically invalid. Fixed-index samples of raw records are inspected by hand and
 countersigned.
@@ -288,26 +294,39 @@ Sources, simulator revisions, prompts, budgets, provider route, seeds, and thres
 and recorded per run. The v0.3 method was frozen before binding exposure at digest `eef835…6b1`:
 the three cross-family instruments, upstream revisions, source bundles, prompts, control dialect,
 search budgets, thresholds, provider allowlist, and promotion rules are hash-bound, and no failing
-family may be replaced. Canonical records are byte-deterministic; captured model interactions are
-stored as cassettes so CI replays the full admission chain offline (fresh generation is a
-separate release gate). The locked test suite (196 tests) asserts the *failed* research claims —
-the external-family rejection, the reviewer-panel mismatch, the rejected evolution proposal — so
-they cannot silently become passes. Engineering-smoke, diagnostic, and binding evidence are
-explicitly separated, and 51 invalidated runs are retained under
+family may be replaced. The **provider allowlist** names the model-provider routes permitted for a
+binding run; **transport provenance** is the route each call actually used. A result whose
+transport provenance falls outside the allowlist cannot be promoted.
+
+Evidence is tiered. A **binding** run executes under the frozen method digest and counts toward a
+preregistered claim. An **engineering** run is exploratory, used to build and exercise the
+machinery, and never counts. **Diagnostic** evidence comes from method development and is likewise
+excluded from confirmatory claims. The tiers are kept separate throughout this report, and 51
+invalidated runs are retained under
 [`artifacts/invalidated/`](https://github.com/Dynamical-Systems-Research/proprio/tree/main/artifacts/invalidated)
-for audit rather than deleted. The evidence manifest binds 158 release artifacts by hash.
+for audit rather than deleted.
+
+Canonical records are byte-deterministic, and captured model interactions are stored as cassettes
+so CI replays the full admission chain offline; fresh generation is a separate release gate. The
+locked test suite (196 tests) asserts the *failed* research claims — the external-family
+rejection, the reviewer-panel mismatch, the rejected evolution proposal — so they cannot silently
+become passes. The evidence manifest binds 158 release artifacts by hash.
 
 ## 5. Results
 
 ### 5.1 Documentation becomes executable instrument operation
 
-In the [70-generation replication
+The [70-generation replication
 study](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/replication-dsv4/summary.json)
-(ten independent generations per instrument, unique seeds, temperature 0.7, top-p 0.95), 68/70
-initial drafts executed (97.1%; Wilson 95% CI 90.2–99.2%), 61/70 initial measurements were
-physically valid (87.1%), and 64/70 final candidates passed every check (91.4%; Wilson 95% CI
-82.5–96.0%). The six confirmatory instruments qualified **60/60**. The externally authored
-OpenFlexure microscope is the honest boundary of that result: 10/10 drafts executed, but only
+ran ten independent generations per instrument with unique seeds, temperature 0.7, and top-p 0.95.
+Three rates summarize it:
+
+- Initial drafts that executed: 68/70 (97.1%; Wilson 95% CI 90.2–99.2%).
+- Initial measurements that were physically valid: 61/70 (87.1%).
+- Final candidates that passed every check: 64/70 (91.4%; Wilson 95% CI 82.5–96.0%).
+
+The six confirmatory instruments qualified **60/60**. The externally authored
+OpenFlexure microscope marks the limit of that result: 10/10 drafts executed, but only
 **4/10** final candidates passed the locked physical sweep against the frozen ≥8/10 threshold —
 recorded as a failed breadth gate, with all six unqualified candidates rejected and no microscope
 skill admitted. In the separate development cohort, DSV4 also compiled a correct Keithley
@@ -315,10 +334,10 @@ skill admitted. In the separate development cohort, DSV4 also compiled a correct
 ([admission artifact](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/skill-admission/summary.json)).
 
 The frozen cross-family round extends the acquisition result to externally authored control
-interfaces: under the v0.3 protocol, DSV4 produced an executable, physically qualified,
-locked-condition skill for each of the three families — North Robotics pipette calibration,
-HELAO Gamry cyclic voltammetry, and the CLSLab light spectrometer — with independent gate
-decisions of `ADMIT`/`PASS` (§5.4).
+interfaces. Under the v0.3 protocol, DSV4 produced an executable, physically qualified,
+locked-condition skill for each of the three families (North Robotics pipette calibration, HELAO
+Gamry cyclic voltammetry, and the CLSLab light spectrometer), with independent gate decisions of
+`ADMIT`/`PASS` (§5.4).
 
 ### 5.2 Simulator evidence causes successful repair
 
@@ -332,10 +351,10 @@ cohort showed positive uplift: 6/6 on the confirmatory panel (bootstrap 95% upli
 | Truthful simulator evidence | 6 | 5 | 3 | **14** |
 | No feedback (same drafts) | 0 | 0 | 0 | **0** |
 
-**Figure 2.** Paired intervention outcomes per protocol generation
+**Table 3.** Paired intervention outcomes per protocol generation
 ([synthesis artifact](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/generated/accumulated-causal-evidence/summary.json)).
-The two panel cohorts score a repair as agent status `CANDIDATE`, target verdict `ADMIT`, and no
-historical regression; the OpenFlexure development trials score the trial's qualification outcome
+A repair counts as a success only if the edited skill reaches verdict `ADMIT` with no historical
+regression; the OpenFlexure development trials are scored on the trial's qualification outcome
 under the v0.2 protocol, which includes the locked sweep.
 
 A representative repair, verbatim from the [calibrated-pump-dose
@@ -344,33 +363,32 @@ the visible-condition gate failed only `speed-support` (`maximum_rpm: 75.0`, `ob
 [100.0, 100.0]`). The model's logged diagnosis: *"Reduced prime and delivery speed from 100 rpm to
 75 rpm to match the changed pump's maximum supported speed of 75.0 rpm … Calibration (0.050),
 target volume (10.0 mL), halt, and return shape preserved."* The edited skill then passed the
-changed condition, the historical nominal scenario, and 50 sealed locked conditions. The
-no-feedback arm, given the same failing draft and the same budget, did not repair it. Improvement
-comes from execution evidence, not from retries alone.
+changed condition, the historical nominal scenario, and 50 locked conditions. The no-feedback
+arm, given the same failing draft and the same budget, did not repair it.
 
 The frozen cross-family round reproduced the same signature where paired arms completed: on the
 North pipette-calibration family, the truthful-feedback episode qualified in a single episode
 while the identical no-feedback arm failed across four, and a CLSLab engineering pair behaved the
-same way — truthful feedback qualified, no feedback did not. These pairs are reported alongside,
+same way: truthful feedback qualified, no feedback did not. These pairs are reported alongside,
 not folded into, the 18-unit synthesis.
 
 ### 5.3 Independent gates prevent self-promotion
 
 The clearest single case is the Keithley 2450 development study. DSV4 drafted two skills from
-supplied documentation — one from the current fixture sheet (1 kΩ load, 1 V source, 2 mA
-compliance, 10 mA range), one from a plausible stale worksheet (100 kΩ load, 200 µA compliance,
-100 µA range) — and **self-judged both `ACCEPT`**
+supplied documentation: one from the current fixture sheet (1 kΩ load, 1 V source, 2 mA
+compliance, 10 mA range) and one from a plausible stale worksheet (100 kΩ load, 200 µA compliance,
+100 µA range). It **self-judged both `ACCEPT`**
 ([captured completions](https://github.com/Dynamical-Systems-Research/proprio/tree/main/cassettes/dsv4)).
 Proprio executed both against a PyVISA-sim instrument and checked the measured current against the
 1 kΩ circuit law and the active range/compliance contract. The correct skill passed all nine
 checks and was admitted; the self-accepted stale skill was rejected on the `compliance-contract`
 and `range-contract` checks (observed ≈0.2 mA against a required minimum ≈1.1 mA). The rejected
-draft exists only as evidence — it never entered the catalog.
+draft exists only as evidence. It never entered the catalog.
 
-The gates were then measured as instruments in their own right:
+The gates themselves were then measured:
 
 - **XRD reference verifier:** 5/5 injected execution-fault classes detected (a dropped frame is
-  honestly labeled `degraded`); 0/300 false rejections on valid calibrant controls; 0 observed
+  labeled `degraded`); 0/300 false rejections on valid calibrant controls; 0 observed
   false acceptances across nine invalid classes × 300 cases; an always-valid adversary rejected in
   2,700/2,700 cases. One measured weakness is reported: the dedicated sample-displacement check
   missed direct attribution in 19/300 cases (AUROC 0.943) although adjacent shift/indexing checks
@@ -392,21 +410,21 @@ The gates were then measured as instruments in their own right:
   substitute for physical validity
   ([composition artifact](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/composition/summary.json)).
 - **Cross-family round verifiers (frozen v0.3):** 4,200 labeled simulations across the North,
-  HELAO Gamry, and CLSLab fixtures — 900 valid and 3,300 invalid cases over 11 failure classes —
+  HELAO Gamry, and CLSLab fixtures (900 valid and 3,300 invalid cases over 11 failure classes),
   with zero false admissions and 3/900 false rejections, all on the North fixture.
 - **Provenance gate:** a staged CLSLab evolution proposal with otherwise strong physical evidence
-  was reduced to `HOLD` because its transport used a provider outside the frozen allowlist — an
-  admission decision the drafting model could not override.
+  was reduced to `HOLD` because its transport used a provider outside the frozen allowlist. The
+  drafting model could not override the decision.
 
 Model judgment was measured under the same discipline. The DSV4 review prompt, frozen after
-calibration, scored 100% critical-defect recall with zero false alarms on 24 unseen semantic-
-mutation cases. The independent Qwen 3.7 Plus reviewer passed 56/56 calibration cases and 42/42
-cases on the six confirmatory instruments, and matched 47/49 pre-fixed labels on the full panel —
-where fresh replay showed both disagreements were wrong *fixture labels*, correctly rejected by
-the reviewer; the panel verdict is preserved as `FAIL` rather than recalculated
+calibration, scored 100% critical-defect recall with zero false alarms on 24 unseen review cases
+(12 critical-defect mutations, 6 valid controls, and 6 unavailable-evidence cases). The
+independent Qwen 3.7 Plus reviewer passed 56/56 calibration cases and 42/42 cases on the six
+confirmatory instruments, and matched 47/49 pre-fixed labels on the full panel. Fresh replay
+showed both disagreements were wrong *fixture labels* that the reviewer had correctly rejected;
+the panel verdict is preserved as `FAIL` rather than recalculated
 ([review record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/independent-review/summary.json)).
-Across every battery: **zero overrides of a failed deterministic check**, by any model, in either
-direction.
+Across every battery, no model — drafter or reviewer — overrode a failed deterministic check.
 
 ### 5.4 Evidence across instrument families
 
@@ -414,8 +432,8 @@ direction.
 |---|---|---|---|---|---|---|---|
 | Powder XRD (reference) | ✓ (reference) | ✓ | — | — | — | — | ✓ (saturated-frame case) |
 | Electrical measurement (Keithley SMU) | ✓ | ✓ | — | — | — | — | ✓ (stale draft rejected) |
-| Optical measurement (2) | 20/20 | 20/20 | 20/20 | 2/2 | — | — | ✓ |
-| Calibrated delivery (2) | 20/20 | 20/20 | 20/20 | 2/2 | — | — | ✓ |
+| Optical measurement (2) | 19/20 | 20/20 | 20/20 | 2/2 | — | — | ✓ |
+| Calibrated delivery (2) | 19/20 | 20/20 | 20/20 | 2/2 | — | — | ✓ |
 | Thermal control (2) | 20/20 | 20/20 | 20/20 | 2/2 | — | — | ✓ |
 | Liquid handling (2, diagnostic) | ✓† | ✓† | — | 2/2 | 2/2 | 2/2 staged | ✓ |
 | Battery cycling (2, diagnostic) | ✓† | ✓† | — | 1/2 | 2/2 | 2/2 staged | ✓ |
@@ -426,47 +444,47 @@ direction.
 | Spectral measurement (PyMoDAQ, held-out) | — | — | — | — | — | — | ✓ (`HOLD` at preflight) |
 | Pressure control (sinstruments, held-out) | — | — | — | — | — | — | ✓ (`HOLD` at preflight) |
 | Liquid handling (North pipette calibration, external) | ✓ | ✓ | ✓ `ADMIT`/`PASS` | ✓ (paired) | 1/1 | 0/1 (**rejected**) | ✓ |
-| Electrochemistry (HELAO Gamry CV, external) | ✓ | ✓ | ✓ `ADMIT`/`PASS` (sealed) | ✓ (truthful) | — | — | ✓ |
+| Electrochemistry (HELAO Gamry CV, external) | ✓ | ✓ | ✓ `ADMIT`/`PASS` | ✓ (truthful) | — | — | ✓ |
 | Optical spectroscopy (CLSLab light spectrometer, external) | ✓‡ | ✓‡ | ✓‡ `ADMIT`/`PASS` | ✓‡ (paired) | 1/1‡ | staged → `HOLD`‡ | ✓ (provenance) |
 
-**Figure 3.** Cross-family claim matrix from recorded evidence. † Diagnostic-panel drafting
-initially failed on a hidden executor-grammar mismatch (1/8 executable); after the executor
-contract was disclosed and fixed, all eight instruments produced qualified, history-safe parents
-([archive](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/dsv4-history-repair/summary.json)) —
-which is why the panel is diagnostic evidence, not part of the confirmatory claim. Diagnostic
-parents were qualified on visible and historical conditions; sealed 50-condition sweeps were
-exercised on their evolution proposals (§5.5). Confirmatory per-family counts pool the paired
-study and the ten-generation replication. ‡ Engineering-run evidence under the frozen v0.3
-method; the North row reports a complete binding session end-to-end. Paired truthful/no-feedback
-repair is reported where both arms completed (North, and a CLSLab engineering pair); the HELAO
-cell reports the qualified truthful-feedback episode.
+**Table 4.** Cross-family claim matrix from recorded evidence. `n/m` counts passes over attempts;
+✓ marks a capability demonstrated in the linked records; — marks a capability not exercised.
+Confirmatory rows report the ten-generation replication; their causal-repair column reports the
+paired study. † Diagnostic-panel parents were qualified on visible and historical conditions
+after an initially hidden executor-grammar mismatch was disclosed and fixed (drafting was 1/8
+executable before the fix), which is why the panel is diagnostic evidence rather than part of the
+confirmatory claim
+([archive](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/dsv4-history-repair/summary.json));
+their 50-condition locked sweeps ran on the evolution proposals (§5.5). ‡ Engineering-run
+evidence under the frozen v0.3 method (§4.5); the North row reports a complete binding session.
+Paired truthful/no-feedback repair is reported where both arms completed (North, and a CLSLab
+engineering pair); the HELAO cell reports the qualified truthful-feedback episode.
 
-Simulator suitability is itself a deterministic gate, exercised before any model call. The v0.2
-panel was preregistered against three externally authored simulators whose pinned revisions
-turned out unable to execute their complete registered physical and drift contracts (OctoPrint
-exposes no declared temperature maxima; the pinned PyMoDAQ runtime does not expose the selected
-mock spectrometer; the sinstruments emulator rejects reset/range/vent commands and its pressure
+Simulator suitability is checked by a deterministic gate before any model call. The v0.2 panel
+was preregistered against three externally authored simulators whose pinned revisions turned out
+unable to execute their complete registered physical and drift contracts (OctoPrint exposes no
+declared temperature maxima; the pinned PyMoDAQ runtime does not expose the selected mock
+spectrometer; the sinstruments emulator rejects reset/range/vent commands and its pressure
 readings ignore setpoints). Proprio returned `HOLD` for all three families, spent **zero** model
 calls, and did not swap in easier families
-([preflight record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/heldout-generalization/preflight/summary.json)) —
-the admission discipline applied to the method's own inputs.
+([preflight record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/heldout-generalization/preflight/summary.json)).
 
 The successor cross-family round binds three externally authored control interfaces that passed
-that same deterministic preflight — North Robotics pipette calibration, HELAO Gamry cyclic
-voltammetry, and the CLSLab light spectrometer — under the frozen v0.3 method (§4.5). Every
-family produced an independently qualified, locked-condition skill, and the North session
-completed the full ladder through paired causal repair, with its drift-evolution proposal
-rejected fail-closed rather than promoted. The supported boundary is precise: **skill acquisition
-and independent qualification generalize across the three external families tested; the complete
-acquisition → causal repair → drift-evolution ladder is not yet established across all three.**
-No repeated-generation success-rate claim is made for the frozen panel.
+that same deterministic preflight (North Robotics pipette calibration, HELAO Gamry cyclic
+voltammetry, and the CLSLab light spectrometer) under the frozen v0.3 method (§4.5). Every family
+produced an independently qualified, locked-condition skill, and the North session completed the
+full ladder through paired causal repair, with its drift-evolution proposal rejected fail-closed
+rather than promoted. **Skill acquisition and independent qualification generalize across the
+three external families tested; the complete acquisition → causal repair → drift-evolution ladder
+is not yet established across all three.** No repeated-generation success-rate claim is made for
+the frozen panel.
 
 ### 5.5 Skill evolution is gated rather than assumed
 
 After a versioned simulator change broke all eight history-safe diagnostic parents, DSV4 inspected
 the drift evidence and produced evolution proposals for all eight; each passed the changed
-condition, full historical replay, and 50 sealed conditions, and each was **staged** — parent
-immutable, rollback hash recorded, `hardware_gate_required: true` — never silently swapped in
+condition, full historical replay, and 50 locked conditions, and each was **staged**, with parent
+immutable, rollback hash recorded, and `hardware_gate_required: true`, never silently swapped in
 ([evolution record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/dsv4-evolution/summary.json)).
 The external counterexample is retained alongside it: on the OpenFlexure family, the evolution
 attempt exhausted its turn budget with a candidate that still failed the Laplacian focus threshold
@@ -476,20 +494,21 @@ reviewer rejected it, and the parent skill was left untouched
 The frozen cross-family round held to the same discipline: the North drift-evolution proposal
 failed its gates in the binding session and was rejected with promotion blocked, and a staged
 CLSLab engineering proposal was reduced to `HOLD` when its transport provenance violated the
-frozen provider allowlist. Cross-family drift evolution therefore remains mixed and is not yet
-established — *demonstrated* on the reduced-order development cases, *correctly refused or held*
-elsewhere, and never promoted without passing evidence.
+frozen provider allowlist. Cross-family drift evolution therefore remains mixed: demonstrated on
+the reduced-order development cases, correctly refused or held elsewhere, and never promoted
+without passing evidence.
 
 ### 5.6 Verification cost and engineering burden
 
-Test-time compute is modest by modern inference standards. The full 70-generation replication used
-626 model calls and 2,527,902 tokens under fixed turn budgets (2–12 model turns per episode). The eight-instrument evolution battery used 84 calls / 473k tokens
-(≈$0.03 at the recorded route pricing); building the eight qualified history parents took 53 calls
-/ 224k tokens; the failed microscopy evolution burned 21 calls / 308k tokens before rejecting
-itself. Additional compute paid off when the evidence pointed at a discrete cause (a speed limit,
-a stale range); it hit diminishing returns when the physical contract could not be satisfied
-within budget — four of the six failed OpenFlexure candidates ended at the turn limit without
-submitting, and the two others passed visible repair but failed hidden starting positions.
+The full 70-generation replication used 626 model calls and 2,527,902 tokens under fixed turn
+budgets (2–12 model turns per episode), modest by current inference standards. The
+eight-instrument evolution battery used 84 calls / 473k tokens (≈$0.03 at the recorded route
+pricing); building the eight qualified history parents took 53 calls / 224k tokens; the failed
+microscopy evolution burned 21 calls / 308k tokens before rejecting itself. Additional compute
+paid off when the evidence pointed at a discrete cause (a speed limit, a stale range). It hit
+diminishing returns when the physical contract could not be satisfied within budget: four of the
+six failed OpenFlexure candidates ended at the turn limit without submitting, and the other two
+passed visible repair but failed hidden starting positions.
 
 The unavoidable human cost is verifier construction, reported as measured line counts rather than
 estimates
@@ -501,6 +520,9 @@ estimates
 | Calibrated delivery (2) | 113 | 80 | 24 | 5 / 6 | 4 |
 | Thermal control (2) | 100 | 50 | 24 | 7 each | 4 |
 | OpenFlexure microscopy (external) | 333 (adapter) | 162 | 32 | 10 | 8 |
+
+**Table 5.** Measured engineering burden by instrument family, in nonblank lines of code, with
+physical checks and labeled invalid classes per family.
 
 Reusing the externally authored OpenFlexure simulator avoided writing a digital twin but still
 required the 333-line API adapter, a 162-line verifier, and a 185-line metrology harness.
@@ -529,21 +551,21 @@ Laboratory operation
 ### 6.2 Why fast verification matters
 
 No model weights change anywhere in this method. All additional compute is spent at inference
-time — drafting, executing, diagnosing, repairing, replaying — and the verifier is what converts
-those extra samples into qualified procedural capability rather than merely more generated text.
-The paired result in §5.2 is the mechanism: with the same drafts and budget, evidence-grounded
+time on drafting, executing, diagnosing, repairing, and replaying. The verifier converts those
+extra samples into qualified procedural capability rather than more generated text. The paired
+result in §5.2 is the mechanism at work: given the same drafts and budget, evidence-grounded
 search repaired 14/18 units and blind regeneration repaired none. The practical corollary for
 laboratories is that faster simulators and richer physical contracts directly increase how much
-capability can be explored, and *trusted*, before an instrument is ever touched.
+capability can be explored and trusted before an instrument is ever touched.
 
 ### 6.3 Implications for composable laboratories
 
-Instrument standards make capabilities portable; simulators make capability acquisition
-inexpensive; independent verification makes skills admissible; and hash-bound skill catalogs make
-qualified capability reusable across agents and workflows. The
+Instrument standards make capabilities portable, and simulators make their acquisition cheap.
+Independent verification is what makes a skill admissible, and a hash-bound catalog is what makes
+it reusable across agents and workflows. The
 [current catalog](https://github.com/Dynamical-Systems-Research/proprio/blob/main/catalog.json)
-holds eight packages — the XRD reference, the Keithley development skill, and the six confirmatory
-skills — each bound to its qualification artifact and each still requiring hardware qualification.
+holds eight packages (the XRD reference, the Keithley development skill, and the six confirmatory
+skills), each bound to its qualification artifact and each still requiring hardware qualification.
 A laboratory adding an instrument follows the documented recipe: connect the public API, provide a
 simulator with explicit reset and failure behavior, write the physical contract, build the labeled
 validity battery *before* asking a model to generate anything, and freeze thresholds in advance.
@@ -551,29 +573,27 @@ validity battery *before* asking a model to generate anything, and freeze thresh
 ### 6.4 Scope
 
 All qualification reported here is simulation-only, and simulator–reality correspondence is
-imperfect by construction; each family's verifier requires instrument-specific engineering (§5.6);
-model generation is stochastic, so acquisition and evolution are demonstrated capabilities with
-measured variance, not guarantees (OpenFlexure's 4/10 and the rejected evolution proposals are the
-canonical counterexamples); the pooled causal analysis spans protocol generations and therefore
-establishes the feedback mechanism rather than a single frozen-protocol rate; and cross-family
-evidence carries a precise boundary — acquisition and independent qualification generalize across
-the three external families of the frozen panel, while the complete acquisition → repair →
-drift-evolution ladder is not yet established across all three, and no repeated-generation
-success rate is claimed for that panel. Real-hardware qualification — adapters, interlocks,
-reference measurements, recovery tests, supervised trials, expert sign-off — is the next gate,
-and nothing in this report substitutes for it.
+imperfect by construction. Each family's verifier requires instrument-specific engineering
+(§5.6). Model generation is stochastic, so acquisition and evolution are demonstrated
+capabilities with measured variance, not guarantees; OpenFlexure's 4/10 and the rejected
+evolution proposals are the canonical counterexamples. The pooled causal analysis spans protocol
+generations, so it establishes the feedback mechanism rather than a single frozen-protocol rate.
+Cross-family evidence stops at the line drawn in §5.4: acquisition and independent qualification
+generalize across the three external families of the frozen panel, the complete drift-evolution
+ladder does not, and no repeated-generation success rate is claimed for that panel.
+Real-hardware qualification (§3.6) is the next gate, and nothing in this report substitutes for
+it.
 
 ## 7. Conclusion
 
 Instrument operation can be treated as *acquired procedural capability*: compiled from the same
 documentation a human operator would read, exercised in simulation, and packaged with its
 evidence. Simulator execution plus independent physics-grounded verification provides a practical
-admission mechanism — one that measurably drives repair (14/18 versus 0/18), rejects plausible
-self-approved mistakes, refuses unsuitable fixtures at zero model cost, holds results whose
-transport provenance breaks the frozen allowlist, and declines to replace working skills with
-unproven revisions. Proprio offers this as an open method: documentation and
-test-time compute in, independently qualified skills out, with every claim traceable to a
-recorded evidence artifact and a clearly marked hardware-qualification gate still ahead.
+admission mechanism: it measurably drives repair (14/18 versus 0/18), rejects plausible
+self-approved mistakes, and never promotes an unproven revision over a working skill. Proprio
+offers this as an open method: documentation and test-time compute in, independently qualified
+skills out, with every claim traceable to a recorded evidence artifact and a
+hardware-qualification gate still ahead.
 
 ---
 
