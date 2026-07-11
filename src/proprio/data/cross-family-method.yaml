@@ -1,0 +1,145 @@
+schema_version: proprio.cross_family_method.v0.4
+method_name: persistent-agent
+status: engineering_smoke_complete_before_binding_freeze
+north_star_claim: >-
+  Across three external scientific-instrument simulators screened before model use, DSV4 operating
+  one persistent agent context per repair and evolution trajectory can construct runnable skills
+  from frozen instrument sources, reuse accumulated execution evidence to repair candidates without
+  repeating failed strategies, and remain unable to promote a candidate that fails independent
+  execution, physical, provenance, or locked-replay checks.
+claim_boundary: >-
+  Cross-family external-simulator replication of the persistent-context method. The three families
+  are not untouched first-exposure families; they were screened before model use in v0.3 and reused
+  here. Simulation-only pre-deployment qualification; real-hardware qualification remains separate.
+capability_axes:
+  - exploratory across unfamiliar controller interfaces and physical observables
+  - compositional across documentation use, execution, evidence inspection, repair, and cleanup
+  - persistent across repeated verifier cycles within one continuous agent context
+eligibility:
+  model_calls_allowed: false
+  reused_from_v0_3: true
+  selected:
+    - north-pipette-calibration
+    - helao-gamry-cv
+    - clslab-light-spectrometer
+  excluded:
+    - candidate: xarm-translocation
+      reason: Docker credential helper blocked the pinned simulator image before execution preflight
+    - candidate: matterix
+      reason: requires an unqualified Isaac Sim GPU lane and already influenced method development
+    - candidate: opentrons-ot2
+      reason: liquid-handler family and simulator already appeared in Proprio development evidence
+model:
+  requested: deepseek/deepseek-v4-flash
+  resolved: deepseek/deepseek-v4-flash-20260423
+  endpoint: https://openrouter.ai/api/v1
+  provider_order:
+    - DeepInfra
+    - GMICloud
+  provider_allowlist:
+    - DeepInfra
+    - GMICloud
+  allow_same_revision_fallbacks: true
+  initial_generation:
+    temperature: 0.7
+    top_p: 0.95
+  repair:
+    temperature: 0.0
+    top_p: 1.0
+  reasoning_effort: high
+  include_reasoning: true
+search_budget_per_session:
+  initial_drafts: 6
+  archive_survivors: 3
+  repair_rounds: 6
+  maximum_candidate_variants: 24
+  maximum_model_turns_per_draft: 8
+  maximum_model_turns_per_repair: 16
+  minimum_repair_attempts_before_stagnation: 3
+  maximum_controller_calls_per_candidate: 96
+  visible_conditions_per_family: 2
+  repetitions_per_visible_condition: 3
+persistent_context:
+  one_persistent_context_per_trajectory: true
+  api_may_remain_stateless_proprio_owns_and_resends_context: true
+  verifier_cycles:
+    causal: 4
+    evolution: 6
+  model_call_budget_per_trajectory:
+    causal: 64
+    evolution: 96
+  token_budget_per_trajectory:
+    causal: 600000
+    evolution: 900000
+  checkpoint_after_every_tool_result_and_verifier_record: true
+  resume_never_reissues_completed_model_calls: true
+  duplicate_candidate_hashes_rejected: true
+  persisted_state:
+    - assistant actions and tool results
+    - current candidate and candidate hashes
+    - simulator and verifier records
+    - compact repair ledger of failed checks, diagnoses, edits, and outcomes
+    - remaining search budget and exact model and provider configuration
+  compaction:
+    policy: deterministic_request_side_only
+    byte_limit: 240000
+    retain_raw_cassettes: true
+    protected_content:
+      - system prompt
+      - seed user prompt
+      - latest verifier record
+      - repair ledger candidate hashes
+      - last 8 messages
+  causal_arms_branch_from_shared_evidence_free_prefix: true
+  sampling_identical_to_v0_3: true
+study:
+  independent_sessions_per_family: 1
+  binding_seed_base: 2400000
+  one_session_per_family_stopping_rule: true
+  no_replacement_rule: true
+  acquisition_conditions: nominal_documented_operation_only
+  causal_challenge: registered_calibration_change_after_nominal_acquisition
+  causal_parent: self_accepted_model_draft_that_passes_nominal_and_fails_the_registered_change
+  locked_conditions_per_family: 1
+  locked_feedback: prohibited
+  causal_arms:
+    binding:
+      - structured_truthful_feedback
+      - no_feedback
+  drift_evolution: required
+promotion:
+  deterministic_execution_and_physical_checks_are_authoritative: true
+  model_self_judgment_can_promote: false
+  semantic_review_can_veto_or_hold_only: true
+  promotion_authority: deterministic_gates_only
+  unavailable_or_ambiguous_evidence: HOLD
+  invalid_or_locked_failing_candidate: REJECT
+  aggregate_cannot_rescue_a_failed_family: true
+metrology:
+  reused_from_v0_3: true
+  valid_cases: 300
+  invalid_cases_per_class: 300
+  valid_false_reject_rate_maximum: 0.05
+  invalid_false_admit_count_maximum: 0
+freeze_after_eligibility:
+  - shared system and task prompts including the persistent context contract
+  - bounded skill DSL
+  - archive and repair algorithm
+  - persistent context loop, checkpoint and resume, and compaction policy
+  - search, model-turn, verifier-cycle, and token budgets
+  - source bundles
+  - simulator revisions and adapter hashes
+  - verifier code and thresholds
+  - visible and locked conditions
+  - promotion rules and analysis code
+binding_freeze:
+  timing: after one declared engineering smoke per family and before all binding sessions
+  smoke_results_are_confirmatory: false
+  post_freeze_changes_require_a_new_version_and_new_external_panel: true
+post_freeze_prohibitions:
+  - changing shared prompts, tools, budgets, or thresholds after the first binding call
+  - tuning the persistent context, compaction policy, or promotion rules after binding begins
+  - replacing a selected family after binding begins
+  - excluding scientifically failed sessions
+  - using aggregate performance to rescue a failed family
+  - giving locked-condition evidence back to the model
