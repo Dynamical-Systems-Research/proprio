@@ -71,6 +71,9 @@ class DSV4Client:
         self.base_url = base_url or os.getenv("OPENAI_BASE_URL", DEFAULT_BASE_URL)
         self.model = model or os.getenv("MODEL", DEFAULT_MODEL)
         self.provider = provider or os.getenv("OPENROUTER_PROVIDER")
+        self.provider_order = tuple(
+            item.strip() for item in (self.provider or "").split(",") if item.strip()
+        )
         self.reasoning_effort = reasoning_effort or os.getenv("DSV4_REASONING_EFFORT")
         if include_reasoning is None:
             include_reasoning = os.getenv("AGENT_INCLUDE_REASONING", "").lower() in {
@@ -90,10 +93,11 @@ class DSV4Client:
         """Create one completion with a frozen OpenRouter route when configured."""
 
         extra_body = dict(kwargs.pop("extra_body", {}) or {})
-        if self.provider:
+        if self.provider_order:
             extra_body["provider"] = {
-                "order": [self.provider],
-                "allow_fallbacks": False,
+                "order": list(self.provider_order),
+                "only": list(self.provider_order),
+                "allow_fallbacks": len(self.provider_order) > 1,
                 "require_parameters": True,
             }
         if self.include_reasoning:
@@ -119,6 +123,7 @@ class DSV4Client:
             "requested_model_available": self.model in model_ids,
             "available_model_count": len(model_ids),
             "provider": self.provider,
+            "provider_order": list(self.provider_order),
             "reasoning_effort": self.reasoning_effort,
             "include_reasoning": self.include_reasoning,
         }

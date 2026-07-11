@@ -31,6 +31,7 @@ def test_openrouter_route_and_reasoning_are_frozen_per_request() -> None:
     assert completions.kwargs["extra_body"] == {
         "provider": {
             "order": ["GMICloud"],
+            "only": ["GMICloud"],
             "allow_fallbacks": False,
             "require_parameters": True,
         },
@@ -52,3 +53,22 @@ def test_reasoning_can_be_enabled_without_an_effort_parameter() -> None:
     client.create_chat_completion(model=client.model, messages=[])
     assert completions.kwargs["extra_body"]["reasoning"] == {"enabled": True}
     assert completions.kwargs["extra_body"]["include_reasoning"] is True
+
+
+def test_openrouter_can_freeze_an_ordered_same_model_fallback_route() -> None:
+    client = DSV4Client(
+        base_url="https://openrouter.ai/api/v1",
+        model="deepseek/deepseek-v4-flash",
+        api_key="fixture",
+        provider="DeepInfra,GMICloud",
+        reasoning_effort="high",
+    )
+    completions = FakeCompletions()
+    client.client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    client.create_chat_completion(model=client.model, messages=[])
+    assert completions.kwargs["extra_body"]["provider"] == {
+        "order": ["DeepInfra", "GMICloud"],
+        "only": ["DeepInfra", "GMICloud"],
+        "allow_fallbacks": True,
+        "require_parameters": True,
+    }

@@ -312,10 +312,19 @@ def _is_retryable_transport_error(exc: Exception) -> tuple[bool, int | None]:
         "APITimeoutError",
         "ConnectError",
         "ConnectTimeout",
+        "JSONDecodeError",
         "ReadError",
         "ReadTimeout",
     }
     return type(exc).__name__ in retryable_names, None
+
+
+def _transport_retry_delay(status_code: int | None, attempt: int) -> float:
+    """Back off enough for provider throttles without extending the scientific budget."""
+
+    if status_code == 429:
+        return float(30 * attempt)
+    return float(2 * attempt)
 
 
 def _response_has_message(response: Any) -> bool:
@@ -379,7 +388,7 @@ def _run_tool_loop(
                 )
                 if not will_retry:
                     raise
-                time.sleep(float(transport_attempt))
+                time.sleep(_transport_retry_delay(status_code, transport_attempt))
                 continue
             if _response_has_message(candidate_response):
                 response = candidate_response
