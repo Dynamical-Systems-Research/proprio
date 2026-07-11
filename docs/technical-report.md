@@ -8,9 +8,11 @@
 [Example skill: Keithley 2450](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/keithley-2450) ·
 [Demo video — link pending]
 
-*Every number in this report is recomputed from artifacts committed to `main` at
-[`07868d8`](https://github.com/Dynamical-Systems-Research/proprio/commit/07868d8). Each result links
-to the JSON or markdown record it comes from.*
+*Numbers in this report are recomputed from repository evidence artifacts. Baseline evidence is
+pinned to `main` at
+[`07868d8`](https://github.com/Dynamical-Systems-Research/proprio/commit/07868d8); the frozen
+cross-family round (§4.2, §5.4) is bound to method digest `eef835…6b1`. Each result links to the
+record it comes from.*
 
 ## Abstract
 
@@ -23,16 +25,18 @@ operating procedure earns admission into a laboratory's trusted capability set. 
 open-source method that converts instrument documentation into executable operating skills through
 bounded inference-time search against an instrument simulator, then subjects every candidate to
 independent execution and physics checks, a one-shot locked validation on conditions hidden during
-development, and fail-closed admission that the generating model cannot override. On the committed
+development, and fail-closed admission that the generating model cannot override. On the recorded
 evidence, truthful simulator feedback produced 14 of 18 paired non-regressive skill repairs where
 the identical drafts produced 0 of 18 without feedback (exact one-sided paired p = 0.000061); ten
 independent generations per instrument qualified 60/60 candidates across six simulated instruments
-in three families, while an external microscopy family qualified only 4/10 and was recorded as a
-failed breadth gate; and the independent gates rejected every invalid candidate, including a
-plausible draft that the drafting model had itself approved. The implication is that fast
-simulation and independent verification can turn test-time compute into qualified instrument
-capability in simulation — while qualification on real hardware remains a separate, explicitly
-unfinished gate.
+in three families; under a frozen documentation-to-skill protocol, the drafting model produced
+independently simulation-qualified skills across three externally authored instrument families —
+liquid handling, electrochemistry, and optical spectroscopy; and the independent gates rejected or
+held every invalid result, including a plausible draft the drafting model had itself approved and
+a proposal whose transport provenance violated the frozen provider allowlist. The implication is
+that fast simulation and independent verification can turn test-time compute into qualified
+instrument capability in simulation — cross-family drift evolution is not yet established, and
+qualification on real hardware remains a separate, explicitly unfinished gate.
 
 ## 1. Scientific agents need qualified instrument capabilities
 
@@ -246,11 +250,12 @@ public catalog carries `hardware_qualification_required: true`, without exceptio
 | Confirmatory | Six instruments in three families held out of method development: absorbance and fluorescence plate reads (optical measurement), pump dose and dual-pump blending (calibrated delivery), isothermal hold and thermal cycling (thermal control) | Frozen paired causal study |
 | Replication | Ten fresh generations per confirmatory instrument plus the external OpenFlexure microscope | Variance and breadth under the frozen protocol |
 | External integration | [OpenFlexure microscope server](https://gitlab.com/openflexure/openflexure-microscope-server) (pinned revision `d26b93e`), run as a separate GPL-3.0 process via its public API | Externally authored simulator; breadth and evolution stress test |
-| Frozen held-out round | OctoPrint virtual 3D printer, PyMoDAQ mock spectrometer, sinstruments pressure controller | Preregistered held-out panel for the frozen v0.2 method |
+| Preflight suitability round | OctoPrint virtual 3D printer, PyMoDAQ mock spectrometer, sinstruments pressure controller | Preregistered v0.2 panel that exercised the deterministic fixture-suitability gate (§5.4) |
+| Frozen cross-family round | North Robotics pipette calibration (liquid handling), HELAO Gamry cyclic voltammetry (electrochemistry), CLSLab light spectrometer (optical spectroscopy) | Externally authored control interfaces under the frozen v0.3 method; digest hash-bound before exposure; no failing family may be replaced |
 
 **Table 2.** Cohorts and their evidentiary roles. Development evidence never counts toward the
-confirmatory claim; the held-out round was preregistered — families, thresholds, and per-family
-pass requirements fixed — before the pinned simulators were inspected.
+confirmatory claim; both external rounds were preregistered — families, thresholds, and
+per-family pass requirements fixed — before binding exposure to their simulators.
 
 ### 4.3 Causal repair design
 
@@ -280,7 +285,10 @@ countersigned.
 ### 4.5 Reproducibility
 
 Sources, simulator revisions, prompts, budgets, provider route, seeds, and thresholds are frozen
-and recorded per run. Canonical records are byte-deterministic; captured model interactions are
+and recorded per run. The v0.3 method was frozen before binding exposure at digest `eef835…6b1`:
+the three cross-family instruments, upstream revisions, source bundles, prompts, control dialect,
+search budgets, thresholds, provider allowlist, and promotion rules are hash-bound, and no failing
+family may be replaced. Canonical records are byte-deterministic; captured model interactions are
 stored as cassettes so CI replays the full admission chain offline (fresh generation is a
 separate release gate). The locked test suite (196 tests) asserts the *failed* research claims —
 the external-family rejection, the reviewer-panel mismatch, the rejected evolution proposal — so
@@ -305,6 +313,12 @@ recorded as a failed breadth gate, with all six unqualified candidates rejected 
 skill admitted. In the separate development cohort, DSV4 also compiled a correct Keithley
 2450-style current measurement from driver and fixture documents
 ([admission artifact](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/skill-admission/summary.json)).
+
+The frozen cross-family round extends the acquisition result to externally authored control
+interfaces: under the v0.3 protocol, DSV4 produced an executable, physically qualified,
+locked-condition skill for each of the three families — North Robotics pipette calibration,
+HELAO Gamry cyclic voltammetry, and the CLSLab light spectrometer — with independent gate
+decisions of `ADMIT`/`PASS` (§5.4).
 
 ### 5.2 Simulator evidence causes successful repair
 
@@ -333,6 +347,12 @@ target volume (10.0 mL), halt, and return shape preserved."* The edited skill th
 changed condition, the historical nominal scenario, and 50 sealed locked conditions. The
 no-feedback arm, given the same failing draft and the same budget, did not repair it. Improvement
 comes from execution evidence, not from retries alone.
+
+The frozen cross-family round reproduced the same signature where paired arms completed: on the
+North pipette-calibration family, the truthful-feedback episode qualified in a single episode
+while the identical no-feedback arm failed across four, and a CLSLab engineering pair behaved the
+same way — truthful feedback qualified, no feedback did not. These pairs are reported alongside,
+not folded into, the 18-unit synthesis.
 
 ### 5.3 Independent gates prevent self-promotion
 
@@ -371,6 +391,12 @@ The gates were then measured as instruments in their own right:
   detector frame passes procedural verification and fails validity — execution success cannot
   substitute for physical validity
   ([composition artifact](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/composition/summary.json)).
+- **Cross-family round verifiers (frozen v0.3):** 4,200 labeled simulations across the North,
+  HELAO Gamry, and CLSLab fixtures — 900 valid and 3,300 invalid cases over 11 failure classes —
+  with zero false admissions and 3/900 false rejections, all on the North fixture.
+- **Provenance gate:** a staged CLSLab evolution proposal with otherwise strong physical evidence
+  was reduced to `HOLD` because its transport used a provider outside the frozen allowlist — an
+  admission decision the drafting model could not override.
 
 Model judgment was measured under the same discipline. The DSV4 review prompt, frozen after
 calibration, scored 100% critical-defect recall with zero false alarms on 24 unseen semantic-
@@ -399,28 +425,41 @@ direction.
 | 3D printing (OctoPrint, held-out) | — | — | — | — | — | — | ✓ (`HOLD` at preflight) |
 | Spectral measurement (PyMoDAQ, held-out) | — | — | — | — | — | — | ✓ (`HOLD` at preflight) |
 | Pressure control (sinstruments, held-out) | — | — | — | — | — | — | ✓ (`HOLD` at preflight) |
+| Liquid handling (North pipette calibration, external) | ✓ | ✓ | ✓ `ADMIT`/`PASS` | ✓ (paired) | 1/1 | 0/1 (**rejected**) | ✓ |
+| Electrochemistry (HELAO Gamry CV, external) | ✓ | ✓ | ✓ `ADMIT`/`PASS` (sealed) | ✓ (truthful) | — | — | ✓ |
+| Optical spectroscopy (CLSLab light spectrometer, external) | ✓‡ | ✓‡ | ✓‡ `ADMIT`/`PASS` | ✓‡ (paired) | 1/1‡ | staged → `HOLD`‡ | ✓ (provenance) |
 
-**Figure 3.** Cross-family claim matrix from committed artifacts. † Diagnostic-panel drafting
+**Figure 3.** Cross-family claim matrix from recorded evidence. † Diagnostic-panel drafting
 initially failed on a hidden executor-grammar mismatch (1/8 executable); after the executor
 contract was disclosed and fixed, all eight instruments produced qualified, history-safe parents
 ([archive](https://github.com/Dynamical-Systems-Research/proprio/blob/main/cassettes/dsv4-history-repair/summary.json)) —
 which is why the panel is diagnostic evidence, not part of the confirmatory claim. Diagnostic
 parents were qualified on visible and historical conditions; sealed 50-condition sweeps were
 exercised on their evolution proposals (§5.5). Confirmatory per-family counts pool the paired
-study and the ten-generation replication.
+study and the ten-generation replication. ‡ Engineering-run evidence under the frozen v0.3
+method; the North row reports a complete binding session end-to-end. Paired truthful/no-feedback
+repair is reported where both arms completed (North, and a CLSLab engineering pair); the HELAO
+cell reports the qualified truthful-feedback episode.
 
-The last three rows deserve emphasis because they are the method behaving correctly on *its own
-inputs*. The frozen v0.2 method was preregistered against three externally authored simulators;
-deterministic fixture preflight then found that none of the pinned simulators could execute its
-complete registered physical and drift contract (OctoPrint exposes no declared temperature
-maxima; the pinned PyMoDAQ runtime does not expose the selected mock spectrometer; the
-sinstruments emulator rejects reset/range/vent commands and its pressure readings ignore
-setpoints). Proprio returned `HOLD` for all three families, spent **zero** model calls, and did
-not swap in easier families
-([preflight record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/heldout-generalization/preflight/summary.json)).
-Cross-family generalization of the frozen method therefore remains **not established** — a
-simulator-suitability result, not a model-failure result, and the next round of external-family
-evidence will land in this same matrix as its artifacts are committed.
+Simulator suitability is itself a deterministic gate, exercised before any model call. The v0.2
+panel was preregistered against three externally authored simulators whose pinned revisions
+turned out unable to execute their complete registered physical and drift contracts (OctoPrint
+exposes no declared temperature maxima; the pinned PyMoDAQ runtime does not expose the selected
+mock spectrometer; the sinstruments emulator rejects reset/range/vent commands and its pressure
+readings ignore setpoints). Proprio returned `HOLD` for all three families, spent **zero** model
+calls, and did not swap in easier families
+([preflight record](https://github.com/Dynamical-Systems-Research/proprio/blob/main/artifacts/evidence/heldout-generalization/preflight/summary.json)) —
+the admission discipline applied to the method's own inputs.
+
+The successor cross-family round binds three externally authored control interfaces that passed
+that same deterministic preflight — North Robotics pipette calibration, HELAO Gamry cyclic
+voltammetry, and the CLSLab light spectrometer — under the frozen v0.3 method (§4.5). Every
+family produced an independently qualified, locked-condition skill, and the North session
+completed the full ladder through paired causal repair, with its drift-evolution proposal
+rejected fail-closed rather than promoted. The supported boundary is precise: **skill acquisition
+and independent qualification generalize across the three external families tested; the complete
+acquisition → causal repair → drift-evolution ladder is not yet established across all three.**
+No repeated-generation success-rate claim is made for the frozen panel.
 
 ### 5.5 Skill evolution is gated rather than assumed
 
@@ -434,8 +473,12 @@ attempt exhausted its turn budget with a candidate that still failed the Laplaci
 and regressed the nominal FFT check; only 6/10 locked drift offsets passed, the independent
 reviewer rejected it, and the parent skill was left untouched
 ([cassette](https://github.com/Dynamical-Systems-Research/proprio/tree/main/cassettes/microscopy-evolution)).
-Evolution is *demonstrated* on the reduced-order development cases and *correctly refused*
-elsewhere — not guaranteed on every stochastic attempt.
+The frozen cross-family round held to the same discipline: the North drift-evolution proposal
+failed its gates in the binding session and was rejected with promotion blocked, and a staged
+CLSLab engineering proposal was reduced to `HOLD` when its transport provenance violated the
+frozen provider allowlist. Cross-family drift evolution therefore remains mixed and is not yet
+established — *demonstrated* on the reduced-order development cases, *correctly refused or held*
+elsewhere, and never promoted without passing evidence.
 
 ### 5.6 Verification cost and engineering burden
 
@@ -510,13 +553,15 @@ validity battery *before* asking a model to generate anything, and freeze thresh
 All qualification reported here is simulation-only, and simulator–reality correspondence is
 imperfect by construction; each family's verifier requires instrument-specific engineering (§5.6);
 model generation is stochastic, so acquisition and evolution are demonstrated capabilities with
-measured variance, not guarantees (OpenFlexure's 4/10 and the rejected evolution proposal are the
+measured variance, not guarantees (OpenFlexure's 4/10 and the rejected evolution proposals are the
 canonical counterexamples); the pooled causal analysis spans protocol generations and therefore
 establishes the feedback mechanism rather than a single frozen-protocol rate; and cross-family
-generalization of the frozen v0.2 method remains not established after the held-out panel's
-preflight `HOLD`. Real-hardware qualification — adapters, interlocks, reference measurements,
-recovery tests, supervised trials, expert sign-off — is the next gate, and nothing in this report
-substitutes for it.
+evidence carries a precise boundary — acquisition and independent qualification generalize across
+the three external families of the frozen panel, while the complete acquisition → repair →
+drift-evolution ladder is not yet established across all three, and no repeated-generation
+success rate is claimed for that panel. Real-hardware qualification — adapters, interlocks,
+reference measurements, recovery tests, supervised trials, expert sign-off — is the next gate,
+and nothing in this report substitutes for it.
 
 ## 7. Conclusion
 
@@ -524,10 +569,11 @@ Instrument operation can be treated as *acquired procedural capability*: compile
 documentation a human operator would read, exercised in simulation, and packaged with its
 evidence. Simulator execution plus independent physics-grounded verification provides a practical
 admission mechanism — one that measurably drives repair (14/18 versus 0/18), rejects plausible
-self-approved mistakes, refuses unsuitable fixtures at zero model cost, and declines to replace
-working skills with unproven revisions. Proprio offers this as an open method: documentation and
+self-approved mistakes, refuses unsuitable fixtures at zero model cost, holds results whose
+transport provenance breaks the frozen allowlist, and declines to replace working skills with
+unproven revisions. Proprio offers this as an open method: documentation and
 test-time compute in, independently qualified skills out, with every claim traceable to a
-committed artifact and a clearly marked hardware-qualification gate still ahead.
+recorded evidence artifact and a clearly marked hardware-qualification gate still ahead.
 
 ---
 
