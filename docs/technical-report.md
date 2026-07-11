@@ -6,6 +6,7 @@
 [Skill catalog](https://github.com/Dynamical-Systems-Research/proprio/blob/main/catalog.json) ·
 [Example skill: calibrated pump dose](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/simulated/calibrated-pump-dose) ·
 [Example skill: Keithley 2450](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/keithley-2450) ·
+[Agent loop](https://github.com/Dynamical-Systems-Research/proprio/blob/main/src/proprio/agent.py) ·
 [Demo video (OpenFlexure)](https://github.com/Dynamical-Systems-Research/proprio/blob/main/public/proprio-openflexure-flagship.mp4)
 
 *Every number in this report is recomputed from evidence artifacts committed to `main` at
@@ -208,7 +209,35 @@ advance: at most four repair rounds and twelve generated candidates per acquisit
 horizons of 2–12 model turns in the study configurations. A successful patch with fabricated
 provenance is ineligible for packaging.
 
-### 3.4 Qualification and promotion
+### 3.4 One persistent agent context
+
+The protocol generations reported in §5 ran each repair attempt as a bounded episode: the model
+received the current candidate and the latest verifier record, and everything else it had learned
+— earlier diagnoses, failed edits, tool results — was discarded between episodes. That design gave
+a clean causal baseline, but it forces test-time compute to re-derive diagnoses and lets the model
+repeat strategies that already failed.
+
+The current method revision (v0.4) replaces those resets with one persistent agent context per
+acquisition, repair, or evolution run
+([`agent.py`](https://github.com/Dynamical-Systems-Research/proprio/blob/main/src/proprio/agent.py)).
+The model API stays stateless; Proprio owns the context and resends it on every call. The context
+keeps what an operator's notebook would: every prior action and tool result, every verifier
+record, and a compact repair ledger holding, for each attempt, the candidate hash, the checks that
+failed, the cited evidence, the diagnosis, the change, and the outcome. The loop checkpoints the
+full state after every tool result and verifier record, so an interrupted run resumes
+deterministically without re-issuing a completed model call. A submission whose candidate hash
+already appears in the ledger is rejected as a duplicate. In paired causal comparisons, the
+truthful and no-feedback arms branch from the same evidence-free prefix and never share a message
+afterward. If a context outgrows its preregistered byte limit, compaction is deterministic and
+applies only to the resent request; safety failures, candidate hashes, the ledger, and the latest
+verifier record are never dropped, and the complete record stays on disk.
+
+None of this changes who decides. The agent remembers more; admission still requires the same
+deterministic execution, physical-validity, provenance, and locked-condition gates it cannot
+override. The persistent loop is committed and exercised by its test battery and an engineering
+smoke command; every result in §5 predates it and was produced by the episodic protocol.
+
+### 3.5 Qualification and promotion
 
 Development happens on visible conditions. Qualification ends with a one-shot run on **locked**
 conditions that were hidden during development, with no feedback. Deterministic execution and
@@ -219,7 +248,7 @@ admitted only when every deterministic check passes, and any failure, missing ev
 unresolved veto resolves to `REJECT` or `HOLD` (insufficient evidence to decide), never to a
 pass. A `HOLD` is reported as such rather than converted into a pass or silently retried.
 
-### 3.5 Drift and skill evolution
+### 3.6 Drift and skill evolution
 
 When a versioned simulator change makes a previously admitted skill fail, Proprio treats the
 repair as a new admission problem, not an edit-in-place. The model generates an evolution proposal
@@ -229,7 +258,7 @@ locked sweep. Only a fully passing proposal is staged, with parent, rollback, ev
 simulator, verifier, and validation hashes, and the previously admitted skill remains immutable.
 A failed proposal is rejected and the parent is retained unchanged.
 
-### 3.6 Pre-deployment boundary
+### 3.7 Pre-deployment boundary
 
 Simulation qualification is a pre-deployment gate, not a deployment decision. Use on a physical
 instrument still requires hardware adapters, interlocks, reference measurements on the target
@@ -600,7 +629,7 @@ generations, so it establishes the feedback mechanism rather than a single froze
 Cross-family evidence stops at the line drawn in §5.4: acquisition and independent qualification
 generalize across the three external families of the frozen panel, the complete drift-evolution
 ladder does not, and no repeated-generation success rate is claimed for that panel.
-Real-hardware qualification (§3.6) is the next gate, and nothing in this report substitutes for
+Real-hardware qualification (§3.7) is the next gate, and nothing in this report substitutes for
 it.
 
 ## 7. Conclusion
