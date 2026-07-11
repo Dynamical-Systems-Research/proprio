@@ -20,6 +20,7 @@ from proprio.adaptive_microscopy_study import (
     run_live_adaptive_microscopy_uncertainty_battery,
 )
 from proprio.adaptive_validation import run_live_adaptive_microscopy_locked
+from proprio.agent_smoke import run_persistent_smoke
 from proprio.artifacts import write_canonical_json
 from proprio.causal_evidence import summarize_accumulated_causal_evidence
 from proprio.confirmatory_metrology import run_confirmatory_metrology
@@ -254,6 +255,11 @@ def _parser() -> argparse.ArgumentParser:
     heldout_preflight.add_argument("--output-dir", type=Path, required=True)
     heldout_preflight.add_argument("--preregistration", type=Path, required=True)
     heldout_preflight.add_argument("--evidence", type=Path, nargs="+", required=True)
+
+    persistent_smoke = subparsers.add_parser("persistent-smoke")
+    persistent_smoke.add_argument("--instrument", required=True)
+    persistent_smoke.add_argument("--output-dir", type=Path, required=True)
+    persistent_smoke.add_argument("--parent-episode", type=Path, default=None)
 
     microscopy_metrology = subparsers.add_parser("microscopy-metrology")
     microscopy_metrology.add_argument("--reference-dir", type=Path, required=True)
@@ -499,6 +505,12 @@ def main(argv: list[str] | None = None) -> int:
             confirmatory_path=args.confirmatory,
             diagnostic_path=args.diagnostic,
             openflexure_lock_path=args.openflexure_lock,
+        )
+    elif args.command == "persistent-smoke":
+        result = run_persistent_smoke(
+            args.instrument,
+            args.output_dir,
+            parent_episode=args.parent_episode,
         )
     elif args.command == "heldout-preflight-import":
         result = import_heldout_preflight_evidence(
