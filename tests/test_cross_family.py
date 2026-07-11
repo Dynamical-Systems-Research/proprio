@@ -280,9 +280,7 @@ def test_trajectory_candidate_summary_carries_context_and_ledger_metrics(
         "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
-    monkeypatch.setattr(
-        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
-    )
+    monkeypatch.setattr("proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR)
     evidence = _truthful_ref()
     _install_client(
         monkeypatch,
@@ -328,9 +326,7 @@ def test_trajectory_budget_exhaustion_is_not_qualified(monkeypatch, tmp_path: Pa
         "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
-    monkeypatch.setattr(
-        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
-    )
+    monkeypatch.setattr("proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR)
     _install_client(monkeypatch, [[("read_current_skill", {})]])
     result = run_persistent_repair_trajectory(
         _candidate(),
@@ -354,9 +350,7 @@ def test_trajectory_locked_failure_prevents_qualification(monkeypatch, tmp_path:
         "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
-    monkeypatch.setattr(
-        "proprio.cross_family.evaluate_external_skill", _DRIFT_LOCKED_EVALUATOR
-    )
+    monkeypatch.setattr("proprio.cross_family.evaluate_external_skill", _DRIFT_LOCKED_EVALUATOR)
     evidence = _truthful_ref()
     _install_client(
         monkeypatch,
@@ -389,9 +383,7 @@ def test_trajectory_duplicate_and_self_accept_cannot_admit(monkeypatch, tmp_path
         "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
-    monkeypatch.setattr(
-        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
-    )
+    monkeypatch.setattr("proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR)
     evidence = _truthful_ref()
     _install_client(
         monkeypatch,
@@ -435,9 +427,7 @@ def test_resume_of_completed_trajectory_returns_cache_without_client(
         "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
-    monkeypatch.setattr(
-        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
-    )
+    monkeypatch.setattr("proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR)
     evidence = _truthful_ref()
     _install_client(
         monkeypatch,
@@ -493,9 +483,7 @@ def test_causal_arms_share_prefix_and_isolate_post_branch(monkeypatch, tmp_path:
         "proprio.cross_family.load_external_source",
         lambda _instrument_id: (_SOURCE, _SOURCE_HASH),
     )
-    monkeypatch.setattr(
-        "proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR
-    )
+    monkeypatch.setattr("proprio.cross_family.evaluate_external_skill", _RANGE_EVALUATOR)
     monkeypatch.setattr(
         "proprio.cross_family._select_causal_parent",
         lambda _search, _instrument_id: parent,
@@ -559,9 +547,7 @@ def test_historical_regression_prevents_evolution_staged(monkeypatch, tmp_path: 
             ),
         ),
     )
-    monkeypatch.setattr(
-        "proprio.cross_family.evaluate_external_skill", _REGRESSING_EVALUATOR
-    )
+    monkeypatch.setattr("proprio.cross_family.evaluate_external_skill", _REGRESSING_EVALUATOR)
     proposal = _candidate(DRIFT_FIX)
     monkeypatch.setattr(
         "proprio.cross_family.run_persistent_repair_trajectory",
@@ -635,9 +621,7 @@ def test_session_summary_reports_full_evaluation_matrix(monkeypatch, tmp_path: P
         "proprio.cross_family.run_external_preflight",
         lambda _instrument_id: FixturePreflightReport(cases=(), verdict="PASS"),
     )
-    monkeypatch.setattr(
-        "proprio.cross_family.run_archive_search", lambda *args, **kwargs: search
-    )
+    monkeypatch.setattr("proprio.cross_family.run_archive_search", lambda *args, **kwargs: search)
 
     def locked_after_seal(*args, **kwargs):
         assert (tmp_path / "selection-seal.json").is_file()
