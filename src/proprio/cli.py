@@ -20,6 +20,7 @@ from proprio.adaptive_microscopy_study import (
     run_live_adaptive_microscopy_uncertainty_battery,
 )
 from proprio.adaptive_validation import run_live_adaptive_microscopy_locked
+from proprio.agent_smoke import run_persistent_smoke
 from proprio.artifacts import write_canonical_json
 from proprio.causal_evidence import summarize_accumulated_causal_evidence
 from proprio.confirmatory_metrology import run_confirmatory_metrology
@@ -27,6 +28,11 @@ from proprio.confirmatory_study import (
     replay_confirmatory_study,
     run_live_confirmatory_judges,
     run_live_confirmatory_study,
+)
+from proprio.cross_family import (
+    freeze_cross_family_method,
+    run_cross_family_panel,
+    run_cross_family_session,
 )
 from proprio.engineering_burden import run_engineering_burden
 from proprio.heldout_preflight import import_heldout_preflight_evidence
@@ -255,6 +261,11 @@ def _parser() -> argparse.ArgumentParser:
     heldout_preflight.add_argument("--preregistration", type=Path, required=True)
     heldout_preflight.add_argument("--evidence", type=Path, nargs="+", required=True)
 
+    persistent_smoke = subparsers.add_parser("persistent-smoke")
+    persistent_smoke.add_argument("--instrument", required=True)
+    persistent_smoke.add_argument("--output-dir", type=Path, required=True)
+    persistent_smoke.add_argument("--parent-episode", type=Path, default=None)
+
     microscopy_metrology = subparsers.add_parser("microscopy-metrology")
     microscopy_metrology.add_argument("--reference-dir", type=Path, required=True)
     microscopy_metrology.add_argument("--output-dir", type=Path, required=True)
@@ -321,6 +332,17 @@ def _parser() -> argparse.ArgumentParser:
         choices=["original", "disclosed_executor_contract"],
         required=True,
     )
+
+    cross_family_freeze = subparsers.add_parser("cross-family-freeze")
+    cross_family_freeze.add_argument("--output-dir", type=Path, required=True)
+
+    cross_family_session = subparsers.add_parser("cross-family-session")
+    cross_family_session.add_argument("--instrument", required=True)
+    cross_family_session.add_argument("--output-dir", type=Path, required=True)
+    cross_family_session.add_argument("--session-index", type=int, default=0)
+
+    cross_family_panel = subparsers.add_parser("cross-family-panel")
+    cross_family_panel.add_argument("--output-dir", type=Path, required=True)
 
     manifest = subparsers.add_parser("evidence-manifest")
     manifest.add_argument("--root", type=Path, default=Path.cwd())
@@ -500,6 +522,12 @@ def main(argv: list[str] | None = None) -> int:
             diagnostic_path=args.diagnostic,
             openflexure_lock_path=args.openflexure_lock,
         )
+    elif args.command == "persistent-smoke":
+        result = run_persistent_smoke(
+            args.instrument,
+            args.output_dir,
+            parent_episode=args.parent_episode,
+        )
     elif args.command == "heldout-preflight-import":
         result = import_heldout_preflight_evidence(
             args.output_dir,
@@ -561,6 +589,16 @@ def main(argv: list[str] | None = None) -> int:
             args.root,
             args.output_dir,
         )
+    elif args.command == "cross-family-freeze":
+        result = freeze_cross_family_method(args.output_dir)
+    elif args.command == "cross-family-session":
+        result = run_cross_family_session(
+            args.instrument,
+            args.output_dir,
+            session_index=args.session_index,
+        )
+    elif args.command == "cross-family-panel":
+        result = run_cross_family_panel(args.output_dir)
     elif args.command == "evidence-manifest":
         result = build_evidence_manifest(args.root, args.output)
         errors = verify_evidence_manifest(args.root, result)
