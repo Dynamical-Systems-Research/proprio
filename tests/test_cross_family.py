@@ -9,13 +9,6 @@ from typing import Any
 import pytest
 import yaml
 
-from proprio.adaptive_search import (
-    DebugCondition,
-    DebugSuiteResult,
-    FixturePreflightReport,
-    SearchReport,
-    evaluate_debug_suite,
-)
 from proprio.agent import resume_agent_state
 from proprio.cross_family import (
     freeze_cross_family_method,
@@ -25,7 +18,7 @@ from proprio.cross_family import (
     run_persistent_repair_trajectory,
     verify_cross_family_method,
 )
-from proprio.generalization_instruments import load_generalization_source as load_external_source
+from proprio.external_instruments import load_external_source as load_external_source
 from proprio.instrument_types import (
     CandidatePackage,
     FeedbackArm,
@@ -34,6 +27,13 @@ from proprio.instrument_types import (
     SimulationScenario,
 )
 from proprio.schema import canonical_json
+from proprio.skill_search import (
+    DebugCondition,
+    DebugSuiteResult,
+    FixturePreflightReport,
+    SearchReport,
+    evaluate_debug_suite,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -50,7 +50,7 @@ FAIL_ONE = "def run(controller):\n    controller.measure(2.0)\n    return {'valu
 DRIFT_FIX = (
     "def run(controller):\n    controller.measure(0.25)  # drift-fix\n    return {'value': 0.25}\n"
 )
-SKILL_MD = "---\nname: adaptive-fixture\ndescription: Measure safely.\n---\n# Run\nMeasure.\n"
+SKILL_MD = "---\nname: simulated-fixture\ndescription: Measure safely.\n---\n# Run\nMeasure.\n"
 
 _SOURCE = "# controller.measure(step) returns a float; repeat noisy measurements"
 _SOURCE_HASH = hashlib.sha256(_SOURCE.encode()).hexdigest()
@@ -65,7 +65,7 @@ DRIFT_CONDITION = DebugCondition(
 
 def _candidate(skill_py: str = INITIAL) -> CandidatePackage:
     return CandidatePackage(
-        instrument_id="adaptive-fixture",
+        instrument_id="simulated-fixture",
         skill_md=SKILL_MD,
         skill_py=skill_py,
         self_judgment={"verdict": "ACCEPT", "basis": ["source"]},
@@ -227,23 +227,19 @@ def _truthful_ref() -> str:
     return suite.conditions[0].failure_refs[0]
 
 
-def test_cross_family_method_budget_matches_v03_and_declares_persistent_context() -> None:
-    protocol = yaml.safe_load(
-        (ROOT / "src/proprio/data/cross-family-method.yaml").read_text(encoding="utf-8")
-    )
-    budget = protocol["search_budget_per_session"]
+def test_cross_family_method_declares_search_and_persistence_contract() -> None:
+    protocol = yaml.safe_load((ROOT / "src/proprio/data/method.yaml").read_text(encoding="utf-8"))
+    budget = protocol["search"]
     assert budget["initial_drafts"] == 6
     assert budget["archive_survivors"] == 3
     assert budget["repair_rounds"] == 6
     assert budget["maximum_candidate_variants"] == 24
     assert budget["maximum_model_turns_per_repair"] == 16
-    persistent = protocol["persistent_context"]
-    assert persistent["verifier_cycles"] == {"causal": 4, "evolution": 6}
-    assert persistent["model_call_budget_per_trajectory"] == {"causal": 64, "evolution": 96}
-    assert persistent["token_budget_per_trajectory"] == {"causal": 600000, "evolution": 900000}
-    assert persistent["compaction"]["byte_limit"] == 240000
-    assert protocol["study"]["binding_seed_base"] == 2400000
-    assert protocol["study"]["independent_sessions_per_family"] == 1
+    persistent = protocol["persistence"]
+    assert persistent["one_context_per_trajectory"] is True
+    assert persistent["context_byte_limit"] == 240000
+    assert protocol["evaluation"]["seed_base"] == 2400000
+    assert protocol["evaluation"]["sessions_per_family"] == 1
     assert protocol["promotion"]["model_self_judgment_can_promote"] is False
 
 
@@ -253,8 +249,12 @@ def test_cross_family_freeze_binds_current_bytes_and_verifies(tmp_path: Path) ->
     assert manifest["schema_version"] == "proprio.cross_family_method_freeze.v0.4"
     assert "src/proprio/agent.py" in manifest["inputs"]
     assert "src/proprio/cross_family.py" in manifest["inputs"]
-    assert "src/proprio/data/cross-family-method.yaml" in manifest["inputs"]
-    assert manifest["reused_evidence_root"] == "artifacts/evidence/generalization-v0.3"
+    assert "src/proprio/data/method.yaml" in manifest["inputs"]
+    for dependency in ("artifacts.py", "catalog.py", "instrument_types.py", "schema.py"):
+        assert f"src/proprio/{dependency}" in manifest["inputs"]
+    assert (
+        manifest["qualification_evidence_root"] == "artifacts/evidence/cross-family/qualification"
+    )
     verification = verify_cross_family_method(tmp_path / "manifest.json")
     assert verification["verdict"] == "PASS"
     on_disk = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
@@ -318,7 +318,7 @@ def test_trajectory_candidate_summary_carries_context_and_ledger_metrics(
     progress = capsys.readouterr().err
     assert "[proprio] provider-call turn=1 attempt=1" in progress
     assert "[proprio] tool-result tool=submit_repair status=captured terminal=True" in progress
-    assert "[proprio] agent-finish instrument=adaptive-fixture status=CANDIDATE" in progress
+    assert "[proprio] agent-finish instrument=simulated-fixture status=CANDIDATE" in progress
 
 
 def test_trajectory_budget_exhaustion_is_not_qualified(monkeypatch, tmp_path: Path) -> None:
@@ -474,7 +474,7 @@ def test_resume_of_completed_trajectory_returns_cache_without_client(
 def test_causal_arms_share_prefix_and_isolate_post_branch(monkeypatch, tmp_path: Path) -> None:
     parent = _candidate()
     definition = SimpleNamespace(
-        instrument_id="adaptive-fixture",
+        instrument_id="simulated-fixture",
         visible_conditions=(CONDITION,),
         locked_conditions=(CONDITION,),
         acquisition_conditions=(CONDITION,),
@@ -528,7 +528,7 @@ def test_causal_arms_share_prefix_and_isolate_post_branch(monkeypatch, tmp_path:
 
 def test_historical_regression_prevents_evolution_staged(monkeypatch, tmp_path: Path) -> None:
     definition = SimpleNamespace(
-        instrument_id="adaptive-fixture",
+        instrument_id="simulated-fixture",
         visible_conditions=(CONDITION,),
         locked_conditions=(DRIFT_CONDITION,),
         acquisition_conditions=(

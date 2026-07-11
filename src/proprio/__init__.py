@@ -1,4 +1,4 @@
-"""Proprio instrument-operation observability."""
+"""Simulator-verified skill acquisition for scientific instruments."""
 
 from proprio.schema import (
     CheckResult,
@@ -20,4 +20,4 @@ __all__ = [
     "ValidityRecord",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.4.0"

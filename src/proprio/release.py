@@ -9,24 +9,27 @@ from proprio.artifacts import file_sha256, write_canonical_json
 
 
 def build_evidence_manifest(root: Path, output: Path) -> dict[str, Any]:
-    evidence_root = root / "artifacts/evidence"
     excluded = output.resolve()
     artifacts = []
-    for path in sorted(item for item in evidence_root.rglob("*") if item.is_file()):
-        if path.resolve() == excluded:
-            continue
-        relative = path.relative_to(root)
-        if relative.match("artifacts/evidence/microscopy/calibration/reference/*.npy"):
-            continue
-        artifacts.append(
-            {
-                "path": str(relative),
-                "sha256": file_sha256(path),
-                "bytes": path.stat().st_size,
-            }
-        )
+    evidence_roots = (
+        root / "artifacts/evidence",
+        root / "cassettes/cross-family",
+        root / "cassettes/dsv4",
+    )
+    for evidence_root in evidence_roots:
+        for path in sorted(item for item in evidence_root.rglob("*") if item.is_file()):
+            if path.resolve() == excluded:
+                continue
+            relative = path.relative_to(root)
+            artifacts.append(
+                {
+                    "path": str(relative),
+                    "sha256": file_sha256(path),
+                    "bytes": path.stat().st_size,
+                }
+            )
     manifest = {
-        "schema_version": "proprio.evidence_manifest.v0.1",
+        "schema_version": "proprio.evidence_manifest.v0.4",
         "artifact_count": len(artifacts),
         "artifacts": artifacts,
         "verdict": "PASS" if artifacts else "FAIL",

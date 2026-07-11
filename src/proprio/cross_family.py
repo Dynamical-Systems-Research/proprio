@@ -3,19 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-from proprio.adaptive_search import (
-    PROCEDURAL_CHECKS,
-    DebugCondition,
-    DebugSuiteResult,
-    RepairOutcome,
-    SearchReport,
-    evaluate_debug_suite,
-    run_archive_search,
-)
 from proprio.agent import (
     AgentModelConfig,
     AgentState,
@@ -28,45 +20,33 @@ from proprio.agent import (
     run_agent_cycle,
 )
 from proprio.artifacts import source_sha256, write_canonical_json
-from proprio.generalization_instruments import (
-    GENERALIZATION_INSTRUMENTS as EXTERNAL_INSTRUMENTS,
-)
-from proprio.generalization_instruments import (
+from proprio.external_instruments import (
+    EXTERNAL_INSTRUMENTS,
     ExternalRuntimeUnavailable,
+    evaluate_external_skill,
     external_simulator_identity,
-)
-from proprio.generalization_instruments import (
-    evaluate_generalization_skill as evaluate_external_skill,
-)
-from proprio.generalization_instruments import (
-    load_generalization_source as load_external_source,
-)
-from proprio.generalization_instruments import (
-    run_generalization_preflight as run_external_preflight,
-)
-from proprio.generalization_method import METHOD_INPUTS as PRIOR_METHOD_INPUTS
-from proprio.generalization_study import (
-    EXPECTED_PROVIDER_ROUTE,
-    EXPECTED_PROVIDERS,
-    EXPECTED_RESOLVED_MODEL,
-    _agent,
-    _bind_checkpoint,
-    _candidate_hash,
-    _conditions_hash,
-    _payload_hash,
-    _read_json,
-    _select_causal_parent,
-    _transport_evidence,
-    _verify_checkpoint_binding,
-    _write_or_verify,
+    load_external_source,
+    run_external_preflight,
 )
 from proprio.instrument_types import CandidatePackage, FeedbackArm
 from proprio.policy import DSV4Client
 from proprio.schema import canonical_json
+from proprio.skill_agent import SkillAgent
+from proprio.skill_search import (
+    PROCEDURAL_CHECKS,
+    DebugCondition,
+    DebugSuiteResult,
+    RepairOutcome,
+    SearchReport,
+    evaluate_debug_suite,
+    run_archive_search,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_EVIDENCE_ROOT = ROOT / "artifacts/evidence/generalization-v0.3"
-DEFAULT_FREEZE = ROOT / "artifacts/evidence/cross-family/method-freeze/manifest.json"
+DEFAULT_EVIDENCE_ROOT = ROOT / "artifacts/evidence/cross-family/qualification"
+EXPECTED_PROVIDER_ROUTE = "DeepInfra,GMICloud"
+EXPECTED_PROVIDERS = frozenset({"DeepInfra", "GMICloud"})
+EXPECTED_RESOLVED_MODEL = "deepseek/deepseek-v4-flash-20260423"
 
 BINDING_SEED_BASE = 2_400_000
 DEFAULT_COMPACTION_BYTE_LIMIT = 240_000
@@ -88,10 +68,13 @@ PANEL_SCHEMA = "proprio.cross_family_panel.v0.4"
 PANEL_MANIFEST_SCHEMA = "proprio.cross_family_panel_manifest.v0.4"
 
 METHOD_INPUTS = (
-    *PRIOR_METHOD_INPUTS,
-    "src/proprio/agent.py",
-    "src/proprio/cross_family.py",
-    "src/proprio/data/cross-family-method.yaml",
+    "pyproject.toml",
+    "uv.lock",
+    *(str(path.relative_to(ROOT)) for path in sorted((ROOT / "src/proprio").glob("*.py"))),
+    "src/proprio/data/method.yaml",
+    "sources/instruments/north-pipette-calibration/source.md",
+    "sources/instruments/helao-gamry-cv/source.md",
+    "sources/instruments/clslab-light-spectrometer/source.md",
 )
 
 TRAJECTORY_GOAL = (
@@ -105,10 +88,160 @@ TRAJECTORY_GOAL = (
 
 CLAIM_BOUNDARY = (
     "Cross-family external-simulator replication of the persistent-context method. The three "
-    "families are not untouched first-exposure families; they were screened before model use in "
-    "v0.3 and reused here. Simulation-only pre-deployment qualification; real-hardware "
+    "families were screened before the binding run, so this is not an untouched first-exposure "
+    "study. Simulation-only pre-deployment qualification; real-hardware "
     "qualification remains separate."
 )
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"expected an object: {path}")
+    return payload
+
+
+def _candidate_hash(skill_py: str) -> str:
+    return hashlib.sha256(skill_py.encode()).hexdigest()
+
+
+def _payload_hash(value: Any) -> str:
+    if hasattr(value, "model_dump"):
+        value = value.model_dump(mode="json")
+    return hashlib.sha256(canonical_json(value)).hexdigest()
+
+
+def _conditions_hash(conditions: Sequence[Any]) -> str:
+    return _payload_hash([condition.model_dump(mode="json") for condition in conditions])
+
+
+def _write_or_verify(path: Path, payload: dict[str, Any], *, label: str) -> None:
+    if path.is_file() and _read_json(path) != payload:
+        raise RuntimeError(f"{label} does not match the frozen session: {path}")
+    write_canonical_json(path, payload)
+
+
+def _checkpoint_binding_path(path: Path) -> Path:
+    return path.with_name(f"{path.stem}.binding.json")
+
+
+def _bind_checkpoint(path: Path, payload: dict[str, Any]) -> None:
+    _write_or_verify(_checkpoint_binding_path(path), payload, label="checkpoint binding")
+
+
+def _verify_checkpoint_binding(path: Path, payload: dict[str, Any]) -> None:
+    binding_path = _checkpoint_binding_path(path)
+    if not binding_path.is_file():
+        raise RuntimeError(f"cached checkpoint is missing its frozen binding: {path}")
+    if _read_json(binding_path) != payload:
+        raise RuntimeError(f"cached checkpoint has the wrong frozen binding: {path}")
+
+
+def _draft_agent(*, seed: int, temperature: float, top_p: float) -> SkillAgent:
+    client = DSV4Client()
+    if "openrouter.ai" in client.base_url and client.provider != EXPECTED_PROVIDER_ROUTE:
+        client.close()
+        raise RuntimeError(
+            "binding route must use "
+            f"{EXPECTED_PROVIDER_ROUTE}, observed {client.provider or 'unset'}"
+        )
+    return SkillAgent(
+        client=client,
+        source_loader=load_external_source,
+        evaluator=evaluate_external_skill,
+        families={
+            instrument_id: definition.family
+            for instrument_id, definition in EXTERNAL_INSTRUMENTS.items()
+        },
+        sampling_temperature=temperature,
+        sampling_top_p=top_p,
+        sampling_seed=seed,
+    )
+
+
+def _select_causal_parent(search: Any, instrument_id: str) -> CandidatePackage | None:
+    definition = EXTERNAL_INSTRUMENTS[instrument_id]
+    eligible: list[CandidatePackage] = []
+    for entry in search.entries:
+        if entry.generation != 0:
+            continue
+        candidate = entry.candidate
+        if candidate.self_judgment.get("verdict") != "ACCEPT":
+            continue
+        acquisition = evaluate_debug_suite(
+            candidate,
+            definition.acquisition_conditions,
+            evaluator=evaluate_external_skill,
+        )
+        changed = evaluate_debug_suite(
+            candidate,
+            definition.visible_conditions,
+            evaluator=evaluate_external_skill,
+        )
+        if acquisition.verdict == "ADMIT" and changed.verdict == "REJECT":
+            eligible.append(candidate)
+    return min(eligible, key=lambda item: _candidate_hash(item.skill_py)) if eligible else None
+
+
+def _transport_evidence(root: Path) -> dict[str, Any]:
+    responses: dict[str, dict[str, Any]] = {}
+
+    def visit(value: Any) -> None:
+        if isinstance(value, dict):
+            if value.get("object") == "chat.completion" and isinstance(value.get("id"), str):
+                responses[value["id"]] = value
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    for path in root.rglob("*.json"):
+        try:
+            visit(json.loads(path.read_text(encoding="utf-8")))
+        except (json.JSONDecodeError, OSError):
+            continue
+    providers = sorted({str(row.get("provider")) for row in responses.values()})
+    models = sorted({str(row.get("model")) for row in responses.values()})
+    reasoning_missing = 0
+    successful_responses = 0
+    error_responses = 0
+    total_tokens = 0
+    total_cost = 0.0
+    for row in responses.values():
+        finish_reason = (row.get("choices") or [{}])[0].get("finish_reason")
+        if finish_reason == "error":
+            error_responses += 1
+            continue
+        successful_responses += 1
+        message = row.get("preserved_assistant_message") or row.get("choices", [{}])[0].get(
+            "message", {}
+        )
+        if not any(
+            message.get(key) for key in ("reasoning", "reasoning_details", "reasoning_content")
+        ):
+            reasoning_missing += 1
+    for row in responses.values():
+        usage = row.get("usage") or {}
+        total_tokens += int(usage.get("total_tokens") or 0)
+        total_cost += float(usage.get("cost") or 0.0)
+    passed = (
+        successful_responses > 0
+        and set(providers).issubset(EXPECTED_PROVIDERS)
+        and models == [EXPECTED_RESOLVED_MODEL]
+        and reasoning_missing == 0
+    )
+    return {
+        "responses": len(responses),
+        "successful_responses": successful_responses,
+        "error_responses": error_responses,
+        "providers": providers,
+        "resolved_models": models,
+        "reasoning_missing": reasoning_missing,
+        "total_tokens": total_tokens,
+        "total_cost_usd": total_cost,
+        "verdict": "PASS" if passed else "FAIL",
+    }
 
 
 def _agent_client() -> DSV4Client:
@@ -556,7 +689,7 @@ def run_cross_family_session(
     output_dir: Path,
     *,
     session_index: int = 0,
-    freeze_path: Path = DEFAULT_FREEZE,
+    freeze_path: Path,
     seed_base: int = BINDING_SEED_BASE,
     panel_manifest_sha256: str | None = None,
     compaction_byte_limit: int | None = DEFAULT_COMPACTION_BYTE_LIMIT,
@@ -611,7 +744,7 @@ def run_cross_family_session(
                 },
             )
             return candidate
-        agent = _agent(seed=seed, temperature=0.7, top_p=0.95)
+        agent = _draft_agent(seed=seed, temperature=0.7, top_p=0.95)
         try:
             candidate = agent.draft(instrument_id, max_turns=8)
         finally:
@@ -646,7 +779,7 @@ def run_cross_family_session(
                 },
             )
             return outcome
-        agent = _agent(seed=seed, temperature=0.0, top_p=1.0)
+        agent = _draft_agent(seed=seed, temperature=0.0, top_p=1.0)
         try:
             outcome = agent.repair_for_search(
                 candidate,
@@ -937,7 +1070,7 @@ def run_cross_family_panel(
     output_dir: Path,
     *,
     instruments: tuple[str, ...] = tuple(EXTERNAL_INSTRUMENTS),
-    freeze_path: Path = DEFAULT_FREEZE,
+    freeze_path: Path,
     seed_base: int = BINDING_SEED_BASE,
     compaction_byte_limit: int | None = DEFAULT_COMPACTION_BYTE_LIMIT,
 ) -> dict[str, Any]:
@@ -1098,10 +1231,9 @@ def freeze_cross_family_method(
         "schema_version": METHOD_FREEZE_SCHEMA,
         "status": "FROZEN_BEFORE_BINDING_PANEL",
         "claim_boundary": CLAIM_BOUNDARY,
-        "reused_evidence_root": str(evidence_root.relative_to(ROOT)),
-        "reused_evidence_note": (
-            "the committed generalization-v0.3 eligibility and verifier metrology evidence remains "
-            "the verifier evidence for the persistent method and is referenced here as reused"
+        "qualification_evidence_root": str(evidence_root.relative_to(ROOT)),
+        "qualification_evidence_note": (
+            "eligibility and verifier metrology were completed before the binding panel"
         ),
         "selected_instruments": sorted(EXTERNAL_INSTRUMENTS),
         "inputs": inputs,

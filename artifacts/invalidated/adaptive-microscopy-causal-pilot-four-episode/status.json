@@ -1,7 +1,0 @@
-{
-  "eligible_for_claim": false,
-  "error": "ValueError: provided initial suite belongs to a different candidate",
-  "reason": "engineering pilot stopped before a complete three-cell verdict",
-  "status": "CRASHED",
-  "trials_completed": 2
-}

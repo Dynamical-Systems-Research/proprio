@@ -1,7 +1,0 @@
-{
-  "eligible_for_claim": false,
-  "error": "openai.InternalServerError: upstream provider returned HTTP 502",
-  "reason": "engineering pilot stopped before a complete three-cell verdict",
-  "status": "PROVIDER_FAILURE",
-  "trials_completed": 1
-}
