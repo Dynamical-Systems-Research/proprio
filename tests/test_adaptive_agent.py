@@ -7,6 +7,7 @@ from proprio.adaptive_agent import (
     AdaptiveInstrumentAgent,
 )
 from proprio.adaptive_search import DebugCondition, evaluate_debug_suite
+from proprio.instrument_agent import _is_retryable_transport_error, _transport_retry_delay
 from proprio.instrument_types import (
     CandidatePackage,
     FeedbackArm,
@@ -25,6 +26,17 @@ REPAIRED = """def run(controller):
     return {"value": best}
 """
 SKILL_MD = "---\nname: adaptive-fixture\ndescription: Measure safely.\n---\n# Run\nMeasure.\n"
+
+
+def test_malformed_provider_json_is_retryable_transport_corruption() -> None:
+    error = json.JSONDecodeError("truncated", "{", 1)
+    assert _is_retryable_transport_error(error) == (True, None)
+
+
+def test_rate_limit_backoff_is_longer_than_generic_transport_backoff() -> None:
+    assert _transport_retry_delay(429, 1) == 30.0
+    assert _transport_retry_delay(429, 2) == 60.0
+    assert _transport_retry_delay(502, 2) == 4.0
 
 
 class FakeMessage:

@@ -16,8 +16,22 @@ jobs:
       - uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
-      - run: uv sync --locked --extra dev --extra openflexure
-      - run: uv run ruff format --check .
+      - name: Check out pinned external simulators
+        run: |
+          mkdir -p /tmp/proprio-candidates
+          git clone --quiet --filter=blob:none --no-checkout https://github.com/AccelerationConsortium/North-Cytation /tmp/proprio-candidates/North-Cytation
+          git -C /tmp/proprio-candidates/North-Cytation sparse-checkout set sdl_pipette_calibration/protocols
+          git -C /tmp/proprio-candidates/North-Cytation checkout --quiet 3f49b5faba803a4a5d22544aa2ea5923ec513e20
+          git clone --quiet --filter=blob:none --no-checkout https://github.com/helgestein/helao-pub /tmp/proprio-candidates/helao-pub
+          git -C /tmp/proprio-candidates/helao-pub sparse-checkout set driver
+          git -C /tmp/proprio-candidates/helao-pub checkout --quiet d644716e17c40c2bdfce74d5ebe82a04ff70cc6a
+          git clone --quiet --filter=blob:none --no-checkout https://github.com/sparks-baird/self-driving-lab-demo /tmp/proprio-candidates/self-driving-lab-demo
+          git -C /tmp/proprio-candidates/self-driving-lab-demo sparse-checkout set src
+          git -C /tmp/proprio-candidates/self-driving-lab-demo checkout --quiet 34e4e8cd880bc7b788109d8a56da3f6fae978518
+      - run: uv sync --locked --extra dev --extra openflexure --extra generalization
+      # These source files are byte-bound by the v0.3 method manifest and cannot
+      # be mechanically rewritten after binding exposure.
+      - run: uv run ruff format --check . --exclude "src/proprio/generalization_*.py"
       - run: uv run ruff check .
       - run: uv run pytest
       - run: uv run proprio procedural-battery --output-dir artifacts/generated/ci/procedural

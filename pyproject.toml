@@ -52,6 +52,15 @@ openflexure = [
   "labthings-fastapi>=0.2.1",
   "pillow>=10.4",
 ]
+generalization = [
+  "numba>=0.61",
+  "pandas>=2.2",
+  "scikit-learn>=1.6",
+  "similaritymeasures>=1.3",
+  "paho-mqtt>=2.1",
+  "pyserial>=3.5",
+  "requests>=2.32",
+]
 [project.scripts]
 proprio = "proprio.cli:main"
 
