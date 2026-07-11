@@ -1,338 +1,156 @@
-# Proprio
+# Proprio: Simulator-Verified Skill Acquisition for Scientific Instruments
 
-> Point a model at an unfamiliar instrument's sources; have it compile an operating contract
-> and draft a runnable skill; let it use simulator feedback to improve that skill; and allow
-> Proprio to promote only independently verified candidates.
+Proprio turns instrument documentation into executable skills, tests those skills against a
+simulator and an independent physical contract, and admits only candidates that pass. The model
+can inspect execution evidence and repair its work, but it cannot promote its own mistakes.
 
-Proprio is an open-source method for teaching models to operate scientific instruments in
-simulation, where they write and repair procedures that pass only after independent execution
-and physics checks.
+This is a pre-deployment qualification method. A simulation-qualified skill still requires a
+separate real-hardware qualification before operating an instrument without supervision.
 
+![The agent-to-instrumentation gap](docs/assets/agent-to-instrumentation-gap.png)
 
-![Self-directed skill acquisition under external verification](docs/assets/self-directed-skill-acquisition.png)
+## How it works
 
-[Watch the evidence-bound OpenFlexure skill-acquisition demo](public/proprio-openflexure-flagship.mp4)
+```text
+instrument sources
+      ↓
+persistent agent context
+      ↓
+draft → execute → inspect evidence → repair
+      ↓
+independent execution and physical qualification
+      ↓
+locked replay → ADMIT / REJECT / HOLD
+      ↓
+deployment drift → validated evolution proposal
+```
 
-## Method overview
+The agent owns the skill and its working context. Proprio owns the simulator interface,
+qualification contract, locked conditions, and promotion decision. Each trajectory is checkpointed
+after tool results and verifier records, so interrupted work can resume without repeating completed
+model calls. The complete method contract is in
+[`method.yaml`](src/proprio/data/method.yaml).
 
-Proprio separates skill development from approval. The model reads instrument documentation,
-writes a procedure, runs it in simulation, and repairs failures from the resulting evidence,
-while the approval criteria remain outside the model loop.
+## Cross-family result
 
-The agent interface supports any compatible model or provider, while every reported result
-remains tied to the model that produced it. Proprio records the requested and resolved model,
-provider route, prompt, sampling settings, simulator, verifier, and test evidence for each run.
-The method and its generalization studies use no XRD-RL or VOE-Bench data and no trained
-judgment checkpoint.
+The binding panel used one frozen method across three external simulator families. Each initial
+skill executed but failed physical qualification, giving the agent a real repair problem rather
+than a syntax-only task.
 
-## Current evidence boundary
+| Instrument | Family | Qualified after feedback | Locked replay | Drift evolution staged |
+| --- | --- | ---: | ---: | ---: |
+| North Cytation pipette calibration | calibrated liquid delivery | yes | pass | yes |
+| HELAO Gamry cyclic voltammetry | electrochemical measurement | yes | pass | yes |
+| CLSLab light spectrometer | spectral measurement | yes | pass | yes |
 
-Accumulated paired evidence establishes that simulator feedback changes DSV4's repair success:
-across 18 non-overlapping repair units, truthful feedback produced 14 non-regressive repairs and
-the same drafts without feedback produced none (exact one-sided paired p = 0.000061). The pooled
-analysis spans three protocol generations, so it establishes the broad feedback-repair mechanism,
-not a single-protocol rate estimate.
+All three sessions passed the complete protocol, with zero invalid promotions. The truthful
+feedback arm qualified in 3/3 families; the no-feedback comparison qualified in 1/3. With one
+session per family, that comparison is descriptive rather than a rate estimate. Raw model messages,
+tool results, simulator records, selection seals, and summaries are in
+[`cassettes/cross-family`](cassettes/cross-family), and the admitted skills are in
+[`skills/external`](skills/external).
 
-The next frozen-method generalization panel was preregistered across OctoPrint, PyMoDAQ, and
-sinstruments before their simulator implementations were inspected. All three failed deterministic
-fixture preflight before any model call: the pinned simulators could not execute their complete
-registered physical and drift contracts. Proprio returned `HOLD`, spent zero generation calls, and
-did not replace a failing family. Cross-family generalization of the frozen v0.2 method therefore
-remains **not established**. This is a simulator-suitability failure, not evidence that DSV4 failed
-an executable held-out task. See the [preflight summary](artifacts/evidence/heldout-generalization/preflight/summary.json).
+The panel used `deepseek/deepseek-v4-flash` through OpenRouter. The three external families were
+screened for executable simulator access before model use; they are not claimed as untouched
+first-exposure families. The binding evidence is byte-bound to commit
+[`c2cd6be`](https://github.com/Dynamical-Systems-Research/proprio/tree/c2cd6be). This release removes
+superseded study code and preserves the original evidence through that pinned commit.
 
-| Part | Definition |
-| --- | --- |
-| Instrument sources | The manual, API or driver documentation, safety limits, and simulator interface shown to the model. |
-| Instrument contract | A machine-readable description of permitted actions, observations, limits, valid measurements, reset behavior, working range, and drift. |
-| Development loop | The model writes a procedure, runs it on visible simulator conditions, reads the execution and measurement records, and repairs failures. |
-| Independent checks | Fixed tests for correct execution, safety limits, measurement validity, repeatability, and previously working behavior. |
-| Final test | One frozen procedure run on new simulator conditions that were hidden during development. |
-| Method output | The procedure, instrument contract, complete test evidence, and an `approved`, `rejected`, or `hold` decision. |
-
-### Procedure
-
-1. **Discover**
-   Give the model the instrument manual, API or driver documentation, safety limits, and a
-   simulator.
-
-2. **Compile the contract**
-   Write a machine-readable description of the available actions, observations, reset behavior,
-   safety limits, valid measurements, working range, and expected drift.
-
-3. **Draft the skill**
-   Write a runnable procedure using only permitted instrument actions. Set fixed limits on
-   actions, retries, and runtime.
-
-4. **Execute and observe**
-   Run the procedure under a range of visible simulator conditions. Record every action,
-   instrument response, and measurement.
-
-5. **Diagnose and refine**
-   The model reads those records, identifies the likely cause of failure, and revises the
-   procedure within a fixed search budget.
-
-6. **Independently qualify**
-   Proprio checks that the procedure ran correctly, stayed within its limits, and produced a
-   physically valid measurement. A model review may flag problems, but it cannot approve a failed
-   measurement.
-
-7. **Lock and validate**
-   Freeze the selected procedure and run it once on new simulator conditions that were hidden
-   during repair. Give the model no further feedback.
-
-8. **Decide**
-   Approve the procedure only if every independent check passes. Reject an invalid procedure.
-   Hold the result when there is not enough evidence to decide.
-
-9. **Evolve after drift**
-   When the simulated instrument drifts, repeat the repair loop. Keep the revision only if it
-   handles the drift without breaking conditions that previously worked.
-
-## What simulation qualification means
-
-Before Proprio approves a skill in simulation, it asks three questions:
-
-1. Did the control procedure execute as intended?
-2. Did it produce physically usable evidence?
-3. Was it tested inside clearly declared operating conditions?
-
-A skill qualifies only when the procedure reports failures honestly, the measurement meets its
-physical criteria, repeated runs agree, and the procedure works on conditions it did not see
-during repair.
-
-This result applies to simulation. Use on a physical instrument still requires hardware adapters,
-interlocks, recovery tests, reference measurements, supervised trials, and expert sign-off.
-
-## v0.1 Release
-
-DeepSeek V4 Flash was the primary skill-building agent. It read instrument documentation, wrote
-runnable procedures, and used simulator feedback to repair failures. Qwen 3.7 Plus served as a
-separately prompted reviewer. Proprio's execution and physics checks remained the final authority
-in both cases.
-
-| Role | Model and route | Scope |
-| --- | --- | --- |
-| Skill drafting and repair | DeepSeek V4 Flash (`deepseek/deepseek-v4-flash`, resolved as `deepseek/deepseek-v4-flash-20260423`)  | Primary [70-generation release study](cassettes/replication-dsv4/summary.json) |
-| Independent review | Qwen 3.7 Plus (`qwen/qwen3.7-plus`, resolved as `qwen/qwen3.7-plus-20260602`) through Alibaba | [Review calibration and final review panel](cassettes/independent-review/summary.json) |
-| Repair-only model check | Qwen 3.7 Plus through Alibaba, starting from eight DeepSeek V4 Flash drafts | [Diagnostic test](cassettes/model-ablations/qwen3.7-plus/shared-original/summary.json) of repair behavior; not a full source-to-skill replication |
-
-The 70 DeepSeek generations used unique study-wide seeds, temperature 0.7, top-p 0.95, the
-pinned GMICloud route, and 2,527,902 total tokens.
-
-Qwen cleared the target repair condition in all eight detailed-feedback episodes and none of the
-no-feedback episodes, although two of the eight repairs broke behavior that had previously
-worked. The diagnostic also used DeepSeek starting drafts, so it did not test Qwen's ability to
-draft executable skills or a single-model route across the complete workflow. It should not be
-read as a second full acquisition result.
-
-All 60 independently generated procedures passed in the initial six-instrument study, which
-covered optical measurements, calibrated liquid delivery, and temperature control. The external
-OpenFlexure microscope exposed the limit of that result. All 10 drafts ran, but only 4 of 10
-repaired procedures passed the new test conditions. The required rate was at least 8 of 10 for
-every instrument. Proprio rejected the other six and did not add an OpenFlexure skill to the
-public catalog.
-
-| Result | Observed outcome | Required outcome |
-| --- | ---: | ---: |
-| Initial code executed | 68/70 (97.1%; Wilson 95% CI 90.2–99.2%) | At least 75% per instrument |
-| Initial measurement was physically valid | 61/70 (87.1%) | Reported separately |
-| Procedure passed every check | 64/70 (91.4%; Wilson 95% CI 82.5–96.0%) | **FAIL:** at least 80% per instrument; OpenFlexure was 4/10 |
-| Invalid procedure approved | 0/6 | Zero |
-| Initial six-instrument study | 60/60 | At least 80% per instrument |
-
-## External OpenFlexure test
-
-The external test uses the
-[OpenFlexure microscope server](https://gitlab.com/openflexure/openflexure-microscope-server)
-at revision `d26b93e1be1093e9d696b634dd1f7dde3bb7142a`. OpenFlexure runs as a separate GPL-3.0
-process through its public LabThings/FastAPI interface; Proprio redistributes none of its source.
-The model received only the instrument documentation and public controller contract.
-
-The verifier does not read the simulator's own focus score. It checks public stage position,
-frame integrity, calibrated focus position, high-frequency image energy, and a separate Laplacian
-focus calculation. Both image checks must pass.
-
-| Verifier result | Value |
-| --- | ---: |
-| Labeled cases | 2,700 |
-| Invalid conditions | 8 classes |
-| Invalid measurements accepted | 0 |
-| Valid measurements rejected | 1/300 (0.33%) |
-| Agreement between the two image checks on valid cases | 99.67% |
-| Overall agreement with labeled truth | 90.59% |
-
-The two image checks share the same exported frame, so they are not statistically independent.
-They use different calculations, neither reads hidden simulator state, and public stage position
-provides a third calibrated reference. This remaining correlation is reported directly. See the
-[metrology record](artifacts/evidence/microscopy/locked/metrology/summary.json) and
-[manual frame inspection](artifacts/evidence/microscopy/locked/manual-inspection.md).
-
-The failed 4/10 result exposed two problems that a single demonstration would have missed:
-
-- four agents reached the turn limit without submitting a final candidate;
-- two candidates passed the visible repair case but failed new starting positions hidden during
-  repair.
-
-## Independent model review
-
-Qwen 3.7 Plus read the documentation, original and revised skills, code difference, complete
-execution record, and fresh simulator replay. It could reject or hold a candidate, but it could
-not override a failed deterministic check.
-
-The reviewer passed all 56 calibration cases and all 42 cases from the initial six-instrument
-study. It matched 47 of 49 labels that had been fixed in advance for the complete study. In the
-two disagreements, fresh execution evidence showed that the expected labels were wrong, and the
-reviewer correctly rejected the candidates. The reviewer result therefore remains **FAIL**, with
-zero overrides of failed execution or measurement checks. See the
-[study summary](cassettes/independent-review/summary.json) and
-[manual inspection](cassettes/independent-review/manual-inspection.md).
-
-## X-ray diffraction reference implementation
-
-Powder X-ray diffraction is the reference instrument because operation quality and evidence
-quality are tightly connected. The hardware-free implementation uses Bluesky RunEngine and
-`ophyd.sim` for execution, an analytic NumPy model for Cu Kα LaB6 detector frames, and pyFAI plus
-independent telemetry and statistical checks for verification. The frame generator and verifier
-are intentionally different implementations.
-
-XRD remains a reference instrument, not generalization data.
-
-The test battery covers geometry errors, zero shift, sample displacement, detector saturation,
-dead-time distortion, weak counting statistics, integration failure, unindexed peaks, and an
-implausible lower tail of reduced chi-squared. Crystal-fit checks are used only on calibrant or
-quality-control scans. Unknown samples are checked for acquisition and preprocessing integrity,
-not for whether a scientific interpretation is correct.
-
-| XRD check | Result |
-| --- | --- |
-| Execution fault injection | 5/5 classes detected; dropped frame labeled `degraded` |
-| Valid calibrant controls | 0/300 false rejections |
-| Invalid calibrant measurements | 0 observed false acceptances in 300 cases for each of 9 classes |
-| Always-valid adversary | 2,700/2,700 invalid cases rejected |
-| Declared-condition test | 100% detection; 0% false alarms |
-| Complete operation record | Valid path passed; successful execution with a saturated frame failed validity |
-
-The sample-displacement check missed the exact fault label in 19 of 300 injected cases, although
-other shift or indexing checks still rejected every affected measurement. The approval decision
-was correct; the weaker fault attribution remains visible.
-
-## Reproduce the hardware-free evidence
-
-Requirements: Python 3.12 or 3.13 and [uv](https://docs.astral.sh/uv/).
+## Install
 
 ```bash
 git clone https://github.com/Dynamical-Systems-Research/proprio.git
 cd proprio
-uv sync --locked --extra dev
-
-uv run proprio composition-battery \
-  --output-dir artifacts/generated/composition
-
-uv run proprio confirmatory-study-replay \
-  --cassette-dir cassettes/confirmatory-dsv4 \
-  --output-dir artifacts/generated/confirmatory-replay
-
-uv run proprio replication-study-summary \
-  --cassette-dir cassettes/replication-dsv4
+uv sync --locked --extra dev --extra simulators
 ```
 
-Run XRD and cross-instrument measurement tests with:
+The cross-family adapters expect these pinned simulator checkouts under
+`/tmp/proprio-candidates`:
 
 ```bash
-uv run proprio metrology \
-  --cases-per-class 300 \
-  --output-dir artifacts/generated/metrology
+mkdir -p /tmp/proprio-candidates
 
-uv run proprio confirmatory-metrology \
-  --cases-per-class 300 \
-  --output-dir artifacts/generated/confirmatory-metrology
+git clone --filter=blob:none --no-checkout \
+  https://github.com/AccelerationConsortium/North-Cytation \
+  /tmp/proprio-candidates/North-Cytation
+git -C /tmp/proprio-candidates/North-Cytation sparse-checkout set \
+  sdl_pipette_calibration/protocols
+git -C /tmp/proprio-candidates/North-Cytation checkout \
+  3f49b5faba803a4a5d22544aa2ea5923ec513e20
 
-uv run proprio microscopy-metrology \
-  --reference-dir artifacts/evidence/microscopy/locked/reference \
-  --output-dir artifacts/generated/microscopy-metrology \
-  --cases-per-class 300
+git clone --filter=blob:none --no-checkout \
+  https://github.com/helgestein/helao-pub \
+  /tmp/proprio-candidates/helao-pub
+git -C /tmp/proprio-candidates/helao-pub sparse-checkout set driver
+git -C /tmp/proprio-candidates/helao-pub checkout \
+  d644716e17c40c2bdfce74d5ebe82a04ff70cc6a
+
+git clone --filter=blob:none --no-checkout \
+  https://github.com/sparks-baird/self-driving-lab-demo \
+  /tmp/proprio-candidates/self-driving-lab-demo
+git -C /tmp/proprio-candidates/self-driving-lab-demo sparse-checkout set src
+git -C /tmp/proprio-candidates/self-driving-lab-demo checkout \
+  34e4e8cd880bc7b788109d8a56da3f6fae978518
 ```
 
-Fresh model generation is a separate release test:
+Set an OpenAI-compatible model endpoint, freeze the complete method, then run a session or the full
+panel:
 
 ```bash
-OPENAI_API_KEY="$OPENROUTER_API_KEY" \
-OPENAI_BASE_URL=https://openrouter.ai/api/v1 \
-MODEL=deepseek/deepseek-v4-flash \
-OPENROUTER_PROVIDER=GMICloud \
-DSV4_REASONING_EFFORT=high \
-  uv run proprio replication-study-live \
-    --output-dir artifacts/live/replication
+export OPENAI_API_KEY="$OPENROUTER_API_KEY"
+export OPENAI_BASE_URL=https://openrouter.ai/api/v1
+export MODEL=deepseek/deepseek-v4-flash
+export OPENROUTER_PROVIDER=DeepInfra,GMICloud
+export DSV4_REASONING_EFFORT=high
+
+uv run proprio cross-family-freeze --output-dir runs/method-freeze
+uv run proprio cross-family-session \
+  --instrument north-pipette-calibration \
+  --freeze runs/method-freeze/manifest.json \
+  --output-dir runs/north-pipette-calibration
 ```
 
-## Add an instrument
+The simulator and qualification gates, not the model's self-judgment, determine the final status.
+Unavailable or ambiguous evidence produces `HOLD`; a failed execution, physical check, provenance
+check, or locked replay produces `REJECT`.
 
-1. Start from [`skills/xrd-reference/SKILL.md`](skills/xrd-reference/SKILL.md) and the examples
-   under [`skills/simulated/`](skills/simulated/).
-2. Connect the public instrument API or driver and provide a simulator with explicit reset and
-   failure behavior.
-3. Define honest `succeeded`, `failed`, `degraded`, and `unavailable` outcomes.
-4. Write independent checks for the measurements the instrument should produce. Document any
-   assumptions shared with the simulator.
-5. Build labeled valid and invalid tests before asking a model to generate a skill. Fix the
-   thresholds, prompts, model-provider settings, working range, and hidden test cases in advance.
-6. Use [`schemas/skill.schema.json`](schemas/skill.schema.json), retain raw source and execution
-   records, and replay previously working conditions before approving an evolved skill.
-7. Keep scientific decisions—such as phase assignment or experimental choice—out of the
-   instrument-operation record.
+## XRD reference workflow
 
-The optional MatteriX adapter remains honestly `unavailable`; see
-[`docs/matterix-adapter.md`](docs/matterix-adapter.md). GSAS-II and xrayutilities remain behind
-external adapters that preserve their upstream licenses.
+XRD is the reference instrument because it connects Proprio to Dynamical's earlier physical-
+judgment work. The reference workflow uses Bluesky and Ophyd for procedural execution, an
+independent synthetic LaB6/Si generator and verifier for measurement validity, and a typed support
+check before evidence reaches a policy. It does not use XRD-RL or VOE-Bench data.
 
-## Instrument-specific verification work
+```bash
+uv run proprio procedural-battery --output-dir runs/procedural
+uv run proprio metrology --cases-per-class 300 --output-dir runs/metrology
+uv run proprio support-battery --output-dir runs/support
+uv run proprio composition-battery --output-dir runs/xrd-reference
+```
 
-Independent physical verification requires instrument-specific engineering. Proprio reports
-nonblank source lines, declared checks, labeled failure classes, and external dependencies. It
-does not estimate person-hours from Git history.
+The Keithley 2450 example provides the compact admission proof: a correct drafted skill is admitted,
+while a plausible wrong-range skill that the model accepted is rejected by circuit-law checks.
 
-| Instrument family | Simulator or adapter LOC | Verifier LOC | Documentation LOC | Physical checks | Invalid classes |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Optical measurement (2 instruments) | 130 | 107 | 30 | 7 each | 4 |
-| Calibrated delivery (2 instruments) | 113 | 80 | 24 | 5 / 6 | 4 |
-| Thermal control (2 instruments) | 100 | 50 | 24 | 7 each | 4 |
-| OpenFlexure microscopy | 333 | 162 | 32 | 10 | 8 |
-
-The OpenFlexure integration also required a 185-line measurement-test harness. Person-hours are
-not reported because prospective labor logging was not active. See the
-[burden manifest](artifacts/evidence/engineering-burden/summary.json).
-
-## Scope and limitations
-
-Proprio v0.1 is a simulation-only qualification method. It does not establish safe autonomous
-operation on physical hardware. Deployment still requires hardware adapters, interlock and
-recovery tests, reference measurements on the target instrument, uncertainty and drift studies,
-supervised trials, and instrument-expert approval.
-
-The initial six-instrument study shows repeatable acquisition and repair within three simulator
-families; it is not universal generalization. The external OpenFlexure result is deliberately
-reported as a failed breadth test. Simulator and verifier independence remains imperfect, model
-generation is stochastic, and each physical contract requires specialist work. These are the
-current research boundaries.
-
-See the [technical note](docs/technical-note.md), [research protocol](docs/research-agenda.md),
-[protocol amendments](docs/protocol-amendments.md), and
-[release status](docs/release-status.md). Released skills are hash-bound in
-[`catalog.json`](catalog.json), and released evidence is listed in
-[`artifacts/evidence/manifest.json`](artifacts/evidence/manifest.json).
+```bash
+uv run proprio skill-admission \
+  --cassette-dir cassettes/dsv4 \
+  --output-dir runs/skill-admission
+```
 
 ## Repository map
 
-| Path | Contents |
-| --- | --- |
-| [`src/proprio/`](src/proprio/) | simulators, verifiers, agent loop, replay, and CLI |
-| [`skills/`](skills/) | XRD reference, Keithley development case, and qualified skills |
-| [`sources/`](sources/) | instrument documentation shown to the model |
-| [`cassettes/`](cassettes/) | raw model messages, tool calls, reviews, and deterministic results |
-| [`artifacts/evidence/`](artifacts/evidence/) | measurement tests, raw samples, standardized records, and manifest |
-| [`artifacts/invalidated/`](artifacts/invalidated/) | excluded runs retained for audit |
-| [`docs/`](docs/) | technical note, protocol, amendments, release status, and figure assets |
+- [`src/proprio`](src/proprio): persistent agent, bounded skill runtime, simulators, and gates
+- [`sources/instruments`](sources/instruments): instrument source bundles used by the model
+- [`skills`](skills): reference and simulation-qualified skill packages
+- [`cassettes`](cassettes): raw model and qualification records
+- [`artifacts/evidence`](artifacts/evidence): metrology, freeze, and composition evidence
+- [`catalog.json`](catalog.json): content-addressed skill catalog
 
-Proprio is licensed under Apache-2.0. External simulators retain their upstream licenses. See
-[`CONTRIBUTING.md`](CONTRIBUTING.md) and [`CITATION.cff`](CITATION.cff).
+The [OpenFlexure demo](public/proprio-openflexure-flagship.mp4) illustrates the same
+documentation-to-simulation repair loop used during method development.
+
+## License and citation
+
+Proprio is released under the [Apache License 2.0](LICENSE). See
+[`CITATION.cff`](CITATION.cff) for citation metadata and [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+development and verification requirements.

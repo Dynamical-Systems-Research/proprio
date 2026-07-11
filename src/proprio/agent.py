@@ -10,15 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from proprio.adaptive_agent import ADAPTIVE_SKILL_ENGINEER_SYSTEM_PROMPT, DEBUG_REPAIR_TOOLS
-from proprio.adaptive_search import (
-    DebugCondition,
-    DebugSuiteResult,
-    Evaluator,
-    evaluate_debug_suite,
-)
-from proprio.artifacts import write_canonical_json
-from proprio.instrument_agent import (
+from proprio.agent_runtime import (
     TRANSPORT_ATTEMPTS_PER_MODEL_TURN,
     _assistant_payload,
     _is_retryable_transport_error,
@@ -27,9 +19,17 @@ from proprio.instrument_agent import (
     _transport_retry_delay,
     _validate_candidate_payload,
 )
+from proprio.artifacts import write_canonical_json
 from proprio.instrument_types import CandidatePackage, FeedbackArm
 from proprio.policy import DSV4Client
 from proprio.schema import canonical_json
+from proprio.skill_agent import QUALIFICATION_REPAIR_TOOLS, QUALIFIED_SKILL_SYSTEM_PROMPT
+from proprio.skill_search import (
+    DebugCondition,
+    DebugSuiteResult,
+    Evaluator,
+    evaluate_debug_suite,
+)
 
 AGENT_STATE_SCHEMA_VERSION = "proprio.agent_state.v0.4"
 
@@ -103,7 +103,7 @@ new action. There is no fixed repair recipe; diagnose and revise only from the e
 present in this context.
 """
 
-PERSISTENT_SYSTEM_PROMPT = ADAPTIVE_SKILL_ENGINEER_SYSTEM_PROMPT + PERSISTENT_AGENT_CONTRACT
+PERSISTENT_SYSTEM_PROMPT = QUALIFIED_SKILL_SYSTEM_PROMPT + PERSISTENT_AGENT_CONTRACT
 
 
 def _progress(event: str, **fields: Any) -> None:
@@ -564,7 +564,7 @@ def run_agent_cycle(
         request: dict[str, Any] = {
             "model": client.model,
             "messages": request_messages,
-            "tools": DEBUG_REPAIR_TOOLS,
+            "tools": QUALIFICATION_REPAIR_TOOLS,
             "tool_choice": "auto",
             "temperature": state.run_config.temperature,
             "top_p": state.run_config.top_p,

@@ -1,20 +1,19 @@
 cff-version: 1.2.0
 message: "If Proprio contributes to published research, please cite this software."
-title: "Proprio"
+title: "Proprio: Simulator-Verified Skill Acquisition for Scientific Instruments"
 type: software
-version: 0.1.0
+version: 0.4.0
 license: Apache-2.0
 repository-code: "https://github.com/Dynamical-Systems-Research/proprio"
 authors:
   - name: "Dynamical Systems"
 abstract: >-
-  A simulation-validated pre-deployment substrate for instrument operation,
-  measurement-validity verification, support checks, simulator-grounded skill
-  acquisition, causal repair, and staged evolution across scientific-instrument
-  families.
+  A persistent agent method for acquiring scientific-instrument skills from sources,
+  repairing them from simulator evidence, and qualifying them with independent
+  execution and physical gates before deployment.
 keywords:
   - instrument control
-  - observability
+  - digital twins
   - scientific agents
   - self-driving laboratories
   - simulation qualification
