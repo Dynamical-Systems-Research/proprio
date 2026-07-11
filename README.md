@@ -11,6 +11,8 @@ and physics checks.
 
 ![Self-directed skill acquisition under external verification](docs/assets/self-directed-skill-acquisition.png)
 
+[Watch the evidence-bound OpenFlexure skill-acquisition demo](public/proprio-openflexure-flagship.mp4)
+
 ## Method overview
 
 Proprio separates skill development from approval. The model reads instrument documentation,
