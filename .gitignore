@@ -12,4 +12,3 @@ htmlcov/
 tmp/
 artifacts/generated/
 artifacts/live/
-artifacts/evidence/microscopy/calibration/reference/*.npy

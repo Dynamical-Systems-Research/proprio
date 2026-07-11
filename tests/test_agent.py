@@ -3,8 +3,6 @@ import json
 import re
 from types import SimpleNamespace
 
-from proprio.adaptive_agent import ADAPTIVE_SKILL_ENGINEER_SYSTEM_PROMPT
-from proprio.adaptive_search import DebugCondition, evaluate_debug_suite
 from proprio.agent import (
     PERSISTENT_AGENT_CONTRACT,
     PERSISTENT_SYSTEM_PROMPT,
@@ -22,6 +20,8 @@ from proprio.agent import (
 )
 from proprio.instrument_types import CandidatePackage, GateCheck, HardGateResult, SimulationScenario
 from proprio.schema import canonical_json
+from proprio.skill_agent import QUALIFIED_SKILL_SYSTEM_PROMPT
+from proprio.skill_search import DebugCondition, evaluate_debug_suite
 
 INITIAL = "def run(controller):\n    controller.measure(1.0)\n    return {'value': 1.0}\n"
 REPAIRED = """def run(controller):
@@ -34,24 +34,24 @@ REPAIRED = """def run(controller):
 """
 FAIL_ONE = "def run(controller):\n    controller.measure(2.0)\n    return {'value': 2.0}\n"
 FAIL_TWO = "def run(controller):\n    controller.measure(3.0)\n    return {'value': 3.0}\n"
-SKILL_MD = "---\nname: adaptive-fixture\ndescription: Measure safely.\n---\n# Run\nMeasure.\n"
+SKILL_MD = "---\nname: simulated-fixture\ndescription: Measure safely.\n---\n# Run\nMeasure.\n"
 CONDITION = DebugCondition(
     condition_id="noise-repeat", scenario=SimulationScenario.NOMINAL, repetitions=3
 )
 
 
 def _source_loader(instrument_id):
-    assert instrument_id == "adaptive-fixture"
+    assert instrument_id == "simulated-fixture"
     source = "# controller.measure(step) returns {'value': float}; repeat noisy measurements"
     return source, hashlib.sha256(source.encode()).hexdigest()
 
 
-_SOURCE, _SOURCE_HASH = _source_loader("adaptive-fixture")
+_SOURCE, _SOURCE_HASH = _source_loader("simulated-fixture")
 
 
 def _candidate():
     return CandidatePackage(
-        instrument_id="adaptive-fixture",
+        instrument_id="simulated-fixture",
         skill_md=SKILL_MD,
         skill_py=INITIAL,
         self_judgment={"verdict": "ACCEPT", "basis": ["source"]},
@@ -64,7 +64,7 @@ def _candidate():
 
 def _evaluator(instrument_id, source, *, scenario, condition=None):
     del condition
-    assert instrument_id == "adaptive-fixture"
+    assert instrument_id == "simulated-fixture"
     valid = "range(3)" in source
     checks = (
         GateCheck(check_id="runtime-completed", passed=True),
@@ -188,7 +188,7 @@ def _run_config():
 
 def _initial_state(feedback_arm="truthful", *, model_call_budget=100, token_budget=1_000_000):
     return initial_agent_state(
-        instrument_id="adaptive-fixture",
+        instrument_id="simulated-fixture",
         feedback_arm=feedback_arm,
         source=_SOURCE,
         source_sha256=_SOURCE_HASH,
@@ -249,7 +249,7 @@ def _is_stub(message):
 
 
 def test_persistent_prompt_extends_frozen_contract_without_reserved_language():
-    assert PERSISTENT_SYSTEM_PROMPT.startswith(ADAPTIVE_SKILL_ENGINEER_SYSTEM_PROMPT)
+    assert PERSISTENT_SYSTEM_PROMPT.startswith(QUALIFIED_SKILL_SYSTEM_PROMPT)
     assert PERSISTENT_SYSTEM_PROMPT.endswith(PERSISTENT_AGENT_CONTRACT)
     normalized = " ".join(PERSISTENT_AGENT_CONTRACT.lower().split())
     assert "persistent agent context" in normalized

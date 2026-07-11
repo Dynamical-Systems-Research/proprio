@@ -4,16 +4,17 @@ build-backend = "hatchling.build"
 
 [project]
 name = "proprio"
-version = "0.1.0"
-description = "Simulation-validated pre-deployment instrument-operation observability."
+version = "0.4.0"
+description = "Simulator-verified skill acquisition for scientific instruments."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Dynamical Systems" }]
 keywords = [
   "bluesky",
+  "digital-twin",
   "instrument-control",
-  "observability",
+  "skill-acquisition",
   "x-ray-diffraction",
 ]
 classifiers = [
@@ -39,7 +40,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/Dynamical-Systems-Research/proprio"
 Repository = "https://github.com/Dynamical-Systems-Research/proprio"
-Documentation = "https://github.com/Dynamical-Systems-Research/proprio/blob/main/docs/technical-note.md"
+Documentation = "https://github.com/Dynamical-Systems-Research/proprio#readme"
 Issues = "https://github.com/Dynamical-Systems-Research/proprio/issues"
 
 [project.optional-dependencies]
@@ -48,11 +49,7 @@ dev = [
   "pytest-cov>=6.0",
   "ruff>=0.11",
 ]
-openflexure = [
-  "labthings-fastapi>=0.2.1",
-  "pillow>=10.4",
-]
-generalization = [
+simulators = [
   "numba>=0.61",
   "pandas>=2.2",
   "scikit-learn>=1.6",
@@ -79,15 +76,6 @@ extend-exclude = [
     "artifacts/**",
     "cassettes/**",
     "skills/**",
-    # These files are byte-bound by the frozen v0.2 method or its effective
-    # agent runtime. Format new code normally; do not rewrite frozen evidence.
-    "src/proprio/adaptive_microscopy_study.py",
-    "src/proprio/adaptive_microscopy_verifier.py",
-    "src/proprio/adaptive_search.py",
-    "src/proprio/adaptive_validation.py",
-    "src/proprio/instrument_agent.py",
-    "src/proprio/instrument_qualification.py",
-    "src/proprio/microscopy_verifier.py",
 ]
 line-length = 100
 target-version = "py312"
