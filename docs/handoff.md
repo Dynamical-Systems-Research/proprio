@@ -1,6 +1,33 @@
 # Proprio research handoff
 
-## Decision
+## Status: persistent-method panel complete
+
+The persistent-context revision this handoff requested is implemented, frozen, and evaluated.
+
+- Persistent agent loop: [`src/proprio/agent.py`](../src/proprio/agent.py); study harness and
+  freeze: [`src/proprio/cross_family.py`](../src/proprio/cross_family.py).
+- Frozen method digest:
+  `c1a28d1e4b2e66c69f69253477b8e261e0578515d444b957513f0a6098267267`
+  ([manifest](../artifacts/evidence/cross-family/method-freeze/manifest.json)); freeze
+  verification passes against current source bytes.
+- Live persistence smoke inspected and recorded:
+  [`cassettes/agent-persistence-smoke/`](../cassettes/agent-persistence-smoke/north-pipette-calibration/manual-inspection.md).
+- One binding session per family, session-000 only, no replacement
+  ([panel summary](../cassettes/cross-family/summary.json)): North, HELAO Gamry CV, and CLSLab
+  each reached `ADMIT` with locked qualification `PASS`, truthful causal repair qualified,
+  drift detected, an evolution proposal `STAGED`, zero historical regressions, zero invalid
+  promotions, and transport within the DeepInfra/GMICloud allowlist.
+- Honest nuance for any write-up: the no-feedback arm receives execution status (its own
+  submission outcomes) even though registered evidence is withheld, so under persistence the
+  paired contrast measures registered evidence against outcome-only iteration. On North the
+  outcome-only arm also qualified (10 model calls versus 6 truthful); on HELAO and CLSLab it
+  did not.
+- Claim boundary: cross-family external-simulator replication of the persistent method. These
+  families were screened during v0.3 development and are not untouched first-exposure
+  families; a strict held-out-family claim requires a new untouched panel. Simulation-only
+  pre-deployment qualification; real-hardware qualification remains a separate gate.
+
+## Superseded decision (2026-07-11, preserved)
 
 The v0.3 cross-family run was stopped on 2026-07-11 with the research lead's approval. The
 next method revision must use a minimal persistent agent context across repair and evolution
