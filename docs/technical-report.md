@@ -17,148 +17,186 @@ Each result links to the record it comes from.*
 
 ## Abstract
 
-Scientific agents increasingly need to operate instruments by running a scan, delivering a reagent,
-or holding a temperature, rather than only reasoning about data those instruments have already produced.
-Laboratory infrastructure now supplies open control interfaces and capable simulation, and recent
-agent demonstrations show that models can operate advanced instruments and accumulate reusable
-procedural knowledge. The narrower unresolved question is how an agent-generated operating
-procedure earns admission into a laboratory's trusted capability set.
+Scientific agents cannot close an experimental loop merely by choosing the next experiment. They
+must translate that decision into a physically valid instrument operation, and the laboratory
+needs evidence that the procedure producing the measurement can be trusted. Open interfaces,
+modular laboratory standards, and digital twins are making instruments easier to address and
+simulate, while recent agent systems show that operating procedures can be generated, repaired,
+and remembered. What remains unresolved for scientific instruments is a reusable, physics-grounded
+qualification method. A model-written procedure may execute without error and still violate an
+operating limit, produce invalid evidence, or repair one condition by breaking another.
 
-Proprio is an open-source method built around that question. It converts instrument documentation
-into executable operating skills through bounded inference-time search against a simulator. Every
-candidate then faces independent execution and physics checks, a one-shot qualification run on
-locked conditions hidden during development, and fail-closed admission.
+Proprio is an open-source method for acquiring instrument skills in context while keeping
+promotion authority outside the generating model. An agent reads instrument documentation,
+executes bounded candidate procedures in simulation, and retains actions, observations, failed
+checks, diagnoses, and edits in a persistent trajectory. Independent execution and physical
+contracts determine whether a candidate may proceed to a locked qualification run, and only a
+fully passing candidate enters the skill catalog. The same fail-closed process governs later
+evolution under simulated drift.
 
-Truthful simulator feedback produced 14 of 18 paired
-non-regressive repairs where the identical drafts produced 0 of 18 without feedback (exact
-one-sided paired p = 0.000061). Ten independent generations per instrument qualified 60/60
-candidates across six simulated instruments in three families. Under a frozen
-documentation-to-skill protocol, the drafting model produced independently simulation-qualified
-skills across three externally authored instrument families spanning liquid handling,
-electrochemistry, and optical spectroscopy. In one persistent binding session per family, all 3
-selected skills passed locked qualification, all 3 truthful repair trajectories qualified, and
-all 3 registered drift cases produced non-regressive evolution proposals that passed the frozen
-gates. The no-feedback control qualified in 1 of 3 families, a descriptive comparison that is too
-small for statistical inference. The gates rejected or held every invalid result, including a
-plausible draft the drafting model had itself approved and a proposal whose transport provenance
-violated the frozen provider allowlist. Fast simulation and independent verification can turn
-test-time compute into qualified instrument capability in simulation. The cross-family panel
-replicates the complete simulation ladder across these 3 screened families, while qualification on
-real hardware remains a separate, unfinished gate.
+Truthful simulator feedback produced 14 of 18 paired non-regressive repairs, whereas the identical
+drafts produced 0 of 18 without feedback (exact one-sided paired p = 0.000061). Ten independent
+generations per instrument qualified 60/60 candidates across six simulated instruments in three
+families. Under the frozen persistent protocol, one binding session in each of three screened
+external simulator families completed acquisition, locked qualification, truthful repair, drift
+detection, and non-regressive staged evolution with zero invalid promotions. This evidence supports
+a reproducible simulation-based pre-deployment qualification method across the tested families; it
+does not establish a population-level generalization rate or readiness for unsupervised hardware
+operation.
 
-## 1. Scientific agents need qualified instrument capabilities
+## 1. The agent-to-instrumentation gap is a qualification problem
 
-### 1.1 Autonomous science is constrained by its instrument interface
+### 1.1 Open interfaces make instruments addressable
 
-The case made in [*On the Need for Autonomous Science
-Instruments*](https://chemrxiv.org/doi/10.26434/chemrxiv.10001836) is that scalable autonomous
-laboratories require instruments with open, software-defined control, designed for automation and
-modular composition. That argument has largely been won at the interface level, and a growing share of
-laboratory hardware is reachable through documented APIs, drivers, and orchestration frameworks.
-
-An open API, however, only makes an instrument *accessible* to an agent. It does not establish
-that an operating procedure the agent wrote is correct, that the ramp rate respects the hardware,
-that the measurement it produces is physically meaningful, or that a revision made next month
-still handles the conditions that worked last month. What is missing between "the agent can call
-the instrument" and "the laboratory can rely on the result" is an independently qualified
-**instrument skill**, which is an operating procedure packaged with its evidence.
-
-### 1.2 A composable laboratory also needs composable procedural capability
-
-NIST's vision of a [composable, modular laboratory
+Scientific instrumentation is moving from equipment designed around a human operator toward
+software-addressable, modular laboratory systems. [*On the Need for Autonomous Science
+Instruments: A Call to Action*](https://chemrxiv.org/doi/full/10.26434/chemrxiv.10001836/v1)
+argues that autonomous laboratories require open data and software-defined control, physical
+design for robotic operation, and modularity. NIST's [composable laboratory
 ecosystem](https://www.nist.gov/publications/towards-composable-modular-laboratory-ecosystem-autonomous-materials-research-and)
-argues that community standards and off-the-shelf components should replace bespoke integration
-across vendor interfaces. Substrates for that ecosystem already exist.
-[Bluesky](https://blueskyproject.io) and [Ophyd](https://github.com/bluesky/ophyd) for experiment
-orchestration and hardware abstraction, [SiLA](https://sila-standard.com) for standardized device
-communication, [PyLabRobot](https://github.com/PyLabRobot/pylabrobot) for liquid-handling
-hardware, [HELAO](https://github.com/High-Throughput-Experimentation) for hierarchical laboratory
-orchestration, and digital twins for exercising all of the above without consuming samples.
+places instruments within a broader architecture of scientific decision-making, orchestration,
+sample management, data systems, local instrument agents, and device controllers connected through
+community standards.
 
-Proprio is not another orchestration system or instrument protocol. It is a capability and
-qualification layer that sits above these substrates. It consumes their documentation and
-simulators as inputs and emits qualified skills, packaged with provenance and test evidence, that
-orchestration layers can then call.
+These proposals address a real infrastructure bottleneck. Autonomous-laboratory teams still spend
+substantial effort bridging proprietary interfaces and adapting equipment designed for human hands,
+which makes systems expensive to reproduce and difficult to reconfigure. Control substrates such as
+[Bluesky](https://blueskyproject.io), [Ophyd](https://github.com/bluesky/ophyd),
+[SiLA](https://sila-standard.com), [PyLabRobot](https://github.com/PyLabRobot/pylabrobot), and
+[HELAO](https://github.com/High-Throughput-Experimentation) make a growing range of instruments
+callable. Addressability is necessary, but it does not establish that a procedure written by an
+agent is correct.
 
-### 1.3 The generation–verification gap
+### 1.2 A callable instrument is not yet a qualified capability
 
-Recent agent systems demonstrate that instrument operation by language-model agents is feasible.
-The [agentic X-ray scientist](https://www.nature.com/articles/s42256-026-01261-5) of Chen et al.
-practiced in a virtual six-circle beamline before supervised real deployment, adapted to an
-approximately 1.22° motor offset, and reused that correction when locating a second reflection,
-while explicitly treating the limited real-beamline trials as proof-of-concept rather than
-statistical evidence. The ["learn on the job"
-agents](https://www.nature.com/articles/s41524-026-02005-0) of Vriza et al. operate real X-ray
-nanoprobe and robotic thin-film workflows, storing human feedback as reusable memory with human
-approval before execution.
+NIST's architecture locates an important boundary near the instrument. A device controller owns
+native motion, readiness signals, interlocks, and measurement commands, while a local agent
+translates generic experimental intent into instrument-specific coordinates and parameters. In the
+paper's X-ray diffraction example, that local layer may also reduce data and detect misalignment or
+detector errors without deciding the broader scientific question.
 
-These systems establish that agents can *generate* and *adapt* operating behavior. Proprio tests
-the complementary question of whether an agent can acquire and repair procedural capability from
-instrument sources alone under a protocol in which it is structurally unable to approve its own
-mistakes, and whether the resulting evidence can be replayed, audited, and held to preregistered
-thresholds.
+This local translation is procedural capability, not command syntax. A script may run to completion
+while using the wrong range, violating a calibration assumption, saturating a detector, or producing
+evidence outside the conditions its downstream policy can interpret. A repair may solve the visible
+failure and silently regress a condition that worked before. The gap between an addressable
+instrument and a reusable laboratory capability is therefore a qualification boundary. The
+procedure needs evidence that it executed honestly, satisfied an instrument-specific physical
+contract, remained valid on conditions withheld during development, and preserved prior behavior.
+
+### 1.3 Instrument agents establish feasibility and expose the remaining gap
+
+Recent work establishes that language-model agents can operate advanced instruments and adapt
+within constrained workflows. Chen et al.'s [agentic X-ray
+scientist](https://www.nature.com/articles/s42256-026-01261-5) developed a guided alignment workflow
+in a virtual six-circle beamline before supervised deployment at a synchrotron. During the physical
+run, the agent identified an approximately 1.22° motor offset and reused the empirical correction
+while locating a second reflection. This is meaningful within-trajectory adaptation, although the
+authors explicitly state that the limited real-beamline result is not a statistically established
+capability and note that the operating guidance itself was developed and refined in simulation.
+
+Vriza et al. demonstrate a complementary form of continuity in [agents that learn on the
+job](https://www.nature.com/articles/s41524-026-02005-0). Their agents coordinate X-ray nanoprobe
+and robotic thin-film workflows through supplied function libraries, review, and human approval.
+Corrective human demonstrations are generalized into retrievable memory and reused in later tasks.
+The work establishes real instrument orchestration and persistent human teaching, while also showing
+that textual feedback does not repair every visual-reasoning failure.
+
+Together, these studies show that agents can execute instrument workflows, carry experimental state
+through a trajectory, and reuse expert corrections. The next deployment-facing question is whether
+an agent can construct a reusable procedure from instrument documentation and simulator evidence,
+repair it without a human supplying the correction, and pass an independent physical admission gate.
+Proprio is designed around that question by allowing the agent to propose, diagnose, and repair
+while reserving promotion for an independent gate.
 
 ### 1.4 Contributions
 
-- A reusable **source → skill → simulation → qualification → admission** method, released as
-  open-source code with schemas, simulators, verifiers, and a hash-bound skill catalog.
-- A **causal evaluation protocol** that separates simulator-grounded repair from repeated
-  generation, using paired interventions from identical drafts.
-- An **open evidence and skill format** exercised across scientific-instrument families,
-  including drift-triggered evolution and fail-closed promotion, with every failure preserved in
-  the public record.
+- A lightweight **persistent in-context acquisition loop** that turns instrument documentation and
+  simulator evidence into executable, versioned skills without changing model weights.
+- An **independent qualification boundary** based on execution integrity, instrument-specific
+  physical contracts, provenance, and conditions hidden during repair, with fail-closed
+  `ADMIT`, `REJECT`, and `HOLD` decisions.
+- A **causal and cross-family evaluation** of acquisition, evidence-guided repair, and
+  drift-triggered non-regressive evolution, with every promoted and rejected candidate preserved as
+  replayable evidence.
 
-## 2. Related systems and the remaining seam
+![The agent-to-instrumentation qualification gap](assets/agent-to-instrumentation-gap.png)
 
-Each system below contributes something Proprio depends on or deliberately does not rebuild.
+**Figure 1.** Open interfaces make scientific instruments callable, while digital twins provide a
+place to rehearse operating procedures. Proprio uses that environment for persistent in-context
+acquisition, while independent execution, physical-contract, and locked-condition checks retain
+promotion authority. A simulation-qualified skill still enters a separate hardware qualification
+process before laboratory use.
 
-### 2.1 Instrument and laboratory infrastructure
+## 2. Related work supplies the components of the qualification lifecycle
 
-Bluesky/Ophyd, SiLA, PyLabRobot, HELAO, and the [Acceleration
-Consortium](https://acceleration.utoronto.ca) ecosystem provide interoperability, execution,
-orchestration, and data flow. NIST's modular-laboratory architecture provides the standards
-framing. These layers answer *how to command an instrument and move its data*; they are the
-substrate a qualified skill executes against.
+### 2.1 Digital twins make procedural interaction affordable
 
-### 2.2 Virtual preparation and digital twins
+[MatteriX](https://arxiv.org/html/2601.13232v1) combines robotic manipulation with fluid, powder,
+thermal, device, and approximate reaction semantics in a chemistry-laboratory twin. It includes
+explicit action success and failure semantics and an integrated qualitative workflow verifier that
+checks reaction preconditions and expected products. MatteriX therefore provides more than motion
+completion, and it is a substantive example of the simulation substrate Proprio is designed to
+consume. Its reaction models remain semi-quantitative, and its physical deployments expose the
+calibration, perception, and digital-to-physical mismatches that make hardware qualification
+unavoidable.
 
-[MatteriX](https://arxiv.org/abs/2601.13232) supplies multiscale chemistry-laboratory simulation
-spanning robotic manipulation, liquids, powders, devices, heat transfer, and reaction semantics.
-NVIDIA's [4D Digital Twins](https://research.nvidia.com/labs/amri/projects/4DDT/2026/) agenda
-frames real-to-sim-to-real physical AI around sim-ready representations and physically grounded
-training. These provide the environments in which capability can be exercised cheaply, which is
-the property Proprio's search loop consumes. Proprio ships an optional MatteriX adapter; it
-reports
+NVIDIA's [4D Digital Twins](https://research.nvidia.com/labs/amri/projects/4DDT/2026/) workshop
+frames the upstream real-to-sim-to-real agenda around sim-ready reconstruction, physically grounded
+agent training, and deployment back into the world. This is an environment-building agenda rather
+than an evaluated skill-acquisition method. Proprio begins once a suitable simulator exists and asks
+what procedural capability may be qualified from interaction with it. The optional MatteriX adapter
+in this release reports
 [`unavailable`](https://github.com/Dynamical-Systems-Research/proprio/blob/main/docs/matterix-adapter.md)
-rather than an untested pass.
+rather than treating an untested integration as a pass.
 
-### 2.3 Procedural skill acquisition and improvement
+### 2.2 Skill systems turn sources and trajectories into procedural memory
 
 [Hermes `/learn`](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills#learning-a-skill-from-sources-learn)
-authors reusable skills from documentation, directories, URLs, or prior workflows; Proprio adopts
-this learn-from-sources interface. [SkillOpt](https://github.com/microsoft/SkillOpt) optimizes
-textual skills through trajectory-driven edits and held-out validation.
-[ASPIRE](https://research.nvidia.com/labs/gear/aspire/) inspects robotic execution traces, repairs
-control programs, validates by re-execution, and accumulates reusable skills; Proprio follows its
-debug-versus-locked-validation discipline. [Voyager](https://arxiv.org/abs/2305.16291) introduced
-the executable skill library with iterative environment feedback. On the inference side, [Snell et
-al.](https://arxiv.org/abs/2408.03314) show that adaptive search and verifier-guided selection let
-additional inference-time compute substitute for model scale. Proprio applies that result to
-procedural capability rather than answer selection.
+shows how an agent can gather documentation, code, URLs, notes, or a prior workflow and author a
+reusable `SKILL.md`. Hermes also provides persistent agent-managed skills and optional human approval
+for skill writes. Its authoring contract asks the model to include verification guidance, but the
+`/learn` path does not require the procedure to execute or pass a physical check before it is saved.
 
-### 2.4 Where the seam remains
+[SkillOpt](https://arxiv.org/abs/2605.23904) provides a disciplined method for improving textual
+skills without changing the target model. It samples scored trajectories, retains rejected edits and
+failure evidence, proposes bounded changes, and replaces the current skill only when performance
+strictly improves on a held-out selection split, which gives it an authority stronger than model
+self-judgment. Its gate asks whether a candidate improves a task score; Proprio asks whether an
+instrument procedure satisfies an absolute, preregistered operating contract.
 
-| System class | Generates procedures | Executes in an environment | Learns from feedback | Independent physical admission | Historical replay before evolution |
-|---|---|---|---|---|---|
-| Instrument-control frameworks | No | Yes | No | Limited | No |
-| Documentation-to-skill systems | Yes | Sometimes | Sometimes | No instrument-specific gate | Limited |
-| Agentic instrument demonstrations | Yes | Yes | Yes | Workflow-specific | Varies |
-| Robotics skill-discovery systems | Yes | Yes | Yes | Task-success validation | Varies |
-| **Proprio** | **Yes** | **Yes** | **Yes** | **Yes** | **Yes** |
+### 2.3 Execution traces support iterative program repair
 
-**Table 1.** Positioning against adjacent systems. No single ingredient is new. The contribution
-is the composition. Admission authority sits in instrument-specific execution and physics checks
-that the generating model cannot override.
+[ASPIRE](https://arxiv.org/html/2607.00272v1) is a close methodological analogue. It
+records fine-grained multimodal robot execution traces, diagnoses failures, searches over repaired
+code-as-policy programs, validates the selected program on held-out seeds, and distills reusable
+repair knowledge into a skill library. Its persistent task-analysis state and debug-versus-evaluation
+separation demonstrate how simulator interaction can become test-time procedural learning rather than
+disposable retrying.
+
+ASPIRE evaluates robotic task completion and transfer. Proprio adopts the same broad logic for
+scientific instruments but changes the admission object and evidence contract. A scientific
+instrument skill must not only complete a task; it must execute within the controller contract,
+produce physically usable evidence, satisfy locked qualification conditions, preserve historical
+behavior during evolution, and carry provenance that the generating model cannot rewrite. Proprio
+also remains intentionally smaller, using one persistent agent loop and instrument-specific
+contracts rather than a multi-agent robotics stack or open-ended task curriculum.
+
+### 2.4 Proprio composes these components into a qualification lifecycle
+
+| Research line | What it supplies | Boundary relative to Proprio |
+|---|---|---|
+| Automation-native instruments and modular laboratories | Open control, robotic compatibility, replaceable interfaces, and system standards | Makes instruments addressable and composable; does not qualify agent-authored procedures |
+| Digital twins and laboratory simulation | Resettable interaction, controlled faults, device and process dynamics, and potential transfer | Supplies experience and test conditions; does not by itself control skill promotion |
+| Documentation-to-skill systems | Reusable procedural artifacts synthesized from sources and prior workflows | Authors procedural knowledge; write approval is not physical qualification |
+| Text-space skill optimization | Trajectory-driven edits, retained failures, and held-out improvement gates | Optimizes relative task performance rather than an absolute instrument contract |
+| Robotics skill discovery | Rich traces, program repair, evolutionary search, locked evaluation, and reusable repair knowledge | Qualifies robotic task success rather than scientific measurement validity |
+| Scientific-instrument agents | Tool use, closed-loop operation, within-run adaptation, and persistent human teaching | Establishes feasibility on concrete workflows; does not provide a reusable cross-family admission method |
+| **Proprio** | Persistent simulator-grounded acquisition, physical qualification, locked replay, provenance, and non-regressive evolution | A simulation-based pre-deployment gate; hardware qualification remains separate |
+
+**Table 1.** The enabling components already exist across instrument infrastructure, simulation,
+agent learning, and robotics. Proprio composes them at the instrument boundary so that procedural
+experience can accumulate in context while promotion remains governed by independently implemented
+execution and physical contracts.
 
 ## 3. Proprio
 
@@ -189,64 +227,48 @@ produced it.
 > The agent drives discovery, execution, diagnosis, repair, and evolution; it cannot authorize
 > promotion.
 
-![The Proprio loop, model-driven skill development under external verification](assets/self-directed-skill-acquisition.png)
+### 3.3 Persistent in-context skill acquisition
 
-**Figure 1.** The complete loop. The model reads sources and drafts procedures (left), interacts
-with the simulator and repairs from execution evidence (center), and every candidate passes
-through independent execution and physics checks, locked qualification, and fail-closed
-admission (right). Drift detection re-enters the loop as a staged evolution proposal. A separate
-hardware gate stands between everything shown here and a real instrument.
-
-### 3.3 Inference-time skill search
-
-Skill acquisition is organized as verifier-guided test-time compute. The episodic studies write 4
-independent drafts in a bounded, executable control dialect, which is a restricted command language
-with finite loops, observation-conditioned branches, explicit call limits, no exception swallowing,
-and no access to hidden simulator state. Each draft executes against **visible**
-simulator conditions, meaning conditions whose full execution evidence the model may read, and
-every action, instrument response, and measurement is recorded. Two candidates survive into
-repair, selected on execution, physical validity, safety, and provenance.
-
-Repair is evidence-bound. The model must inspect the execution record, cite evidence identifiers
-that actually appear in the trace, submit a bounded edit, and replay. Budgets are fixed in
-advance, with at most 4 repair rounds, 12 generated candidates per episodic acquisition, and
-episode horizons of 2–12 model turns in the study configurations. A successful patch with fabricated
-provenance is ineligible for packaging.
-
-The persistent cross-family panel widens the archive to 6 initial drafts, 3 survivors, up to 6
-repair rounds, and 24 candidate variants. The archive search remains episodic, which preserves
-independent sampling across drafts. Persistence begins after the archive selects a causal parent or
-an admitted skill encounters registered drift, and it continues across every simulator, diagnosis,
-repair, and replay step within that trajectory.
-
-### 3.4 One persistent agent context
-
-The protocol generations reported in Sections 5.1–5.3 ran each repair attempt as a bounded
-episode. The model received the current candidate and the latest verifier record, while everything
-else it had learned from earlier diagnoses, failed edits, and tool results was discarded between
-episodes. That design gave a clean causal baseline, but it forced test-time compute to re-derive
-diagnoses and allowed the model to repeat strategies that had already failed.
-
-The current method revision (v0.4) replaces those resets with one persistent agent context per
-causal-repair or evolution trajectory
+Proprio treats simulator interaction as test-time procedural learning rather than model training.
+The model weights remain fixed, while the caller preserves one context across each causal-repair or
+evolution trajectory
 ([`agent.py`](https://github.com/Dynamical-Systems-Research/proprio/blob/main/src/proprio/agent.py)).
-The model API stays stateless, while Proprio owns the context and resends it on every call. The context
-keeps what an operator's notebook would, including every prior action and tool result, every verifier
-record, and a compact repair ledger holding the candidate hash, the checks that
-failed, the cited evidence, the diagnosis, the change, and the outcome. The loop checkpoints the
-full state after every tool result and verifier record, so an interrupted run resumes
-deterministically without re-issuing a completed model call. A submission whose candidate hash
-already appears in the ledger is rejected as a duplicate. In paired causal comparisons, the
-truthful and no-feedback arms branch from the same evidence-free prefix and never share a message
-afterward. If a context outgrows its preregistered byte limit, compaction is deterministic and
-applies only to the resent request; safety failures, candidate hashes, the ledger, and the latest
-verifier record are never dropped, and the complete record stays on disk.
+The model API itself may be stateless; Proprio resends the accumulated context on every call. Prior
+actions, simulator responses, failed checks, diagnoses, edits, and outcomes therefore remain
+available when the agent proposes its next procedure.
 
-Persistence gives the agent more evidence to reason over without changing promotion authority,
-which still resides in deterministic execution, physical-validity, provenance, and
-locked-condition gates that the agent cannot override. Sections 5.1–5.3 and the earlier cohorts in
-Table 4 were produced by the episodic protocol, while the persistent cross-family results in
-Sections 5.4–5.6 come from the frozen v0.4 panel.
+The persistent context serves the same role as an operator's notebook. It contains the full message
+history and a compact repair ledger with the candidate hash, failed checks, cited evidence,
+diagnosis, change, and outcome for every attempt. The loop checkpoints after each tool result and
+verifier record, so an interrupted trajectory resumes without repeating a completed model call.
+Duplicate candidate hashes are rejected, and deterministic compaction may shorten the resent
+request without removing safety failures, candidate hashes, the repair ledger, or the latest
+verifier result. The complete uncompressed record remains on disk.
+
+Before repair begins, the method samples an archive of 6 independent drafts in a bounded control
+dialect and executes them on **visible** simulator conditions whose evidence the agent may inspect.
+The dialect permits finite loops and observation-conditioned branches while excluding hidden
+simulator state, unrestricted imports, exception swallowing, and unbounded calls. Three candidates
+survive archive selection on execution, physical validity, safety, and provenance. A selected
+trajectory may then consume up to 6 repair rounds and 24 candidate variants. Every repair must cite
+evidence identifiers that appear in the recorded trace; a patch with fabricated provenance cannot
+be packaged even if it executes successfully.
+
+### 3.4 Experience accumulates without transferring admission authority
+
+Persistence changes what the agent can learn during a trajectory, but it does not change who
+decides. Simulator and verifier records return to the agent as tool results that may support a new
+diagnosis or edit. Promotion still depends on deterministic execution, physical-validity,
+provenance, and locked-condition checks that the agent cannot override. In a paired causal
+comparison, the truthful and no-feedback arms branch from the same evidence-free prefix and keep
+separate persistent histories thereafter, so the feedback intervention does not leak across arms.
+
+The earlier studies reported in Sections 5.1–5.3 used bounded episodic repair. Each attempt received
+the current candidate and latest verifier record but discarded the earlier conversation, which
+created a clean causal baseline at the cost of repeatedly reconstructing state. The persistent
+cross-family results in Sections 5.4–5.6 use the frozen v0.4 protocol described above. This protocol
+history is reported explicitly because the pooled causal result spans method generations, whereas
+the cross-family panel evaluates the current persistent loop.
 
 ### 3.5 Qualification and promotion
 
@@ -604,21 +626,12 @@ Person-hours are not reported because prospective labor logging was not active.
 
 ### 6.1 Where Proprio sits
 
-```text
-Scientific objective
-        ↓
-Experiment-selection or judgment policy
-        ↓
-Proprio-qualified instrument skill
-        ↓
-Instrument-control framework (Bluesky, SiLA, PyLabRobot, …)
-        ↓
-Simulator qualification            ← everything in this report
-        ↓
-Real-hardware qualification        ← separate, unfinished gate
-        ↓
-Laboratory operation
-```
+Proprio sits between scientific intent and instrument control. An experiment-selection or judgment
+policy may decide what evidence to acquire, while Bluesky, SiLA, PyLabRobot, HELAO, or a vendor
+driver supplies the interface through which an operation is executed. Proprio qualifies the
+procedural artifact that connects those two layers. It does not select the scientific objective,
+replace the control framework, or authorize hardware deployment. Its output is a simulation-qualified
+skill package that remains subject to the laboratory's hardware commissioning process.
 
 ### 6.2 Why fast verification matters
 
@@ -675,17 +688,15 @@ traceable to a recorded artifact and a hardware-qualification gate still ahead.
 
 ## Sources
 
-- [On the Need for Autonomous Science Instruments](https://chemrxiv.org/doi/10.26434/chemrxiv.10001836) (ChemRxiv, 2026)
-- [Towards a composable, modular laboratory ecosystem for autonomous materials research and development](https://www.nist.gov/publications/towards-composable-modular-laboratory-ecosystem-autonomous-materials-research-and) (NIST, 2026)
+- [On the Need for Autonomous Science Instruments: A Call to Action](https://chemrxiv.org/doi/full/10.26434/chemrxiv.10001836/v1) (ChemRxiv, 2026)
+- [Towards a composable, modular laboratory ecosystem for autonomous materials research and development](https://www.nist.gov/publications/towards-composable-modular-laboratory-ecosystem-autonomous-materials-research-and) (Joress et al., *Matter*, 2026)
 - [An agentic artificially intelligent X-ray scientist](https://www.nature.com/articles/s42256-026-01261-5) (Chen et al., *Nature Machine Intelligence*, 2026)
 - [Operating advanced scientific instruments with AI agents that learn on the job](https://www.nature.com/articles/s41524-026-02005-0) (Vriza et al., *npj Computational Materials*, 2026)
-- [ASPIRE: Agentic Skill Discovery for Robotics](https://research.nvidia.com/labs/gear/aspire/) (NVIDIA, 2026)
+- [ASPIRE: Agentic Skill Discovery for Robotics](https://arxiv.org/abs/2607.00272) (NVIDIA, 2026)
 - [4D Digital Twins: Real-to-Sim-to-Real for Physical AI](https://research.nvidia.com/labs/amri/projects/4DDT/2026/) (NVIDIA, 2026)
-- [MatteriX](https://arxiv.org/abs/2601.13232) (2026)
-- [SkillOpt](https://github.com/microsoft/SkillOpt) (Microsoft)
+- [MATTERIX: A multiscale virtual laboratory for automated experiments](https://www.nature.com/articles/s43588-025-00924-4) (Pei et al., *Nature Computational Science*, 2025)
+- [SkillOpt: Executive Strategy for Self-Evolving Agent Skills](https://arxiv.org/abs/2605.23904) (Microsoft Research, 2026)
 - [Hermes Skills System](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills) (Nous Research)
-- [Scaling LLM Test-Time Compute Optimally Can Be More Effective than Scaling Model Parameters](https://arxiv.org/abs/2408.03314) (Snell et al., 2024)
-- [Voyager: An Open-Ended Embodied Agent with Large Language Models](https://arxiv.org/abs/2305.16291) (Wang et al., 2023)
 
 *Evidence artifacts cited inline are committed to
 [`Dynamical-Systems-Research/proprio`](https://github.com/Dynamical-Systems-Research/proprio) and
