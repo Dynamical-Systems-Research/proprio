@@ -4,9 +4,9 @@
 
 - Added a persistent, checkpointed agent context for skill drafting, execution, repair, and drift
   evolution.
-- Froze and ran one acquisition-and-qualification method across liquid-delivery,
+- Froze and ran one acquisition-and-verification method across liquid-delivery,
   electrochemical-measurement, and spectral-measurement simulators.
-- Qualified all three instrument skills on visible and locked conditions with zero invalid
+- Verified all three instrument skills on visible and locked conditions with zero invalid
   promotions; staged regression-safe drift evolution for all three.
 - Published the complete raw model, tool, simulator, verifier, selection, and provenance records.
 - Retained XRD as the reference workflow and the Keithley wrong-range rejection as the compact

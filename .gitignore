@@ -10,5 +10,6 @@ dist/
 .coverage
 htmlcov/
 tmp/
+runs/
 artifacts/generated/
 artifacts/live/

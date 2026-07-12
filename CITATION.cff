@@ -9,13 +9,13 @@ authors:
   - name: "Dynamical Systems"
 abstract: >-
   A persistent agent method for acquiring scientific-instrument skills from sources,
-  repairing them from simulator evidence, and qualifying them with independent
+  repairing them from simulator evidence, and verifying them with independent
   execution and physical gates before deployment.
 keywords:
   - instrument control
   - digital twins
   - scientific agents
   - self-driving laboratories
-  - simulation qualification
+  - simulation verification
   - skill acquisition
   - X-ray diffraction
