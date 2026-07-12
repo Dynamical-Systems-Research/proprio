@@ -11,7 +11,7 @@
 [HELAO Gamry CV](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/helao-gamry-cv) ·
 [CLSLab spectrometer](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/clslab-light-spectrometer) ·
 [Agent loop](https://github.com/Dynamical-Systems-Research/proprio/blob/main/src/proprio/agent.py) ·
-[Demo video (HELAO Gamry CV)](https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@1d0c6a23c866ffc001405c6b3f6615a72370650a/public/proprio-demo.mp4) ·
+[Live OpenFlexure development demo](https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@36208cd472bc6340b5996f714ecf92a85450367d/public/proprio-demo.mp4) ·
 [Video evidence manifest](https://github.com/Dynamical-Systems-Research/proprio/blob/main/public/proprio-demo.json)
 
 *Every number in this report is recomputed from evidence artifacts committed to `main` at
