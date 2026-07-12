@@ -11,7 +11,8 @@ site-specific hardware validation.
 
 [Technical report](docs/technical-report.md) ·
 [Skill catalog](catalog.json) ·
-[OpenFlexure demo](public/proprio-openflexure-flagship.mp4)
+[HELAO Gamry CV demo](public/proprio-demo.mp4) ·
+[Video evidence manifest](public/proprio-demo.json)
 
 ![The agent-to-instrumentation gap](docs/assets/agent-to-instrumentation-gap.png)
 
@@ -255,8 +256,10 @@ uv run proprio skill-admission \
 - [`artifacts/evidence`](artifacts/evidence) contains metrology and verification evidence.
 - [`catalog.json`](catalog.json) is the content-addressed skill catalog.
 
-The [OpenFlexure demo](public/proprio-openflexure-flagship.mp4) shows the documentation-to-simulator
-repair loop used during method development.
+The [HELAO Gamry CV demo](public/proprio-demo.mp4) shows documentation ingestion, skill acquisition,
+independent rejection and repair, locked admission, deployment drift, and a staged evolution. Its
+[evidence manifest](public/proprio-demo.json) binds the captured trace, fresh simulator executions,
+candidate hashes, verifier records, and media identity.
 
 ## License and citation
 
