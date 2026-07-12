@@ -289,7 +289,10 @@ def run_support_battery(output_dir: Path) -> dict[str, Any]:
             f"- Out-of-support detection rate: {detection_rate:.6f} "
             f"(bar >= {float(battery['detection_rate_min']):.6f})",
             "",
-            "This support contract describes the synthetic substrate, not a policy's training data.",
+            (
+                "This support contract describes the synthetic substrate, "
+                "not a policy's training data."
+            ),
             "A future trained-policy distribution binds through `DistributionSupportHook`.",
             "",
         ]
