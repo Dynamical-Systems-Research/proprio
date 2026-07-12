@@ -1,4 +1,4 @@
-"""DSV4 learn-from-sources front end for instrument skills."""
+"""Learn-from-sources front end for instrument skills."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from proprio.artifacts import write_bytes, write_canonical_json
 from proprio.catalog import parse_skill_markdown
-from proprio.policy import DSV4Client, _extract_json
+from proprio.policy import OpenAICompatibleClient, _extract_json
 from proprio.skill_gate import evaluate_skill
 
 SKILL_DRAFTER_SYSTEM_PROMPT = """You are the deterministic compiler for a scientific
@@ -123,9 +123,9 @@ SOURCES END
 """
 
 
-class DSV4SkillDrafter:
-    def __init__(self, client: DSV4Client | None = None) -> None:
-        self.client = client or DSV4Client()
+class SkillDrafter:
+    def __init__(self, client: OpenAICompatibleClient | None = None) -> None:
+        self.client = client or OpenAICompatibleClient()
 
     def draft(self, variant: str) -> SkillDraft:
         if variant not in {"correct", "wrong-range"}:
@@ -148,7 +148,7 @@ class DSV4SkillDrafter:
         parsed = _extract_json(message.content or "")
         required = {"skill_md", "skill_py", "self_judgment"}
         if set(parsed) != required:
-            raise ValueError(f"DSV4 draft keys must be {sorted(required)}")
+            raise ValueError(f"model draft keys must be {sorted(required)}")
         if not isinstance(parsed["self_judgment"], dict):
             raise ValueError("self_judgment must be an object")
         markdown = SkillMarkdownDraft.model_validate(parsed["skill_md"])
@@ -184,7 +184,7 @@ def load_cassette(path: Path) -> SkillDraft:
 
 
 def recompile_cassette(path: Path) -> SkillDraft:
-    """Rebuild compiled package fields from the untouched raw DSV4 response."""
+    """Rebuild compiled package fields from the untouched raw model response."""
 
     draft = load_cassette(path)
     content = draft.raw_response["preserved_assistant_message"]["content"]
@@ -201,7 +201,7 @@ def recompile_cassette(path: Path) -> SkillDraft:
 
 
 def draft_skill_cassettes(cassette_dir: Path) -> dict[str, Any]:
-    drafter = DSV4SkillDrafter()
+    drafter = SkillDrafter()
     health = drafter.client.health()
     results = []
     for variant in ("correct", "wrong-range"):

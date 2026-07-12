@@ -44,12 +44,18 @@ ALLOWED_NODES = (
     ast.Compare,
     ast.Eq,
     ast.NotEq,
+    ast.In,
+    ast.NotIn,
+    ast.Is,
+    ast.IsNot,
     ast.Lt,
     ast.LtE,
     ast.Gt,
     ast.GtE,
     ast.If,
     ast.For,
+    ast.Break,
+    ast.Continue,
     ast.Subscript,
     ast.keyword,
     ast.Load,
@@ -90,8 +96,13 @@ class _ControllerBudget:
         return bounded_call
 
 
-def _literal_range_iterations(call: ast.Call, limits: SkillLimits) -> int:
-    if not isinstance(call.func, ast.Name) or call.func.id != "range" or call.keywords:
+def _literal_range_iterations(call: ast.AST, limits: SkillLimits) -> int:
+    if (
+        not isinstance(call, ast.Call)
+        or not isinstance(call.func, ast.Name)
+        or call.func.id != "range"
+        or call.keywords
+    ):
         raise ValueError("for loops must iterate over range(...) with literal integer bounds")
     if not 1 <= len(call.args) <= 3:
         raise ValueError("range requires one to three literal integer arguments")

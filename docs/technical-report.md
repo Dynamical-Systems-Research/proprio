@@ -378,7 +378,7 @@ The clearest single case is the Keithley 2450 development study. DSV4 drafted tw
 supplied documentation. One came from the current fixture sheet (1 kΩ load, 1 V source, 2 mA
 compliance, 10 mA range) and one from a plausible stale worksheet (100 kΩ load, 200 µA compliance,
 100 µA range). It **self-judged both `ACCEPT`**
-([captured completions](https://github.com/Dynamical-Systems-Research/proprio/tree/main/cassettes/dsv4)).
+([captured completions](https://github.com/Dynamical-Systems-Research/proprio/tree/main/cassettes/skill-admission)).
 Proprio executed both against a PyVISA-sim instrument and checked the measured current against the
 1 kΩ circuit law and the active range/compliance contract. The correct skill passed all nine
 checks and was admitted; the self-accepted stale skill was rejected on the `compliance-contract`

@@ -207,7 +207,7 @@ def _install_client(monkeypatch, turns, *, total_tokens: int = 10) -> None:
     def factory() -> FakeClient:
         return FakeClient(turns, total_tokens=total_tokens)
 
-    monkeypatch.setattr("proprio.cross_family.DSV4Client", factory)
+    monkeypatch.setattr("proprio.cross_family.OpenAICompatibleClient", factory)
 
 
 def _submit_args(skill_py: str, evidence: str, *, verdict: str = "ACCEPT") -> dict[str, Any]:
@@ -454,7 +454,7 @@ def test_resume_of_completed_trajectory_returns_cache_without_client(
         def __init__(self) -> None:
             raise AssertionError("client constructed on a completed trajectory resume")
 
-    monkeypatch.setattr("proprio.cross_family.DSV4Client", _RaisingClient)
+    monkeypatch.setattr("proprio.cross_family.OpenAICompatibleClient", _RaisingClient)
     again = run_persistent_repair_trajectory(
         _candidate(),
         definition=None,

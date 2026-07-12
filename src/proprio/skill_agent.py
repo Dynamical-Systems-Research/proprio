@@ -17,7 +17,7 @@ from proprio.agent_runtime import (
     _validate_candidate_payload,
 )
 from proprio.instrument_types import CandidatePackage, FeedbackArm, RepairSubmission
-from proprio.policy import DSV4Client
+from proprio.policy import OpenAICompatibleClient
 from proprio.skill_search import (
     DebugCondition,
     DebugSuiteResult,
@@ -136,7 +136,7 @@ QUALIFICATION_REPAIR_TOOLS = [
 class SkillAgent(InstrumentSkillAgent):
     def __init__(
         self,
-        client: DSV4Client | None = None,
+        client: OpenAICompatibleClient | None = None,
         *,
         source_loader: Callable[[str], tuple[str, str]],
         evaluator: Evaluator,

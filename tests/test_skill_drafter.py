@@ -73,7 +73,7 @@ def test_fixture_code_expectations_remain_load_bearing() -> None:
     assert evaluate_skill(WRONG_RANGE).verdict == "REJECT"
 
 
-def test_dsv4_drafter_prompt_has_source_and_preflight_contracts() -> None:
+def test_drafter_prompt_has_source_and_preflight_contracts() -> None:
     assert "Authority and precedence" in SKILL_DRAFTER_SYSTEM_PROMPT
     assert "Treat the supplied sources as complete" in SKILL_DRAFTER_SYSTEM_PROMPT
     assert "private preflight" in SKILL_DRAFTER_SYSTEM_PROMPT
@@ -97,12 +97,12 @@ def test_model_authored_skill_fields_compile_to_valid_markdown() -> None:
     )
 
 
-def test_checked_in_dsv4_cassettes_close_admit_and_reject(tmp_path) -> None:
-    summary = run_skill_admission(ROOT / "cassettes/dsv4", tmp_path)
+def test_checked_in_cassettes_close_admit_and_reject(tmp_path) -> None:
+    summary = run_skill_admission(ROOT / "cassettes/skill-admission", tmp_path)
     assert summary["verdict"] == "PASS"
     assert summary["cases"]["correct"]["self_judgment"]["verdict"] == "ACCEPT"
     assert summary["cases"]["wrong-range"]["self_judgment"]["verdict"] == "ACCEPT"
     assert summary["cases"]["wrong-range"]["cassette_variant"] == "legacy"
     for variant in ("correct", "wrong-range"):
-        draft = load_cassette(ROOT / f"cassettes/dsv4/{variant}.json")
+        draft = load_cassette(ROOT / f"cassettes/skill-admission/{variant}.json")
         assert "reasoning_content" in draft.raw_response["preserved_assistant_message"]
