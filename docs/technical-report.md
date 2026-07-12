@@ -11,7 +11,8 @@
 [HELAO Gamry CV](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/helao-gamry-cv) ·
 [CLSLab spectrometer](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/clslab-light-spectrometer) ·
 [Agent loop](https://github.com/Dynamical-Systems-Research/proprio/blob/main/src/proprio/agent.py) ·
-[Demo video (OpenFlexure)](https://github.com/Dynamical-Systems-Research/proprio/blob/main/public/proprio-openflexure-flagship.mp4)
+[Demo video (HELAO Gamry CV)](https://github.com/Dynamical-Systems-Research/proprio/blob/main/public/proprio-demo.mp4) ·
+[Video evidence manifest](https://github.com/Dynamical-Systems-Research/proprio/blob/main/public/proprio-demo.json)
 
 *Every number in this report is recomputed from evidence artifacts committed to `main` at
 [`c2cd6be`](https://github.com/Dynamical-Systems-Research/proprio/commit/c2cd6be). The persistent
