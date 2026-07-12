@@ -71,7 +71,7 @@
     },
     {
       "path": "docs/technical-report.md",
-      "sha256": "649330e751dfafaa67d29155c46841b67f7a09cf9de8db8573064af729caef0c"
+      "sha256": "1949fd3ac03288112b1427c8437da6816bfa8510fe3f0de4285bad2d12f0a4db"
     },
     {
       "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/locked-qualification.json",
@@ -396,6 +396,7 @@
   },
   "media": {
     "path": "public/proprio-demo.mp4",
+    "public_url": "https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@1d0c6a23c866ffc001405c6b3f6615a72370650a/public/proprio-demo.mp4",
     "sha256": "db7c9186092b8d5fd3e486ed22b06ebe392a3860215ce743d85ca11f519ac67f",
     "poster_path": "docs/assets/proprio-demo-poster.jpg",
     "poster_sha256": "2d80f2dda96243b5bec55629e146a735a61b20c4d87c20b96a6e5c92b8f8c223",
