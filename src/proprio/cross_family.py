@@ -8,6 +8,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from proprio.agent import (
     AgentModelConfig,
     AgentState,
@@ -29,7 +31,7 @@ from proprio.external_instruments import (
     run_external_preflight,
 )
 from proprio.instrument_types import CandidatePackage, FeedbackArm
-from proprio.policy import DSV4Client
+from proprio.policy import OpenAICompatibleClient
 from proprio.schema import canonical_json
 from proprio.skill_agent import SkillAgent
 from proprio.skill_search import (
@@ -44,9 +46,7 @@ from proprio.skill_search import (
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EVIDENCE_ROOT = ROOT / "artifacts/evidence/cross-family/qualification"
-EXPECTED_PROVIDER_ROUTE = "DeepInfra,GMICloud"
-EXPECTED_PROVIDERS = frozenset({"DeepInfra", "GMICloud"})
-EXPECTED_RESOLVED_MODEL = "deepseek/deepseek-v4-flash-20260423"
+METHOD_CONFIG_PATH = ROOT / "src/proprio/data/method.yaml"
 
 BINDING_SEED_BASE = 2_400_000
 DEFAULT_COMPACTION_BYTE_LIMIT = 240_000
@@ -101,6 +101,28 @@ def _read_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _frozen_model_binding() -> dict[str, Any]:
+    payload = yaml.safe_load(METHOD_CONFIG_PATH.read_text(encoding="utf-8"))
+    model = payload.get("model") if isinstance(payload, dict) else None
+    if not isinstance(model, dict):
+        raise ValueError(f"method configuration has no model binding: {METHOD_CONFIG_PATH}")
+    providers = model.get("providers")
+    if not all(
+        (
+            isinstance(model.get("requested"), str),
+            isinstance(model.get("resolved"), str),
+            isinstance(providers, list),
+            all(isinstance(provider, str) for provider in providers),
+        )
+    ):
+        raise ValueError(f"method configuration has an invalid model binding: {METHOD_CONFIG_PATH}")
+    return {
+        "requested": model["requested"],
+        "resolved": model["resolved"],
+        "providers": tuple(providers),
+    }
+
+
 def _candidate_hash(skill_py: str) -> str:
     return hashlib.sha256(skill_py.encode()).hexdigest()
 
@@ -138,12 +160,12 @@ def _verify_checkpoint_binding(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _draft_agent(*, seed: int, temperature: float, top_p: float) -> SkillAgent:
-    client = DSV4Client()
-    if "openrouter.ai" in client.base_url and client.provider != EXPECTED_PROVIDER_ROUTE:
+    client = OpenAICompatibleClient()
+    provider_route = ",".join(_frozen_model_binding()["providers"])
+    if "openrouter.ai" in client.base_url and client.provider != provider_route:
         client.close()
         raise RuntimeError(
-            "binding route must use "
-            f"{EXPECTED_PROVIDER_ROUTE}, observed {client.provider or 'unset'}"
+            f"binding route must use {provider_route}, observed {client.provider or 'unset'}"
         )
     return SkillAgent(
         client=client,
@@ -184,6 +206,8 @@ def _select_causal_parent(search: Any, instrument_id: str) -> CandidatePackage |
 
 
 def _transport_evidence(root: Path) -> dict[str, Any]:
+    model_binding = _frozen_model_binding()
+    expected_providers = set(model_binding["providers"])
     responses: dict[str, dict[str, Any]] = {}
 
     def visit(value: Any) -> None:
@@ -227,8 +251,8 @@ def _transport_evidence(root: Path) -> dict[str, Any]:
         total_cost += float(usage.get("cost") or 0.0)
     passed = (
         successful_responses > 0
-        and set(providers).issubset(EXPECTED_PROVIDERS)
-        and models == [EXPECTED_RESOLVED_MODEL]
+        and set(providers).issubset(expected_providers)
+        and models == [model_binding["resolved"]]
         and reasoning_missing == 0
     )
     return {
@@ -244,16 +268,17 @@ def _transport_evidence(root: Path) -> dict[str, Any]:
     }
 
 
-def _agent_client() -> DSV4Client:
-    client = DSV4Client()
-    if "openrouter.ai" in client.base_url and client.provider != EXPECTED_PROVIDER_ROUTE:
+def _agent_client() -> OpenAICompatibleClient:
+    client = OpenAICompatibleClient()
+    provider_route = ",".join(_frozen_model_binding()["providers"])
+    if "openrouter.ai" in client.base_url and client.provider != provider_route:
         client.close()
         observed = client.provider or "unset"
-        raise RuntimeError(f"binding route must use {EXPECTED_PROVIDER_ROUTE}, observed {observed}")
+        raise RuntimeError(f"binding route must use {provider_route}, observed {observed}")
     return client
 
 
-def _run_config(client: DSV4Client, seed: int) -> AgentModelConfig:
+def _run_config(client: OpenAICompatibleClient, seed: int) -> AgentModelConfig:
     return AgentModelConfig(
         requested_model=client.model,
         provider_route=client.provider or "",
@@ -293,7 +318,7 @@ def _ensure_verifier_record(
 def _drive_persistent_trajectory(
     *,
     state: AgentState,
-    client: DSV4Client,
+    client: OpenAICompatibleClient,
     source: str,
     parent: CandidatePackage,
     conditions: Sequence[DebugCondition],
@@ -622,6 +647,7 @@ def _session_manifest_payload(
     definition: Any,
     panel_manifest_sha256: str | None,
 ) -> dict[str, Any]:
+    model_binding = _frozen_model_binding()
     payload = {
         "schema_version": SESSION_MANIFEST_SCHEMA,
         "study_mode": "binding" if panel_manifest_sha256 else "engineering",
@@ -631,10 +657,10 @@ def _session_manifest_payload(
         "session_index": session_index,
         "session_seed": session_seed,
         "source_sha256": source_sha256_value,
-        "model": "deepseek/deepseek-v4-flash",
-        "resolved_model": EXPECTED_RESOLVED_MODEL,
-        "provider_order": list(EXPECTED_PROVIDER_ROUTE.split(",")),
-        "provider_allowlist": list(EXPECTED_PROVIDER_ROUTE.split(",")),
+        "model": model_binding["requested"],
+        "resolved_model": model_binding["resolved"],
+        "provider_order": list(model_binding["providers"]),
+        "provider_allowlist": list(model_binding["providers"]),
         "search_budget": {
             "initial_drafts": 6,
             "archive_survivors": 3,
@@ -706,6 +732,7 @@ def run_cross_family_session(
         raise RuntimeError("external simulator preflight failed before model generation")
 
     definition = EXTERNAL_INSTRUMENTS[instrument_id]
+    model_binding = _frozen_model_binding()
     session_seed = seed_base + session_index * 10_000
     _, source_hash = load_external_source(instrument_id)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -731,7 +758,7 @@ def run_cross_family_session(
             if (
                 candidate.instrument_id != instrument_id
                 or candidate.source_sha256 != source_hash
-                or candidate.model != "deepseek/deepseek-v4-flash"
+                or candidate.model != model_binding["requested"]
             ):
                 raise RuntimeError(f"cached draft does not match the frozen session: {path}")
             _verify_checkpoint_binding(
@@ -1079,6 +1106,7 @@ def run_cross_family_panel(
     if freeze_verification["verdict"] != "PASS":
         raise RuntimeError("cross-family method freeze did not verify before the binding panel")
     freeze = _read_json(freeze_path)
+    model_binding = _frozen_model_binding()
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest = {
         "schema_version": PANEL_MANIFEST_SCHEMA,
@@ -1086,10 +1114,10 @@ def run_cross_family_panel(
         "instrument_ids": list(instruments),
         "sessions_per_family": 1,
         "seed_base": seed_base,
-        "model": "deepseek/deepseek-v4-flash",
-        "provider_order": list(EXPECTED_PROVIDER_ROUTE.split(",")),
-        "provider_allowlist": list(EXPECTED_PROVIDER_ROUTE.split(",")),
-        "resolved_model": EXPECTED_RESOLVED_MODEL,
+        "model": model_binding["requested"],
+        "provider_order": list(model_binding["providers"]),
+        "provider_allowlist": list(model_binding["providers"]),
+        "resolved_model": model_binding["resolved"],
         "replacement_prohibited": True,
         "post_exposure_method_changes_prohibited": True,
     }
@@ -1195,13 +1223,16 @@ def freeze_cross_family_method(
     if not inspection_path.is_file():
         raise RuntimeError("manual evidence inspection is missing")
     provider = _read_json(provider_path)
+    model_binding = _frozen_model_binding()
+    expected_providers = set(model_binding["providers"])
+    provider_order = list(model_binding["providers"])
     if (
         provider.get("verdict") != "PASS"
-        or provider.get("provider_order") != ["DeepInfra", "GMICloud"]
-        or provider.get("provider_allowlist") != ["DeepInfra", "GMICloud"]
-        or not set(provider.get("providers", {})) <= EXPECTED_PROVIDERS
+        or provider.get("provider_order") != provider_order
+        or provider.get("provider_allowlist") != provider_order
+        or not set(provider.get("providers", {})) <= expected_providers
         or any(
-            row.get("resolved_model") != EXPECTED_RESOLVED_MODEL
+            row.get("resolved_model") != model_binding["resolved"]
             for row in provider.get("providers", {}).values()
         )
     ):

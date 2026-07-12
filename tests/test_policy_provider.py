@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from proprio.policy import DSV4Client
+from proprio.policy import OpenAICompatibleClient
 
 
 class FakeCompletions:
@@ -13,7 +13,7 @@ class FakeCompletions:
 
 
 def test_openrouter_route_and_reasoning_are_frozen_per_request() -> None:
-    client = DSV4Client(
+    client = OpenAICompatibleClient(
         base_url="https://openrouter.ai/api/v1",
         model="deepseek/deepseek-v4-flash",
         api_key="fixture",
@@ -41,7 +41,7 @@ def test_openrouter_route_and_reasoning_are_frozen_per_request() -> None:
 
 
 def test_reasoning_can_be_enabled_without_an_effort_parameter() -> None:
-    client = DSV4Client(
+    client = OpenAICompatibleClient(
         base_url="https://openrouter.ai/api/v1",
         model="qwen/qwen3.6-flash",
         api_key="fixture",
@@ -56,7 +56,7 @@ def test_reasoning_can_be_enabled_without_an_effort_parameter() -> None:
 
 
 def test_openrouter_can_freeze_an_ordered_same_model_fallback_route() -> None:
-    client = DSV4Client(
+    client = OpenAICompatibleClient(
         base_url="https://openrouter.ai/api/v1",
         model="deepseek/deepseek-v4-flash",
         api_key="fixture",

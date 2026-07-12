@@ -111,32 +111,73 @@ git -C /tmp/proprio-candidates/self-driving-lab-demo checkout \
 
 </details>
 
-Set an OpenAI-compatible endpoint, freeze the method, and run one acquisition trajectory.
+Any agent that can edit files and run commands can use Proprio. Start by reading the source bundle.
+
+```bash
+uv run proprio inspect-source \
+  --instrument north-pipette-calibration > runs/source.json
+```
+
+Have the agent write `SKILL.md` and `skill.py` under `runs/candidate`, then execute it and return
+the visible simulator evidence to the same agent context.
+
+```bash
+uv run proprio execute-candidate \
+  --instrument north-pipette-calibration \
+  --candidate-dir runs/candidate \
+  --output-dir runs/visible \
+  --agent codex
+
+uv run proprio read-visible-evidence --run-dir runs/visible
+```
+
+The agent may repair and rerun the candidate from that evidence. Locked replay remains a separate
+gate.
+
+```bash
+uv run proprio verify-locked \
+  --instrument north-pipette-calibration \
+  --candidate-dir runs/candidate \
+  --output-dir runs/locked \
+  --agent codex
+```
+
+After simulated deployment drift, a proposal can be staged only if it also replays the behavior
+that admitted its parent.
+
+```bash
+uv run proprio stage-evolution \
+  --instrument north-pipette-calibration \
+  --parent-dir runs/admitted \
+  --candidate-dir runs/proposal \
+  --output-dir runs/evolution \
+  --agent codex
+```
+
+These operations are also importable from [`proprio.interface`](src/proprio/interface.py) as
+`inspect_source`, `execute_candidate`, `read_visible_evidence`, `verify_locked`, and
+`stage_evolution`. The agent owns its context; Proprio owns execution records and promotion.
+
+<details>
+<summary>Reproduce the published DSV4 panel</summary>
 
 ```bash
 export OPENAI_API_KEY="$OPENROUTER_API_KEY"
 export OPENAI_BASE_URL=https://openrouter.ai/api/v1
 export MODEL=deepseek/deepseek-v4-flash
 export OPENROUTER_PROVIDER=DeepInfra,GMICloud
-export DSV4_REASONING_EFFORT=high
+export MODEL_REASONING_EFFORT=high
 
 uv run proprio cross-family-freeze --output-dir runs/method-freeze
-uv run proprio cross-family-session \
-  --instrument north-pipette-calibration \
-  --freeze runs/method-freeze/manifest.json \
-  --output-dir runs/north-pipette-calibration
-```
-
-Run the full 3-family panel with the same frozen method.
-
-```bash
 uv run proprio cross-family-panel \
   --freeze runs/method-freeze/manifest.json \
   --output-dir runs/cross-family
 ```
 
-The raw messages, tool results, simulator records, repair ledgers, and admission decisions are
-written to the output directory. Checked-in cassettes keep CI deterministic.
+The raw messages, tool results, simulator records, repair ledgers, and decisions are written to the
+output directory. Checked-in cassettes keep CI deterministic.
+
+</details>
 
 ## Reference verification
 
@@ -156,7 +197,7 @@ reject a plausible wrong-range procedure that the model accepted.
 
 ```bash
 uv run proprio skill-admission \
-  --cassette-dir cassettes/dsv4 \
+  --cassette-dir cassettes/skill-admission \
   --output-dir runs/skill-admission
 ```
 

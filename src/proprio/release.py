@@ -14,7 +14,7 @@ def build_evidence_manifest(root: Path, output: Path) -> dict[str, Any]:
     evidence_roots = (
         root / "artifacts/evidence",
         root / "cassettes/cross-family",
-        root / "cassettes/dsv4",
+        root / "cassettes/skill-admission",
     )
     for evidence_root in evidence_roots:
         for path in sorted(item for item in evidence_root.rglob("*") if item.is_file()):

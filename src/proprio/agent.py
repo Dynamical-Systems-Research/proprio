@@ -21,7 +21,7 @@ from proprio.agent_runtime import (
 )
 from proprio.artifacts import write_canonical_json
 from proprio.instrument_types import CandidatePackage, FeedbackArm
-from proprio.policy import DSV4Client
+from proprio.policy import OpenAICompatibleClient
 from proprio.schema import canonical_json
 from proprio.skill_agent import QUALIFICATION_REPAIR_TOOLS, QUALIFIED_SKILL_SYSTEM_PROMPT
 from proprio.skill_search import (
@@ -346,7 +346,10 @@ def _usage_total(response: Any) -> int:
 
 
 def _complete_with_retry(
-    client: DSV4Client, request: dict[str, Any], checkpoint_dir: Path, model_turn: int
+    client: OpenAICompatibleClient,
+    request: dict[str, Any],
+    checkpoint_dir: Path,
+    model_turn: int,
 ) -> Any:
     create = getattr(client, "create_chat_completion", None)
     if create is None:
@@ -411,7 +414,7 @@ def _complete_with_retry(
 def run_agent_cycle(
     state: AgentState,
     *,
-    client: DSV4Client,
+    client: OpenAICompatibleClient,
     evaluator: Evaluator,
     source: str,
     conditions: Sequence[DebugCondition],

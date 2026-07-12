@@ -10,7 +10,7 @@ from typing import Any
 
 from proprio.catalog import parse_skill_markdown
 from proprio.instrument_types import CandidatePackage
-from proprio.policy import DSV4Client
+from proprio.policy import OpenAICompatibleClient
 from proprio.schema import canonical_json
 
 SKILL_ENGINEER_SYSTEM_PROMPT = """You are Proprio's scientific-instrument skill engineer.
@@ -138,7 +138,7 @@ def _response_has_message(response: Any) -> bool:
 
 def _run_tool_loop(
     *,
-    client: DSV4Client,
+    client: OpenAICompatibleClient,
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]],
     handler: Callable[[str, dict[str, Any], int], tuple[dict[str, Any], bool]],
@@ -286,7 +286,7 @@ def _validate_candidate_payload(arguments: dict[str, Any]) -> tuple[str, str, di
 class InstrumentSkillAgent:
     def __init__(
         self,
-        client: DSV4Client | None = None,
+        client: OpenAICompatibleClient | None = None,
         *,
         skill_system_prompt: str = SKILL_ENGINEER_SYSTEM_PROMPT,
         source_loader: Callable[[str], tuple[str, str]],
@@ -296,7 +296,7 @@ class InstrumentSkillAgent:
         sampling_top_p: float = 1.0,
         sampling_seed: int | None = None,
     ) -> None:
-        self.client = client or DSV4Client()
+        self.client = client or OpenAICompatibleClient()
         self.skill_system_prompt = skill_system_prompt
         self.source_loader = source_loader
         self.evaluator = evaluator
@@ -354,7 +354,7 @@ class InstrumentSkillAgent:
             seed=self.sampling_seed,
         )
         if not completed or not submitted:
-            raise RuntimeError(f"DSV4 did not submit a valid initial package for {instrument_id}")
+            raise RuntimeError(f"model did not submit a valid initial package for {instrument_id}")
         return CandidatePackage(
             instrument_id=instrument_id,
             skill_md=submitted["skill_md"],
