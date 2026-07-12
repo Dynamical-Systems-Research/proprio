@@ -11,7 +11,7 @@ site-specific hardware validation.
 
 [Technical report](docs/technical-report.md) ·
 [Skill catalog](catalog.json) ·
-[HELAO Gamry CV demo](https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@1d0c6a23c866ffc001405c6b3f6615a72370650a/public/proprio-demo.mp4) ·
+[Live OpenFlexure agent demo](https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@36208cd472bc6340b5996f714ecf92a85450367d/public/proprio-demo.mp4) ·
 [Video evidence manifest](public/proprio-demo.json)
 
 ![The agent-to-instrumentation gap](docs/assets/agent-to-instrumentation-gap.png)
@@ -256,10 +256,13 @@ uv run proprio skill-admission \
 - [`artifacts/evidence`](artifacts/evidence) contains metrology and verification evidence.
 - [`catalog.json`](catalog.json) is the content-addressed skill catalog.
 
-The [HELAO Gamry CV demo](https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@1d0c6a23c866ffc001405c6b3f6615a72370650a/public/proprio-demo.mp4)
-shows documentation ingestion, skill acquisition, independent rejection and repair, locked
-admission, deployment drift, and a staged evolution. Its [evidence manifest](public/proprio-demo.json)
-binds the captured trace, fresh simulator executions, candidate hashes, verifier records, and media
+The [live OpenFlexure agent demo](https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@36208cd472bc6340b5996f714ecf92a85450367d/public/proprio-demo.mp4)
+shows GPT-5.6 Luna reading the development source and candidate in a real terminal while the native
+microscope simulator runs beside it. A fresh edge execution is rejected, the agent changes the
+autofocus sweep from 4,000 to 8,000 steps, and fresh edge and historical executions are admitted by
+the independent physical gate. This is a development-trial demonstration, not a published
+OpenFlexure skill or the complete cross-family result. Its [evidence manifest](public/proprio-demo.json)
+binds the agent session, fresh simulator executions, candidate hashes, verifier records, and media
 identity.
 
 ## License and citation
