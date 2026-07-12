@@ -1,9 +1,19 @@
 {
-  "schema_version": "proprio.public_video_manifest.v1",
-  "proprio_commit": "6b7578187ae0159de661c95b78e95079cd862c5c",
-  "selected_instrument": "helao-gamry-cv",
-  "instrument_family": "electrochemical_measurement",
-  "capture_mode": "captured-trace-replay-with-fresh-simulator-execution",
+  "schema_version": "proprio.public_video_manifest.v2",
+  "publication_base_commit": "eb1d1ef11f54d3b3d6b4d27f15e901875c504512",
+  "execution_commit": "61a1caa19fe353c1cb7778d3391b023747e018e0",
+  "selected_instrument": "microscope-autofocus",
+  "instrument_family": "adaptive_microscopy",
+  "capture_mode": "live-agent-terminal-with-fresh-native-simulator-execution",
+  "scope": {
+    "status": "DEVELOPMENT_TRIAL",
+    "claim": "A live agent repaired one OpenFlexure simulator skill under an independent physical gate.",
+    "exclusions": [
+      "This video does not establish the complete cross-family acquisition-and-evolution result.",
+      "The OpenFlexure family did not pass Proprio's released locked cross-family criterion and is not a published skill.",
+      "Verified in simulation. Hardware validation remains separate."
+    ]
+  },
   "capture": {
     "continuous": true,
     "spliced": false,
@@ -11,402 +21,99 @@
     "viewport": "1920x1080",
     "recorded_frame_rate_fps": 25,
     "published_frame_rate_fps": 30,
-    "raw_duration_seconds": 89.88,
-    "published_duration_seconds": 90.066667,
-    "final_frame_extension_seconds": 0.2
+    "raw_duration_seconds": 136.6,
+    "published_duration_seconds": 136.6,
+    "layout": "live Codex terminal beside the native OpenFlexure microscope web interface"
+  },
+  "agent": {
+    "runtime": "OpenAI Codex CLI 0.144.1",
+    "model": "gpt-5.6-luna",
+    "session_id": "019f58a9-5769-7132-a07b-8e9c447b88b6",
+    "reasoning_effort": "none",
+    "reasoning_summaries": "none",
+    "raw_terminal_transcript_sha256": "d5bb4190a3b5f9ca6273a132fea04ca1258d51a3d6e85e49f53d166ef70e9faa",
+    "raw_trace_locator": "codex session 019f58a9-5769-7132-a07b-8e9c447b88b6"
   },
   "source": {
-    "path": "sources/instruments/helao-gamry-cv/source.md",
-    "sha256": "516947ba0734af5e5bbb75a825e7b23f542e8a3e22e8e62e83edee275e19b0f0"
+    "path_at_execution_commit": "sources/development/microscope-autofocus/source.md",
+    "url": "https://github.com/Dynamical-Systems-Research/proprio/blob/61a1caa19fe353c1cb7778d3391b023747e018e0/sources/development/microscope-autofocus/source.md",
+    "sha256": "a0a9f0bc76230324fcadf3a15c9ca64bf0c6617114848ecc0c067a911c0feccc"
   },
   "simulator": {
-    "repository": "https://github.com/helgestein/helao-pub",
-    "revision": "d644716e17c40c2bdfce74d5ebe82a04ff70cc6a",
-    "path": "/tmp/proprio-candidates/helao-pub/driver/gamry_simulate.py",
-    "repository_relative_path": "driver/gamry_simulate.py",
-    "sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35"
+    "repository": "https://gitlab.com/openflexure/openflexure-microscope-server",
+    "revision": "d26b93e1be1093e9d696b634dd1f7dde3bb7142a",
+    "runtime": "separate OpenFlexure microscope server process using its public API",
+    "source_archive_sha256": "66109c0f67017c17e8fe26147ac719ca8ae57759435c8868ebffcb30ebeec050",
+    "built_webapp_index_sha256": "c25bebdceb4a92b2187a452d5d00ea0b1e2e7edfa2abc8ae5831deaa130464d1"
+  },
+  "proprio_runtime": {
+    "adapter_path_at_execution_commit": "src/proprio/adaptive_microscopy.py",
+    "adapter_sha256": "54ef4b7551a31d145e5404de51aa5fa47edb91f976491c1f2edd89d7670a5abd",
+    "verifier_path_at_execution_commit": "src/proprio/adaptive_microscopy_verifier.py",
+    "verifier_source_sha256": "16cb6d3a0d2c30086dc583f96b624425b231dbf09804aaf2bc853753a187effd",
+    "verifier_identity_sha256": "25ad2e96890e8d15c22209c091fe046ff4c2b5f0bf5938ddf42a241e62841519"
   },
   "candidate_bindings": {
-    "initial_sha256": "7e3b7dd7aa760180ef0ae34654a2f8713b83c23bcb574fcbdc3a2fdead860542",
-    "parent_sha256": "6b99fc91264d7953091f7b5d0975b24512b6fd74c67f8dcb97a5fb6afbe70f48",
-    "wrong_proposal_sha256": "79ad02c207aeeed26082d4159a32eb383348a81981ea3296d766fee943470adb",
-    "proposal_sha256": "a9bd4b18c360e93745367e57ede17c1a042f164f0cba030df04b421bec182c95",
-    "locked_candidate_sha256": "6b99fc91264d7953091f7b5d0975b24512b6fd74c67f8dcb97a5fb6afbe70f48",
-    "summary_parent_sha256": "6b99fc91264d7953091f7b5d0975b24512b6fd74c67f8dcb97a5fb6afbe70f48",
-    "summary_proposal_sha256": "a9bd4b18c360e93745367e57ede17c1a042f164f0cba030df04b421bec182c95",
-    "summary_status": "STAGED"
+    "initial_sha256": "d1b109f05b1f24d2dfed19c8f82d35af63a2d485bd3a149aa1b35e9b5695723c",
+    "repaired_sha256": "5cb84bc0af3f87b81ccb65ba244be185c35536be5cf510fd9880da1361b1de94",
+    "consequential_diff": "controller.fast_autofocus(4000) -> controller.fast_autofocus(8000)"
   },
-  "acquisition_cassettes": [
+  "fresh_executions": [
     {
-      "path": "sources/instruments/helao-gamry-cv/source.md",
-      "sha256": "516947ba0734af5e5bbb75a825e7b23f542e8a3e22e8e62e83edee275e19b0f0"
+      "order": 1,
+      "condition": "edge",
+      "start_z": -3500,
+      "candidate_sha256": "d1b109f05b1f24d2dfed19c8f82d35af63a2d485bd3a149aa1b35e9b5695723c",
+      "decision": "REJECT",
+      "record_sha256": "9063846c37b615bcc130f8bc612be11e13742b6a8d2294fcc3eab56c52692d23",
+      "observed_z": -1570,
+      "autofocus_range_z": [-5411.225037269156, -1569.9068140420009],
+      "failed_checks": [
+        "calibrated-focus-reference",
+        "autofocus-reference-covered",
+        "autofocus-peak-prominent",
+        "autofocus-peak-selected"
+      ]
     },
     {
-      "path": "skills/external/helao-gamry-cv/SKILL.md",
-      "sha256": "01bb8e02d316caa664d482604b138667e5f3e03e6c70a9c60d913166838223f3"
+      "order": 2,
+      "condition": "edge",
+      "start_z": -3500,
+      "candidate_sha256": "5cb84bc0af3f87b81ccb65ba244be185c35536be5cf510fd9880da1361b1de94",
+      "decision": "ADMIT",
+      "record_sha256": "7f32e42ab60f6a273e38fdeeb9bb572a4ece38385fbf77edaa2761b6e609bd78",
+      "observed_z": 24,
+      "autofocus_range_z": [-7457.636616139435, 452.72582646859576],
+      "failed_checks": []
     },
     {
-      "path": "skills/external/helao-gamry-cv/skill.py",
-      "sha256": "6b99fc91264d7953091f7b5d0975b24512b6fd74c67f8dcb97a5fb6afbe70f48"
-    },
-    {
-      "path": "src/proprio/external_instruments.py",
-      "sha256": "d5b9aae4c50effdd83fd42ba6f4e3761fe6aab3cb2bc72cc3ca9952ad3dc09d7"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/search.json",
-      "sha256": "b8572b3e473b3102291dc0fdf0faa0b9f13066ac7ce24b2264117d0927808e53"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/locked-qualification.json",
-      "sha256": "2e9847718f951b3ec8041717c852e0dbb4d718cdcdf5dac3adb4d7041024027d"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/drift-detection.json",
-      "sha256": "008fa4cfccd23aeb03501ad26a98dc0b3f4f5edd107f2ddab96ce61c8b4e52c1"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/summary.json",
-      "sha256": "967b62feffefc9add4c3216e4c5fa78c4545ec644152f9dd9b04adadb3a15ffc"
-    },
-    {
-      "path": "docs/technical-report.md",
-      "sha256": "1949fd3ac03288112b1427c8437da6816bfa8510fe3f0de4285bad2d12f0a4db"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/locked-qualification.json",
-      "sha256": "36dd8fbda51dcf11b5f259bc928b6242abb39990d8fc742579b3b7163e1bdbff"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/raw-0000.json",
-      "sha256": "62d621039ad047e0207db8c7baf739b81ed563573a6c7bfeee685466473fb7b9"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/raw-0001.json",
-      "sha256": "fb825dc105390932b0fb265bb7df088191ee2a0f7387a22916d4da436c88c4e4"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/raw-0002.json",
-      "sha256": "fbf250f6540d1ce2e9138ad5bfd7d79126e0a656ec4f75a4d6fc4269f885dee9"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/raw-0003.json",
-      "sha256": "35314f2454b288bc45e61330683db6dc87ad5a559452aa679c0a53d7e2ca4984"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/step-0001.json",
-      "sha256": "0425f5399fd617eafad1717ab1072db8c53d98d77e5393dadc0f35b583653e58"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/step-0002.json",
-      "sha256": "45e583e750dd93e5821a135fcc89c873e3951c6367ce3025b65adb703117d31a"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/step-0003.json",
-      "sha256": "15cb1345bd183d05cf3de3b571f607367c863289a03796ff2ce739e504734cbd"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/step-0004.json",
-      "sha256": "2a6cc0288a159bac8d04d8eabe19949826f4f1be8bec66e03c9b4ed081c63c61"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/step-0005.json",
-      "sha256": "549bb79a3319ce4fec0ba2b71858f7592962c24510a798e82ea9e6352cfe7522"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/step-0006.json",
-      "sha256": "48b7073df587015cd0cb78d81260c085c2887f0c1057b4840ba37245408c1908"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/trajectory-summary.json",
-      "sha256": "f808c4e8f6d98bccfe861cf494745e2ae15075261dce47402e1182707858eb3b"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/none/visible-final.json",
-      "sha256": "700fca9a12e9c9549df4ddf1e5c5f7946d64d4a629073a4880167ffc194487c4"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/summary.json",
-      "sha256": "f6611f9372a63e63ddef8f7da009b7711558b5836c0931048a836adfaeeb9248"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/locked-qualification.json",
-      "sha256": "e5454d3a7227c442d69aadec5a6f4dbc818e07cbd62fe24ff6250489a902c13b"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/raw-0000.json",
-      "sha256": "c1e86c1046b91c7850c097d5fc0629d182f8f704f48bcc37c6816f2e62859352"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/raw-0001.json",
-      "sha256": "8b9eecc57b877cb74b5ef033a920d050a434d69b87ce73e23f6c06434118004b"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/raw-0002.json",
-      "sha256": "5757714eca6b0d3bc0c6ab15f0602f6cf1ab3b19c150418c9999b46476154493"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/raw-0003.json",
-      "sha256": "ed4f85ccfd1d5d4edde27df3c67ba5d1f921cf7390620894c17b5526b347c4d9"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/raw-0004.json",
-      "sha256": "04fd5ac8ec479143889a726100d28f11cfedf6b8669e1fdffe92fbf6b0ac23ea"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/raw-0005.json",
-      "sha256": "26089f3b8c1335b4902e639ce91df1598555fe73b4c81f6b9081552f9a3804ae"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0001.json",
-      "sha256": "7a7cf3edc0bc54375c426506504b774ba1e6ab580de321c7a62f7fe32f6c61bf"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0002.json",
-      "sha256": "8af504801dd0bcf254f799066808c71c37eed867891bff650d025eaff65e284b"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0003.json",
-      "sha256": "0fc25c99b7446fbd62b0ce5ba34659e3e33a85f756a95d4e379e8a6231f38186"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0004.json",
-      "sha256": "63ff646720a6cc6117cc74ddb0b5dae3e098b0b6fc59536c4120b46a349c6ce7"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0005.json",
-      "sha256": "32af48fb9dca103f29df339981e78b44d8b9a08a954a2b0f09955220ab1b6712"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0006.json",
-      "sha256": "5f0c609d86f0e048f826379c4f830e715b515d509dd03f18391bc012b9ed35a4"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0007.json",
-      "sha256": "1045e9b519ad8bd8c4b786038fef54d4a89177ef4dbd9695ddb01eecf1e720b0"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0008.json",
-      "sha256": "fb299c7524e0981540bf6329ea38a85a13f5e054b5bc4c1667266aec6749e925"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0009.json",
-      "sha256": "ec23e5226c6c1669565414ba0fd202820b962c5d2877b577a44afdda05433377"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/step-0010.json",
-      "sha256": "178eb202e17fc50fe12658088c807e494b4f36adaba55d174fa7991f516baa6b"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/trajectory-summary.json",
-      "sha256": "a23fbef6595cf659c958954e969bdd97d97f7c6b485f0d15fd0fcd9742bd0dd4"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful/visible-final.json",
-      "sha256": "81007a99a77a4b8fa0544f3fc66a7d068bf560ae73050ae3fa7e74b1ac0f7b93"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/causal/truthful-historical-replay.json",
-      "sha256": "300fc3c69825e0d1a69af0bce12fd80592815d7ce6f0f6a44667e461d5f85067"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/locked-qualification.json",
-      "sha256": "d6bad3493f3841a317cdfb3413626809338d23ba8483c211799d40b8d9ccc5ff"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0000.json",
-      "sha256": "cd967eb1657ffc0736ae7ebdf0278ed892b6c51678fef72adf48065f3c062211"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0001.json",
-      "sha256": "552c535e7a85e56f32bb5525f2e51f91151e537a06f964cdda3f0059dfe12207"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0002.json",
-      "sha256": "d8f746f6d874d3bcff5c38b86830f454636d6549ea96e6f7a6601f50912a7fb4"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0003.json",
-      "sha256": "12b8cc72cbeff4cfb18afdcb22dbf940a1c04c3c12ef05bc920a7127d7aac166"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0004.json",
-      "sha256": "0bf7c6ef62858a5f2f335962aaa049ddd640991b49ce396383e6e06a35376f93"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/step-0001.json",
-      "sha256": "5b79938903085ccf82d2cdb08c33c5be0a4a0627f12955b9aa3f5a30484129f7"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/step-0002.json",
-      "sha256": "43bc3258b6157eee34ec16129e7f19add516ec1a09fb4495ea77cec7ac13746f"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/step-0003.json",
-      "sha256": "48c6acb0483b348e93e8859ac0025545be18dcf0909f62b4b97339af08ec080d"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/step-0004.json",
-      "sha256": "afa70cf79a88400f20376e6c4902a1f71cce6b30acd9c212d616e84a322cdeb2"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/step-0005.json",
-      "sha256": "c48181b426689f6cf1ef783106eb4d01e54575762a4eaf7b0112036418b4cf4a"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/step-0006.json",
-      "sha256": "6cbd7ade27129d1f7382a736bedeb3ebca98cd9af62ed175d9db6f79e0dc2a0e"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/step-0007.json",
-      "sha256": "f414dc6363adce027b25a89c9bc1b372c8bfa9df195c43d1a9c7d14b85fde9ff"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/step-0008.json",
-      "sha256": "b91921cb6657d858c9eb73af6e5dd64bcd47615535b7b9f7be9324e3c3af35b3"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/trajectory-summary.json",
-      "sha256": "0a587cc226e54dc3edf3d434a32b7f3a90431dbf0df67fe909a4bf5a4e647bf5"
-    },
-    {
-      "path": "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/visible-final.json",
-      "sha256": "1798cb1522e2c12abb3ed051522ac424cd7517d4cf9c784967644d54b2ea08ac"
+      "order": 3,
+      "condition": "historical",
+      "start_z": 800,
+      "candidate_sha256": "5cb84bc0af3f87b81ccb65ba244be185c35536be5cf510fd9880da1361b1de94",
+      "decision": "ADMIT",
+      "record_sha256": "f48e0f14ac493087cc05d8ca655828ffdb0cd069771f5273be2fb13bd761103f",
+      "observed_z": 22,
+      "autofocus_range_z": [-3185.0123949620374, 4705.257630461261],
+      "failed_checks": []
     }
   ],
-  "complete_raw_trace_paths": [
-    "cassettes/cross-family/helao-gamry-cv/session-000/search.json",
-    "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0000.json",
-    "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0001.json",
-    "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0002.json",
-    "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0003.json",
-    "cassettes/cross-family/helao-gamry-cv/session-000/evolution/repair/raw-0004.json"
-  ],
-  "fresh_capture_executions": [
+  "acquisition_artifacts": [
     {
-      "run_id": "initial-visible",
-      "captured_at": "2026-07-12T22:32:34.701292+00:00",
-      "scenario": "repair",
-      "condition": {
-        "potential_scale": 0.9
-      },
-      "candidate_sha256": "7e3b7dd7aa760180ef0ae34654a2f8713b83c23bcb574fcbdc3a2fdead860542",
-      "simulator_sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35",
-      "verifier_sha256": "d5b9aae4c50effdd83fd42ba6f4e3761fe6aab3cb2bc72cc3ca9952ad3dc09d7",
-      "verdict": "REJECT",
-      "gate_record_sha256": "b98aae80e4428c0cf53cda8a9ed9abf40371c1d2b8b6037a13f67fa32f18927f"
-    },
-    {
-      "run_id": "parent-visible",
-      "captured_at": "2026-07-12T22:32:55.566406+00:00",
-      "scenario": "repair",
-      "condition": {
-        "potential_scale": 0.9
-      },
-      "candidate_sha256": "6b99fc91264d7953091f7b5d0975b24512b6fd74c67f8dcb97a5fb6afbe70f48",
-      "simulator_sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35",
-      "verifier_sha256": "d5b9aae4c50effdd83fd42ba6f4e3761fe6aab3cb2bc72cc3ca9952ad3dc09d7",
-      "verdict": "ADMIT",
-      "gate_record_sha256": "91f0fd31e180c19ec355c8aceda90843735564958d2f428db52802d06b73f7ba"
-    },
-    {
-      "run_id": "parent-locked",
-      "captured_at": "2026-07-12T22:33:02.153161+00:00",
-      "scenario": "drift",
-      "condition": {
-        "potential_scale": 0.88
-      },
-      "candidate_sha256": "6b99fc91264d7953091f7b5d0975b24512b6fd74c67f8dcb97a5fb6afbe70f48",
-      "simulator_sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35",
-      "verifier_sha256": "d5b9aae4c50effdd83fd42ba6f4e3761fe6aab3cb2bc72cc3ca9952ad3dc09d7",
-      "verdict": "ADMIT",
-      "gate_record_sha256": "0e5f45e61b7654b4fa554c36aa4ea6127c9c90b4c50d872281e8eecf00c6bd18"
-    },
-    {
-      "run_id": "parent-deployment",
-      "captured_at": "2026-07-12T22:33:07.657479+00:00",
-      "scenario": "drift",
-      "condition": {
-        "potential_scale": 0.9,
-        "subsequent_potential_scale": 0.7
-      },
-      "candidate_sha256": "6b99fc91264d7953091f7b5d0975b24512b6fd74c67f8dcb97a5fb6afbe70f48",
-      "simulator_sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35",
-      "verifier_sha256": "d5b9aae4c50effdd83fd42ba6f4e3761fe6aab3cb2bc72cc3ca9952ad3dc09d7",
-      "verdict": "REJECT",
-      "gate_record_sha256": "c6d72db30746410c3829beaebfc66fc89213a25bc51868254d9eba02bbc7722d"
-    },
-    {
-      "run_id": "wrong-nominal",
-      "captured_at": "2026-07-12T22:33:19.222444+00:00",
-      "scenario": "nominal",
-      "condition": {},
-      "candidate_sha256": "79ad02c207aeeed26082d4159a32eb383348a81981ea3296d766fee943470adb",
-      "simulator_sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35",
-      "verifier_sha256": "d5b9aae4c50effdd83fd42ba6f4e3761fe6aab3cb2bc72cc3ca9952ad3dc09d7",
-      "verdict": "REJECT",
-      "gate_record_sha256": "b51b0c77729974420986734431e06e185603c915f64b5050e147132d6ed1049d"
-    },
-    {
-      "run_id": "final-changed",
-      "captured_at": "2026-07-12T22:33:29.804060+00:00",
-      "scenario": "drift",
-      "condition": {
-        "potential_scale": 0.9,
-        "subsequent_potential_scale": 0.7
-      },
-      "candidate_sha256": "a9bd4b18c360e93745367e57ede17c1a042f164f0cba030df04b421bec182c95",
-      "simulator_sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35",
-      "verifier_sha256": "d5b9aae4c50effdd83fd42ba6f4e3761fe6aab3cb2bc72cc3ca9952ad3dc09d7",
-      "verdict": "ADMIT",
-      "gate_record_sha256": "a92ec3841f1cc27d560c580f4c07c2bc119673fe76f4d49032b7bca1efc16c63"
-    },
-    {
-      "run_id": "final-historical",
-      "captured_at": "2026-07-12T22:33:32.992569+00:00",
-      "scenario": "repair",
-      "condition": {
-        "potential_scale": 0.9
-      },
-      "candidate_sha256": "a9bd4b18c360e93745367e57ede17c1a042f164f0cba030df04b421bec182c95",
-      "simulator_sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35",
-      "verifier_sha256": "d5b9aae4c50effdd83fd42ba6f4e3761fe6aab3cb2bc72cc3ca9952ad3dc09d7",
-      "verdict": "ADMIT",
-      "gate_record_sha256": "ab51dc737d123e480508781a393815a1d05e010a8504fb3604cbaf55d0d44255"
-    },
-    {
-      "run_id": "final-locked",
-      "captured_at": "2026-07-12T22:33:32.997292+00:00",
-      "scenario": "drift",
-      "condition": {
-        "potential_scale": 0.88
-      },
-      "candidate_sha256": "a9bd4b18c360e93745367e57ede17c1a042f164f0cba030df04b421bec182c95",
-      "simulator_sha256": "ab91869163128408e63ce18c9568e5762c5dca0b6bb6ec6cde97580074620f35",
-      "verifier_sha256": "d5b9aae4c50effdd83fd42ba6f4e3761fe6aab3cb2bc72cc3ca9952ad3dc09d7",
-      "verdict": "ADMIT",
-      "gate_record_sha256": "af3803949570c8145909064f25662dc3bdf3c79c57cddfa384dd3d56bfe72bad"
+      "path_at_execution_commit": "artifacts/invalidated/adaptive-microscopy-causal-binding-transport-incomplete-v1/trials/trial-003/repair-truthful-round-1.json",
+      "url": "https://github.com/Dynamical-Systems-Research/proprio/blob/61a1caa19fe353c1cb7778d3391b023747e018e0/artifacts/invalidated/adaptive-microscopy-causal-binding-transport-incomplete-v1/trials/trial-003/repair-truthful-round-1.json",
+      "sha256": "95511821bc24e2563e73530dde0b4ff03220394a454ebd33084072591677260a"
     }
   ],
-  "final_decision": {
-    "status": "STAGED",
-    "parent_immutable": true,
-    "hardware_validation_required": true,
-    "statement": "Verified in simulation. Hardware validation remains separate."
-  },
   "media": {
-    "path": "public/proprio-demo.mp4",
-    "public_url": "https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@1d0c6a23c866ffc001405c6b3f6615a72370650a/public/proprio-demo.mp4",
-    "sha256": "db7c9186092b8d5fd3e486ed22b06ebe392a3860215ce743d85ca11f519ac67f",
+    "video_path": "public/proprio-demo.mp4",
+    "video_sha256": "784d814feb561c26292b4a9c0ff4f4835bca073f9d0db0bc04397a441a04d80b",
+    "raw_continuous_webm_sha256": "5b4b8f0976b2d69bafc629fbf11d746a4edbab512fd0a49805975471a8d50236",
     "poster_path": "docs/assets/proprio-demo-poster.jpg",
-    "poster_sha256": "2d80f2dda96243b5bec55629e146a735a61b20c4d87c20b96a6e5c92b8f8c223",
+    "poster_sha256": "7670c68b4792eb25f48a2816023ee66aa52932b3a93e11eaeb9a2d417b7614dd",
     "codec": "H.264 High",
     "pixel_format": "yuv420p",
-    "width": 1920,
-    "height": 1080,
-    "frame_rate_fps": 30,
-    "duration_seconds": 90.066667,
-    "size_bytes": 2681141,
-    "fast_start": true
+    "fast_start": true,
+    "audio": false
   }
 }
