@@ -1,62 +1,76 @@
 # Proprio: Simulator-Verified Skill Acquisition for Scientific Instruments
 
-Proprio turns instrument documentation into executable skills, tests those skills against a
-simulator and an independent physical contract, and admits only candidates that pass. The model
-can inspect execution evidence and repair its work, but it cannot promote its own mistakes.
+Point your agent at an instrument's documentation. Proprio gives it a persistent simulator loop
+for drafting an operating skill, executing it, inspecting the evidence, and repairing what failed.
+Independent execution and physical checks decide what enters the skill library.
 
-This is a pre-deployment qualification method. A simulation-qualified skill still requires a
-separate real-hardware qualification before operating an instrument without supervision.
+Proprio verifies skills in simulation before deployment. Real instruments still require
+site-specific hardware validation.
+
+[Technical report](docs/technical-report.md) ·
+[Skill catalog](catalog.json) ·
+[OpenFlexure demo](public/proprio-openflexure-flagship.mp4)
 
 ![The agent-to-instrumentation gap](docs/assets/agent-to-instrumentation-gap.png)
 
-## How it works
+## Overview
+
+Every instrument skill begins with the sources an operator would read, including manuals, driver
+documentation, API references, and operating limits. The agent turns those sources into bounded
+control code and keeps one context across execution, diagnosis, and repair. Failed checks return as
+evidence in that same context, so later attempts retain the model's actions, observations, and
+prior diagnoses.
 
 ```text
-instrument sources
+documentation and operating limits
       ↓
 persistent agent context
       ↓
 draft → execute → inspect evidence → repair
       ↓
-independent execution and physical qualification
+independent execution and physical verification
       ↓
-locked replay → ADMIT / REJECT / HOLD
+held-out replay → ADMIT / REJECT / HOLD
       ↓
-deployment drift → validated evolution proposal
+simulated drift → verified evolution proposal
 ```
 
-The agent owns the skill and its working context. Proprio owns the simulator interface,
-qualification contract, locked conditions, and promotion decision. Each trajectory is checkpointed
-after tool results and verifier records, so interrupted work can resume without repeating completed
-model calls. The complete method contract is in
+The agent proposes each revision. It cannot change the verifier, held-out conditions, thresholds,
+or admission decision. A failed or incomplete record resolves to `REJECT` or `HOLD`. After simulated
+drift, a proposed revision must pass the changed condition, replay the conditions that supported its
+parent, and pass a fresh held-out sweep before it can be staged.
+
+The experiments test each part of this loop.
+
+- Verified simulator feedback produced 14 non-regressive repairs from 18 paired starting drafts.
+  Blind retrying produced none.
+- Six confirmatory instruments passed verification in 60 of 60 independent generations.
+- One frozen persistent protocol completed acquisition, repair, held-out verification, drift
+  detection, and staged evolution across North, HELAO, and CLSLab, with zero invalid promotions.
+
+The external panel contains one binding session per screened simulator family. It establishes
+replication across those tested interfaces, not a population-level success rate or untouched
+first exposure. The [technical report](docs/technical-report.md) connects every result to its
+evidence record. The frozen method is defined in
 [`method.yaml`](src/proprio/data/method.yaml).
 
-## Cross-family result
+## Published skills
 
-The binding panel used one frozen method across three external simulator families. Each initial
-skill executed but failed physical qualification, giving the agent a real repair problem rather
-than a syntax-only task.
+Every published package contains a `SKILL.md`, bounded control code where required, provenance
+hashes, and a link to the record that admitted it.
 
-| Instrument | Family | Qualified after feedback | Locked replay | Drift evolution staged |
-| --- | --- | ---: | ---: | ---: |
-| North Cytation pipette calibration | calibrated liquid delivery | yes | pass | yes |
-| HELAO Gamry cyclic voltammetry | electrochemical measurement | yes | pass | yes |
-| CLSLab light spectrometer | spectral measurement | yes | pass | yes |
+| Instrument | Skill | Verification record |
+| --- | --- | --- |
+| 2D powder XRD | [XRD reference](skills/xrd-reference/SKILL.md) | [Composition record](artifacts/evidence/composition/summary.json) |
+| Keithley 2450-style SMU | [Current measurement](skills/keithley-2450/SKILL.md) | [Admission record](artifacts/evidence/skill-admission/summary.json) |
+| North Cytation | [Pipette calibration](skills/external/north-pipette-calibration/SKILL.md) | [Session record](cassettes/cross-family/north-pipette-calibration/session-000/summary.json) |
+| HELAO Gamry | [Cyclic voltammetry](skills/external/helao-gamry-cv/SKILL.md) | [Session record](cassettes/cross-family/helao-gamry-cv/session-000/summary.json) |
+| CLSLab | [Light spectroscopy](skills/external/clslab-light-spectrometer/SKILL.md) | [Session record](cassettes/cross-family/clslab-light-spectrometer/session-000/summary.json) |
 
-All three sessions passed the complete protocol, with zero invalid promotions. The truthful
-feedback arm qualified in 3/3 families; the no-feedback comparison qualified in 1/3. With one
-session per family, that comparison is descriptive rather than a rate estimate. Raw model messages,
-tool results, simulator records, selection seals, and summaries are in
-[`cassettes/cross-family`](cassettes/cross-family), and the admitted skills are in
-[`skills/external`](skills/external).
+[`catalog.json`](catalog.json) binds each skill, source bundle, control implementation, verifier,
+and admission record by hash.
 
-The panel used `deepseek/deepseek-v4-flash` through OpenRouter. The three external families were
-screened for executable simulator access before model use; they are not claimed as untouched
-first-exposure families. The binding evidence is byte-bound to commit
-[`c2cd6be`](https://github.com/Dynamical-Systems-Research/proprio/tree/c2cd6be). This release removes
-superseded study code and preserves the original evidence through that pinned commit.
-
-## Install
+## Run Proprio
 
 ```bash
 git clone https://github.com/Dynamical-Systems-Research/proprio.git
@@ -64,8 +78,10 @@ cd proprio
 uv sync --locked --extra dev --extra simulators
 ```
 
-The cross-family adapters expect these pinned simulator checkouts under
-`/tmp/proprio-candidates`:
+<details>
+<summary>Install the pinned external simulators</summary>
+
+The cross-family adapters expect these checkouts under `/tmp/proprio-candidates`.
 
 ```bash
 mkdir -p /tmp/proprio-candidates
@@ -93,8 +109,9 @@ git -C /tmp/proprio-candidates/self-driving-lab-demo checkout \
   34e4e8cd880bc7b788109d8a56da3f6fae978518
 ```
 
-Set an OpenAI-compatible model endpoint, freeze the complete method, then run a session or the full
-panel:
+</details>
+
+Set an OpenAI-compatible endpoint, freeze the method, and run one acquisition trajectory.
 
 ```bash
 export OPENAI_API_KEY="$OPENROUTER_API_KEY"
@@ -110,16 +127,22 @@ uv run proprio cross-family-session \
   --output-dir runs/north-pipette-calibration
 ```
 
-The simulator and qualification gates, not the model's self-judgment, determine the final status.
-Unavailable or ambiguous evidence produces `HOLD`; a failed execution, physical check, provenance
-check, or locked replay produces `REJECT`.
+Run the full 3-family panel with the same frozen method.
 
-## XRD reference workflow
+```bash
+uv run proprio cross-family-panel \
+  --freeze runs/method-freeze/manifest.json \
+  --output-dir runs/cross-family
+```
 
-XRD is the reference instrument because it connects Proprio to Dynamical's earlier physical-
-judgment work. The reference workflow uses Bluesky and Ophyd for procedural execution, an
-independent synthetic LaB6/Si generator and verifier for measurement validity, and a typed support
-check before evidence reaches a policy. It does not use XRD-RL or VOE-Bench data.
+The raw messages, tool results, simulator records, repair ledgers, and admission decisions are
+written to the output directory. Checked-in cassettes keep CI deterministic.
+
+## Reference verification
+
+XRD is the reference instrument. It uses Bluesky and Ophyd for execution, an independent synthetic
+LaB6/Si generator and verifier for measurement validity, and a typed support check before evidence
+reaches a policy. It does not use XRD-RL or VOE-Bench data.
 
 ```bash
 uv run proprio procedural-battery --output-dir runs/procedural
@@ -128,8 +151,8 @@ uv run proprio support-battery --output-dir runs/support
 uv run proprio composition-battery --output-dir runs/xrd-reference
 ```
 
-The Keithley 2450 example provides the compact admission proof: a correct drafted skill is admitted,
-while a plausible wrong-range skill that the model accepted is rejected by circuit-law checks.
+The Keithley example is the compact admission proof. Circuit-law checks admit the correct skill and
+reject a plausible wrong-range procedure that the model accepted.
 
 ```bash
 uv run proprio skill-admission \
@@ -139,18 +162,18 @@ uv run proprio skill-admission \
 
 ## Repository map
 
-- [`src/proprio`](src/proprio): persistent agent, bounded skill runtime, simulators, and gates
-- [`sources/instruments`](sources/instruments): instrument source bundles used by the model
-- [`skills`](skills): reference and simulation-qualified skill packages
-- [`cassettes`](cassettes): raw model and qualification records
-- [`artifacts/evidence`](artifacts/evidence): metrology, freeze, and composition evidence
-- [`catalog.json`](catalog.json): content-addressed skill catalog
+- [`src/proprio`](src/proprio) contains the persistent agent, bounded runtime, adapters, and gates.
+- [`sources/instruments`](sources/instruments) contains the documentation shown to the model.
+- [`skills`](skills) contains the published skill packages.
+- [`cassettes`](cassettes) contains raw model and execution records.
+- [`artifacts/evidence`](artifacts/evidence) contains metrology and verification evidence.
+- [`catalog.json`](catalog.json) is the content-addressed skill catalog.
 
-The [OpenFlexure demo](public/proprio-openflexure-flagship.mp4) illustrates the same
-documentation-to-simulation repair loop used during method development.
+The [OpenFlexure demo](public/proprio-openflexure-flagship.mp4) shows the documentation-to-simulator
+repair loop used during method development.
 
 ## License and citation
 
-Proprio is released under the [Apache License 2.0](LICENSE). See
-[`CITATION.cff`](CITATION.cff) for citation metadata and [`CONTRIBUTING.md`](CONTRIBUTING.md) for
-development and verification requirements.
+Proprio is released under the [Apache License 2.0](LICENSE). Citation metadata is in
+[`CITATION.cff`](CITATION.cff), and contribution requirements are in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
