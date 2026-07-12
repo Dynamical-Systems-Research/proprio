@@ -1,5 +1,7 @@
 # Proprio: Simulator-Verified Skill Acquisition for Scientific Instruments
 
+[![CI](https://github.com/Dynamical-Systems-Research/proprio/actions/workflows/ci.yml/badge.svg)](https://github.com/Dynamical-Systems-Research/proprio/actions/workflows/ci.yml)
+
 Point your agent at an instrument's documentation. Proprio gives it a persistent simulator loop
 for drafting an operating skill, executing it, inspecting the evidence, and repairing what failed.
 Independent execution and physical checks decide what enters the skill library.
@@ -70,7 +72,13 @@ hashes, and a link to the record that admitted it.
 [`catalog.json`](catalog.json) binds each skill, source bundle, control implementation, verifier,
 and admission record by hash.
 
-## Run Proprio
+## Quickstart
+
+This tutorial takes one instrument source through drafting, visible simulator execution,
+evidence-guided repair, and locked verification. You finish with a complete verification record and
+an `ADMIT`, `REJECT`, or `HOLD` decision.
+
+### 1. Install Proprio
 
 ```bash
 git clone https://github.com/Dynamical-Systems-Research/proprio.git
@@ -78,10 +86,9 @@ cd proprio
 uv sync --locked --extra dev --extra simulators
 ```
 
-<details>
-<summary>Install the pinned external simulators</summary>
+### 2. Install the example simulator
 
-The cross-family adapters expect these checkouts under `/tmp/proprio-candidates`.
+The adapter expects the pinned checkout under `/tmp/proprio-candidates`.
 
 ```bash
 mkdir -p /tmp/proprio-candidates
@@ -93,7 +100,97 @@ git -C /tmp/proprio-candidates/North-Cytation sparse-checkout set \
   sdl_pipette_calibration/protocols
 git -C /tmp/proprio-candidates/North-Cytation checkout \
   3f49b5faba803a4a5d22544aa2ea5923ec513e20
+```
 
+### 3. Give the source to your agent
+
+Any agent that can edit files and run commands can use Proprio. Create a clean workspace and inspect
+the North Cytation source bundle.
+
+```bash
+mkdir -p runs/candidate
+
+uv run proprio inspect-source \
+  --instrument north-pipette-calibration > runs/source.json
+```
+
+In the same agent session, ask:
+
+> Read `runs/source.json`. Using only that source and its controller contract, create
+> `runs/candidate/SKILL.md` and `runs/candidate/skill.py`. The Python entry point must be
+> `run(controller)`. Do not inspect existing skills, cassettes, verifier code, or locked conditions.
+
+### 4. Execute, inspect, and repair
+
+Run the draft on the visible simulator conditions and save the evidence from this attempt.
+
+```bash
+uv run proprio execute-candidate \
+  --instrument north-pipette-calibration \
+  --candidate-dir runs/candidate \
+  --output-dir runs/attempt-001
+
+uv run proprio read-visible-evidence \
+  --run-dir runs/attempt-001 > runs/attempt-001/evidence.json
+```
+
+If the decision is `REJECT` or `HOLD`, keep the same agent context and ask:
+
+> Read `runs/attempt-001/evidence.json`. Diagnose the failed checks from the recorded evidence,
+> update only `runs/candidate/SKILL.md` and `runs/candidate/skill.py`, and explain the smallest
+> evidence-grounded repair. Do not change Proprio, the simulator, or the verifier.
+
+Execute the repaired candidate into a new directory. Every attempt is immutable; increment the
+attempt number for further repairs.
+
+```bash
+uv run proprio execute-candidate \
+  --instrument north-pipette-calibration \
+  --candidate-dir runs/candidate \
+  --output-dir runs/attempt-002
+
+uv run proprio read-visible-evidence \
+  --run-dir runs/attempt-002 > runs/attempt-002/evidence.json
+```
+
+### 5. Run locked verification
+
+Once a visible attempt returns `ADMIT`, run the independently held conditions. The agent does not
+see these conditions during drafting or repair.
+
+```bash
+uv run proprio verify-locked \
+  --instrument north-pipette-calibration \
+  --candidate-dir runs/candidate \
+  --output-dir runs/locked
+```
+
+`ADMIT` means the candidate passed the registered simulation checks. Real hardware still requires
+site-specific validation.
+
+## How to stage a skill evolution
+
+After simulated deployment drift, stage a proposal only if it passes the changed condition and
+replays the behavior that admitted its parent.
+
+```bash
+uv run proprio stage-evolution \
+  --instrument north-pipette-calibration \
+  --parent-dir runs/admitted \
+  --candidate-dir runs/proposal \
+  --output-dir runs/evolution
+```
+
+These operations are also importable from [`proprio.interface`](src/proprio/interface.py) as
+`inspect_source`, `execute_candidate`, `read_visible_evidence`, `verify_locked`, and
+`stage_evolution`. The agent owns its context; Proprio owns execution records and promotion.
+
+<details>
+<summary>Reproduce the published DSV4 panel</summary>
+
+The quickstart installs North Cytation. Add the two remaining pinned simulator checkouts.
+
+```bash
 git clone --filter=blob:none --no-checkout \
   https://github.com/helgestein/helao-pub \
   /tmp/proprio-candidates/helao-pub
@@ -108,58 +205,6 @@ git -C /tmp/proprio-candidates/self-driving-lab-demo sparse-checkout set src
 git -C /tmp/proprio-candidates/self-driving-lab-demo checkout \
   34e4e8cd880bc7b788109d8a56da3f6fae978518
 ```
-
-</details>
-
-Any agent that can edit files and run commands can use Proprio. Start by reading the source bundle.
-
-```bash
-uv run proprio inspect-source \
-  --instrument north-pipette-calibration > runs/source.json
-```
-
-Have the agent write `SKILL.md` and `skill.py` under `runs/candidate`, then execute it and return
-the visible simulator evidence to the same agent context.
-
-```bash
-uv run proprio execute-candidate \
-  --instrument north-pipette-calibration \
-  --candidate-dir runs/candidate \
-  --output-dir runs/visible \
-  --agent codex
-
-uv run proprio read-visible-evidence --run-dir runs/visible
-```
-
-The agent may repair and rerun the candidate from that evidence. Locked replay remains a separate
-gate.
-
-```bash
-uv run proprio verify-locked \
-  --instrument north-pipette-calibration \
-  --candidate-dir runs/candidate \
-  --output-dir runs/locked \
-  --agent codex
-```
-
-After simulated deployment drift, a proposal can be staged only if it also replays the behavior
-that admitted its parent.
-
-```bash
-uv run proprio stage-evolution \
-  --instrument north-pipette-calibration \
-  --parent-dir runs/admitted \
-  --candidate-dir runs/proposal \
-  --output-dir runs/evolution \
-  --agent codex
-```
-
-These operations are also importable from [`proprio.interface`](src/proprio/interface.py) as
-`inspect_source`, `execute_candidate`, `read_visible_evidence`, `verify_locked`, and
-`stage_evolution`. The agent owns its context; Proprio owns execution records and promotion.
-
-<details>
-<summary>Reproduce the published DSV4 panel</summary>
 
 ```bash
 export OPENAI_API_KEY="$OPENROUTER_API_KEY"
