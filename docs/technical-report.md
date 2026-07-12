@@ -215,6 +215,16 @@ locked sweep. Only a fully passing proposal is staged, with parent, rollback, ev
 simulator, verifier, and validation hashes, and the previously admitted skill remains immutable.
 A failed proposal is rejected and the parent is retained unchanged.
 
+Evolving a skill under feedback is an established pattern. Executable skill libraries with
+self-verification ([Voyager](https://arxiv.org/abs/2305.16291)), reflective evolution that can
+outperform reinforcement learning ([GEPA](https://arxiv.org/abs/2507.19457)), and held-out-gated
+skill optimization ([SkillOpt](https://arxiv.org/abs/2605.23904)) all revise a skill and admit the
+result only when a check survives. Unmanaged skill libraries degrade as they grow, a failure mode
+named [library drift](https://arxiv.org/abs/2605.19576). Proprio uses the same mechanism. The
+difference is the gate: these methods score candidates with software checks or benchmark metrics,
+while Proprio uses an instrument's simulator and physical contract, applied to instrument operation
+rather than to code or question answering.
+
 ### Pre-Deployment Boundary
 
 Simulation verification is a pre-deployment gate, not a deployment decision. Use on a physical
@@ -655,6 +665,9 @@ from the evidence the instrument returns.
 - [4D Digital Twins: Real-to-Sim-to-Real for Physical AI](https://research.nvidia.com/labs/amri/projects/4DDT/2026/) (NVIDIA, 2026)
 - [MatteriX: Towards a Digital Twin for Robotics-Assisted Chemistry Lab Automation](https://arxiv.org/abs/2601.13232) (Darvish et al., arXiv, 2026)
 - [SkillOpt: Executive Strategy for Self-Evolving Agent Skills](https://arxiv.org/abs/2605.23904) (Microsoft Research, 2026)
+- [Voyager: An Open-Ended Embodied Agent with Large Language Models](https://arxiv.org/abs/2305.16291) (Wang et al., 2023)
+- [GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning](https://arxiv.org/abs/2507.19457) (Agrawal et al., 2025)
+- [Library Drift: Diagnosing and Fixing a Silent Failure Mode in Self-Evolving LLM Skill Libraries](https://arxiv.org/abs/2605.19576) (Zhang et al., 2026)
 - [Hermes Skills System](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills) (Nous Research)
 
 *Evidence artifacts cited inline are committed to
