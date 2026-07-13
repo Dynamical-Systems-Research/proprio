@@ -282,6 +282,18 @@ passed. Proprio left the parent immutable and did not stage or package the propo
 simulation-valid evolution is demonstrated on the eight reduced-order development cases, not
 on the external microscope family.
 
+A later, separately versioned full-loop release run closed one OpenFlexure lineage under a new
+bounded persistent-context protocol. GPT-5.6 Luna read the source, produced an initial candidate,
+repaired independent acquisition rejections, admitted a parent through visible, historical, and
+locked replay, encountered a registered direction-changing drift, submitted a plausible same-sign
+residual correction that the physical gate rejected, and corrected the evolving copy from the
+returned readbacks. The final proposal passed changed `1/1`, historical `3/3`, and locked `5/5`
+before the stage gate returned `STAGED`; the parent remained immutable. The complete raw trace,
+candidate lineage, and fresh gate records are bound in the
+[release cassette](../cassettes/openflexure-full-loop/session-001/manifest.json). This single live
+lineage does not retroactively change the failed DSV4 population gate or establish a success rate.
+Verified in simulation. Hardware validation remains separate.
+
 ## What remains before hardware
 
 The v0.1 evidence qualifies only the released simulation paths, and the failed external-family

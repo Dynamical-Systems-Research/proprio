@@ -11,7 +11,14 @@ and physics checks.
 
 ![Self-directed skill acquisition under external verification](docs/assets/self-directed-skill-acquisition.png)
 
-[Watch the evidence-bound OpenFlexure skill-acquisition demo](public/proprio-openflexure-flagship.mp4)
+[Watch the continuous OpenFlexure acquisition-and-evolution demo](public/proprio-openflexure-flagship.mp4)
+or inspect its [committed evidence manifest](cassettes/openflexure-full-loop/session-001/manifest.json).
+The GPT-5.6 Luna take begins with instrument documentation, preserves one agent context through
+repair and evolution, re-executes the pinned native simulator, and ends `STAGED` only after
+changed-condition, historical, and locked replay pass. The earlier DSV4 population results below
+remain separate experiments and are not re-estimated by this single release lineage.
+
+Verified in simulation. Hardware validation remains separate.
 
 ## Method overview
 

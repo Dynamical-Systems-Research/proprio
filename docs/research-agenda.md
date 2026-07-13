@@ -320,6 +320,14 @@ reviewer rejected the hard failure. Proprio therefore did not stage or package a
 evolution proposal. The reduced-order evolution result remains an existence proof; it is not
 evidence that evolution generalizes to the external simulator.
 
+Subsequent release evidence isolates a different question: can one persistent learner context
+complete the full OpenFlexure loop when every intermediate controller readback and gate record is
+retained? One GPT-5.6 Luna lineage did so, including an independently rejected magnitude-only
+evolution and changed, historical, and locked replay before `STAGED`
+([full-loop cassette](../cassettes/openflexure-full-loop/session-001/manifest.json)). This is a
+mechanism demonstration, not a replacement population estimate, and it does not revise the failed
+DSV4 experiment above.
+
 ## Source and simulator strategy
 
 Proprio adopts existing interfaces and simulations where they are permissively licensed and
