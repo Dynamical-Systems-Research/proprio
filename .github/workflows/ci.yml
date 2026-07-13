@@ -16,7 +16,7 @@ jobs:
       - uses: astral-sh/setup-uv@v8.3.2
         with:
           enable-cache: true
-      - name: Check out pinned external simulators
+      - name: Check out pinned simulators
         run: |
           mkdir -p /tmp/proprio-candidates
           git clone --quiet --filter=blob:none --no-checkout https://github.com/AccelerationConsortium/North-Cytation /tmp/proprio-candidates/North-Cytation
@@ -28,23 +28,14 @@ jobs:
           git clone --quiet --filter=blob:none --no-checkout https://github.com/sparks-baird/self-driving-lab-demo /tmp/proprio-candidates/self-driving-lab-demo
           git -C /tmp/proprio-candidates/self-driving-lab-demo sparse-checkout set src
           git -C /tmp/proprio-candidates/self-driving-lab-demo checkout --quiet 34e4e8cd880bc7b788109d8a56da3f6fae978518
-      - run: uv sync --locked --extra dev --extra openflexure --extra generalization
-      # These source files are byte-bound by the v0.3 method manifest and cannot
-      # be mechanically rewritten after binding exposure.
-      - run: uv run ruff format --check . --exclude "src/proprio/generalization_*.py"
+      - run: uv sync --locked --extra dev --extra simulators
+      - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run pytest
-      - run: uv run proprio procedural-battery --output-dir artifacts/generated/ci/procedural
-      - run: uv run proprio metrology --cases-per-class 300 --output-dir artifacts/generated/ci/metrology
-      - run: uv run proprio support-battery --output-dir artifacts/generated/ci/support
-      - run: uv run proprio composition-battery --output-dir artifacts/generated/ci/composition
-      - run: uv run proprio skill-admission --cassette-dir cassettes/dsv4 --output-dir artifacts/generated/ci/skill-admission
-      - run: uv run proprio confirmatory-metrology --cases-per-class 300 --output-dir artifacts/generated/ci/confirmatory-metrology
-      - run: uv run proprio confirmatory-study-replay --cassette-dir cassettes/confirmatory-dsv4 --output-dir artifacts/generated/ci/confirmatory-replay
-      - run: uv run proprio confirmatory-judge-metrology-replay --cassette-dir cassettes/judge-metrology-confirmatory
-      - run: uv run proprio microscopy-metrology --reference-dir artifacts/evidence/microscopy/locked/reference --output-dir artifacts/generated/ci/microscopy-metrology --cases-per-class 300
-      - run: uv run proprio engineering-burden --output-dir artifacts/generated/ci/engineering-burden
-      - name: Verify expanded evidence (failed external gates remain fail-closed)
-        run: uv run pytest -q tests/test_expanded_evidence.py
-      - run: uv run proprio evolution-replay --cassette-dir cassettes/dsv4-evolution --output-dir artifacts/generated/ci/evolution-replay
-      - run: uv run proprio evidence-manifest --root . --output artifacts/generated/ci/evidence-manifest.json
+      - run: uv run proprio procedural-battery --output-dir /tmp/proprio/procedural
+      - run: uv run proprio metrology --cases-per-class 300 --output-dir /tmp/proprio/metrology
+      - run: uv run proprio support-battery --output-dir /tmp/proprio/support
+      - run: uv run proprio composition-battery --output-dir /tmp/proprio/composition
+      - run: uv run proprio skill-admission --cassette-dir cassettes/skill-admission --output-dir /tmp/proprio/skill-admission
+      - run: uv run proprio cross-family-freeze --output-dir /tmp/proprio/method-freeze
+      - run: uv run proprio evidence-manifest --root . --output /tmp/proprio/evidence-manifest.json

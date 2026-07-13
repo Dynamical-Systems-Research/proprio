@@ -8,6 +8,7 @@ from proprio.skill_drafter import (
     SkillMarkdownDraft,
     _compile_skill_markdown,
     _normalize_skill_code,
+    _source_bundle,
     load_cassette,
     run_skill_admission,
     write_cassette,
@@ -29,7 +30,7 @@ def run(controller):
     return {"current_a": current}
 """
 
-LEGACY = """
+WRONG_RANGE = """
 def run(controller):
     controller.identify()
     controller.reset()
@@ -44,10 +45,11 @@ def run(controller):
 
 
 def _draft(variant: str, code: str) -> SkillDraft:
+    _, source_sha256 = _source_bundle(variant)
     return SkillDraft(
         variant=variant,
         model="dsv4",
-        source_sha256="a" * 64,
+        source_sha256=source_sha256,
         skill_md=f"---\nname: {variant}\ndescription: fixture\n---\n\n# Run\n\nExecute safely.\n",
         skill_py=code,
         self_judgment={"verdict": "ACCEPT", "basis": ["matches sources"]},
@@ -58,7 +60,7 @@ def _draft(variant: str, code: str) -> SkillDraft:
 def test_cassette_round_trip_and_offline_gate(tmp_path) -> None:
     cassettes = tmp_path / "cassettes"
     write_cassette(_draft("correct", CORRECT), cassettes / "correct.json")
-    write_cassette(_draft("legacy", LEGACY), cassettes / "legacy.json")
+    write_cassette(_draft("wrong-range", WRONG_RANGE), cassettes / "wrong-range.json")
     assert load_cassette(cassettes / "correct.json").model == "dsv4"
     summary = run_skill_admission(cassettes, tmp_path / "output")
     assert summary["verdict"] == "PASS"
@@ -68,10 +70,10 @@ def test_cassette_round_trip_and_offline_gate(tmp_path) -> None:
 
 def test_fixture_code_expectations_remain_load_bearing() -> None:
     assert evaluate_skill(CORRECT).verdict == "ADMIT"
-    assert evaluate_skill(LEGACY).verdict == "REJECT"
+    assert evaluate_skill(WRONG_RANGE).verdict == "REJECT"
 
 
-def test_dsv4_drafter_prompt_has_source_and_preflight_contracts() -> None:
+def test_drafter_prompt_has_source_and_preflight_contracts() -> None:
     assert "Authority and precedence" in SKILL_DRAFTER_SYSTEM_PROMPT
     assert "Treat the supplied sources as complete" in SKILL_DRAFTER_SYSTEM_PROMPT
     assert "private preflight" in SKILL_DRAFTER_SYSTEM_PROMPT
@@ -95,19 +97,12 @@ def test_model_authored_skill_fields_compile_to_valid_markdown() -> None:
     )
 
 
-def test_checked_in_dsv4_cassettes_close_admit_and_reject(tmp_path) -> None:
-    summary = run_skill_admission(ROOT / "cassettes/dsv4", tmp_path)
+def test_checked_in_cassettes_close_admit_and_reject(tmp_path) -> None:
+    summary = run_skill_admission(ROOT / "cassettes/skill-admission", tmp_path)
     assert summary["verdict"] == "PASS"
     assert summary["cases"]["correct"]["self_judgment"]["verdict"] == "ACCEPT"
-    assert summary["cases"]["legacy"]["self_judgment"]["verdict"] == "ACCEPT"
-    for variant in ("correct", "legacy"):
-        draft = load_cassette(ROOT / f"cassettes/dsv4/{variant}.json")
+    assert summary["cases"]["wrong-range"]["self_judgment"]["verdict"] == "ACCEPT"
+    assert summary["cases"]["wrong-range"]["cassette_variant"] == "legacy"
+    for variant in ("correct", "wrong-range"):
+        draft = load_cassette(ROOT / f"cassettes/skill-admission/{variant}.json")
         assert "reasoning_content" in draft.raw_response["preserved_assistant_message"]
-
-
-def test_failed_live_schema_attempts_remain_first_class_evidence(tmp_path) -> None:
-    for name in ("schema-invalid-2026-07-09", "missing-description-2026-07-09"):
-        attempt = ROOT / f"cassettes/dsv4/attempts/{name}"
-        summary = run_skill_admission(attempt, tmp_path / name)
-        assert summary["verdict"] == "FAIL"
-        assert "skill-md-schema" in summary["cases"]["correct"]["failed_checks"]

@@ -12,6 +12,5 @@ Before opening a change:
 4. Do not tune a preregistered threshold against the metrology battery.
 5. Do not add scientific judgment or decision claims to operation records.
 
-Real hardware is outside the v0.1 validation claim. Hardware adapters must fail
+Real hardware is outside the simulation qualification claim. Hardware adapters must fail
 closed and remain unavailable until their separate qualification artifacts pass.
-

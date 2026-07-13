@@ -1,4 +1,4 @@
-"""DSV4 learn-from-sources front end for instrument skills."""
+"""Learn-from-sources front end for instrument skills."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from proprio.artifacts import write_bytes, write_canonical_json
 from proprio.catalog import parse_skill_markdown
-from proprio.policy import DSV4Client, _extract_json
+from proprio.policy import OpenAICompatibleClient, _extract_json
 from proprio.skill_gate import evaluate_skill
 
 SKILL_DRAFTER_SYSTEM_PROMPT = """You are the deterministic compiler for a scientific
@@ -82,9 +82,19 @@ def _normalize_skill_code(source: str) -> str:
 def _source_bundle(variant: str) -> tuple[str, str]:
     root = Path(__file__).resolve().parents[2] / "sources" / "keithley-2450"
     contract = (root / "driver-contract.md").read_text(encoding="utf-8")
-    fixture_name = "fixture-correct.md" if variant == "correct" else "fixture-legacy.md"
-    fixture = (root / fixture_name).read_text(encoding="utf-8")
-    text = f"# SOURCE: driver-contract.md\n{contract}\n# SOURCE: {fixture_name}\n{fixture}"
+    if variant == "correct":
+        fixture_path = "fixture-correct.md"
+        source_name = fixture_path
+    elif variant == "wrong-range":
+        fixture_path = "fixture-wrong-range.md"
+        source_name = fixture_path
+    elif variant == "legacy":
+        fixture_path = "fixture-wrong-range.md"
+        source_name = "fixture-legacy.md"
+    else:
+        raise ValueError(f"unsupported source variant: {variant}")
+    fixture = (root / fixture_path).read_text(encoding="utf-8")
+    text = f"# SOURCE: driver-contract.md\n{contract}\n# SOURCE: {source_name}\n{fixture}"
     return text, hashlib.sha256(text.encode()).hexdigest()
 
 
@@ -113,13 +123,13 @@ SOURCES END
 """
 
 
-class DSV4SkillDrafter:
-    def __init__(self, client: DSV4Client | None = None) -> None:
-        self.client = client or DSV4Client()
+class SkillDrafter:
+    def __init__(self, client: OpenAICompatibleClient | None = None) -> None:
+        self.client = client or OpenAICompatibleClient()
 
     def draft(self, variant: str) -> SkillDraft:
-        if variant not in {"correct", "legacy"}:
-            raise ValueError("variant must be correct or legacy")
+        if variant not in {"correct", "wrong-range"}:
+            raise ValueError("variant must be correct or wrong-range")
         source_text, source_hash = _source_bundle(variant)
         prompt = _prompt(source_text, variant)
         response = self.client.create_chat_completion(
@@ -138,7 +148,7 @@ class DSV4SkillDrafter:
         parsed = _extract_json(message.content or "")
         required = {"skill_md", "skill_py", "self_judgment"}
         if set(parsed) != required:
-            raise ValueError(f"DSV4 draft keys must be {sorted(required)}")
+            raise ValueError(f"model draft keys must be {sorted(required)}")
         if not isinstance(parsed["self_judgment"], dict):
             raise ValueError("self_judgment must be an object")
         markdown = SkillMarkdownDraft.model_validate(parsed["skill_md"])
@@ -174,7 +184,7 @@ def load_cassette(path: Path) -> SkillDraft:
 
 
 def recompile_cassette(path: Path) -> SkillDraft:
-    """Rebuild compiled package fields from the untouched raw DSV4 response."""
+    """Rebuild compiled package fields from the untouched raw model response."""
 
     draft = load_cassette(path)
     content = draft.raw_response["preserved_assistant_message"]["content"]
@@ -191,10 +201,10 @@ def recompile_cassette(path: Path) -> SkillDraft:
 
 
 def draft_skill_cassettes(cassette_dir: Path) -> dict[str, Any]:
-    drafter = DSV4SkillDrafter()
+    drafter = SkillDrafter()
     health = drafter.client.health()
     results = []
-    for variant in ("correct", "legacy"):
+    for variant in ("correct", "wrong-range"):
         draft = drafter.draft(variant)
         write_cassette(draft, cassette_dir / f"{variant}.json")
         results.append(
@@ -211,9 +221,18 @@ def draft_skill_cassettes(cassette_dir: Path) -> dict[str, Any]:
 def run_skill_admission(cassette_dir: Path, output_dir: Path) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     cases: dict[str, Any] = {}
-    for variant in ("correct", "legacy"):
-        draft = load_cassette(cassette_dir / f"{variant}.json")
-        variant_dir = output_dir / variant
+    cases_to_cassettes = {
+        "correct": ("correct.json", {"correct"}),
+        "wrong-range": ("wrong-range.json", {"wrong-range", "legacy"}),
+    }
+    for case_name, (cassette_name, allowed_variants) in cases_to_cassettes.items():
+        draft = load_cassette(cassette_dir / cassette_name)
+        if draft.variant not in allowed_variants:
+            raise ValueError(f"cassette variant mismatch: {case_name}")
+        _, expected_source_sha256 = _source_bundle(draft.variant)
+        if draft.source_sha256 != expected_source_sha256:
+            raise ValueError(f"cassette source mismatch: {case_name}")
+        variant_dir = output_dir / case_name
         write_bytes(variant_dir / "SKILL.md", draft.skill_md.encode(), "text/markdown")
         write_bytes(variant_dir / "skill.py", draft.skill_py.encode(), "text/x-python")
         skill_md_error = None
@@ -231,9 +250,10 @@ def run_skill_admission(cassette_dir: Path, output_dir: Path) -> dict[str, Any]:
         admission_payload["code_verdict"] = admission.verdict
         admission_payload["verdict"] = "ADMIT" if package_admitted else "REJECT"
         write_canonical_json(variant_dir / "admission.json", admission_payload)
-        cases[variant] = {
+        cases[case_name] = {
             "model": draft.model,
             "source_sha256": draft.source_sha256,
+            "cassette_variant": draft.variant,
             "self_judgment": draft.self_judgment,
             "admission": admission_payload["verdict"],
             "failed_checks": [
@@ -246,14 +266,20 @@ def run_skill_admission(cassette_dir: Path, output_dir: Path) -> dict[str, Any]:
     correct_self_accept = str(cases["correct"]["self_judgment"].get("verdict", "")).upper() == (
         "ACCEPT"
     )
-    wrong_self_accept = str(cases["legacy"]["self_judgment"].get("verdict", "")).upper() == (
+    wrong_self_accept = str(cases["wrong-range"]["self_judgment"].get("verdict", "")).upper() == (
         "ACCEPT"
     )
     summary = {
-        "schema_version": "proprio.skill_admission.v0.1",
+        "schema_version": "proprio.skill_admission.v0.4",
+        "source_provenance": {
+            "wrong-range": (
+                "The checked-in model cassette preserves its original `legacy` variant and "
+                "logical source name; the public case name describes the injected fault."
+            )
+        },
         "cases": cases,
         "admit_proof": correct_self_accept and cases["correct"]["admission"] == "ADMIT",
-        "reject_proof": wrong_self_accept and cases["legacy"]["admission"] == "REJECT",
+        "reject_proof": wrong_self_accept and cases["wrong-range"]["admission"] == "REJECT",
     }
     summary["verdict"] = "PASS" if summary["admit_proof"] and summary["reject_proof"] else "FAIL"
     write_canonical_json(output_dir / "summary.json", summary)

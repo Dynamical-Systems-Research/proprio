@@ -1,0 +1,65 @@
+schema_version: proprio.cross_family_method.v0.4
+method_name: persistent-agent
+status: frozen
+claim: >-
+  Across three external scientific-instrument simulators screened before model use, a persistent
+  DSV4 agent can construct runnable skills from instrument sources, use simulator evidence to
+  repair them, and stage drift-driven evolution without promoting candidates that fail independent
+  execution, physical, provenance, or locked-replay checks.
+claim_boundary: >-
+  Simulation establishes reproducible pre-deployment qualification. Real-hardware qualification
+  remains a separate deployment gate. The three simulator families were screened before the
+  binding run and are not claimed as untouched first-exposure families.
+instruments:
+  - north-pipette-calibration
+  - helao-gamry-cv
+  - clslab-light-spectrometer
+model:
+  requested: deepseek/deepseek-v4-flash
+  resolved: deepseek/deepseek-v4-flash-20260423
+  endpoint: https://openrouter.ai/api/v1
+  providers: [DeepInfra, GMICloud]
+  reasoning_effort: high
+  initial_generation: {temperature: 0.7, top_p: 0.95}
+  repair: {temperature: 0.0, top_p: 1.0}
+search:
+  initial_drafts: 6
+  archive_survivors: 3
+  repair_rounds: 6
+  maximum_candidate_variants: 24
+  maximum_model_turns_per_draft: 8
+  maximum_model_turns_per_repair: 16
+  maximum_controller_calls_per_candidate: 96
+  visible_conditions_per_family: 2
+  repetitions_per_visible_condition: 3
+persistence:
+  one_context_per_trajectory: true
+  checkpoint_after_each_tool_result: true
+  completed_model_calls_are_not_reissued: true
+  duplicate_candidate_hashes_are_rejected: true
+  context_byte_limit: 240000
+  retained_state:
+    - model messages and tool results
+    - current candidate and candidate hashes
+    - simulator and verifier records
+    - repair ledger
+    - remaining budget and provider configuration
+evaluation:
+  sessions_per_family: 1
+  seed_base: 2400000
+  truthful_and_no_feedback_arms_share_an_evidence_free_prefix: true
+  acquisition_required: true
+  causal_repair_required: true
+  locked_qualification_required: true
+  drift_detection_and_evolution_required: true
+  failed_families_cannot_be_replaced_or_rescued_by_aggregate_results: true
+promotion:
+  authority: deterministic_execution_and_physical_gates
+  model_self_judgment_can_promote: false
+  unavailable_or_ambiguous_evidence: HOLD
+  invalid_or_locked_failing_candidate: REJECT
+metrology:
+  valid_cases_per_family: 300
+  invalid_cases_per_class: 300
+  maximum_valid_false_reject_rate: 0.05
+  maximum_invalid_false_admits: 0
