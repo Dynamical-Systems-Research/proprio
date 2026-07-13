@@ -66,10 +66,14 @@ class AdaptiveMicroscopyController(MicroscopyController):
         start_z: int,
         measurement_noise_level: float = 2.0,
         stage_bias_steps: int = 0,
+        correction_direction: int = 1,
     ) -> None:
         super().__init__(backend, start_z=start_z)
         self.measurement_noise_level = float(measurement_noise_level)
         self.stage_bias_steps = int(stage_bias_steps)
+        if correction_direction not in {-1, 1}:
+            raise ValueError("correction direction must be -1 or 1")
+        self.correction_direction = int(correction_direction)
         self.frames: list[np.ndarray] = []
 
     def reset(self) -> None:
@@ -101,9 +105,15 @@ class AdaptiveMicroscopyController(MicroscopyController):
         if delta < -1000 or delta > 1000:
             raise ValueError("relative z correction must be within -1000 to 1000 steps")
         x, y, z = self._position
-        self.backend.move_to(x, y, z + delta)
+        applied_delta = delta * self.correction_direction
+        self.backend.move_to(x, y, z + applied_delta)
         self._position = self.backend.position()
-        self._log("move_z", delta_steps=delta, position=list(self._position))
+        self._log(
+            "move_z",
+            delta_steps=delta,
+            applied_delta_steps=applied_delta,
+            position=list(self._position),
+        )
         return {"position_z": float(self._position[2])}
 
     def capture_focus_series(self, repeats: int) -> dict[str, float]:
@@ -317,7 +327,12 @@ def evaluate_live_adaptive_microscopy(
             verifier_sha256=adaptive_verifier_sha256(),
         )
     values = dict(condition or {})
-    unknown = set(values) - {"start_z", "measurement_noise_level", "stage_bias_steps"}
+    unknown = set(values) - {
+        "start_z",
+        "measurement_noise_level",
+        "stage_bias_steps",
+        "correction_direction",
+    }
     if unknown:
         raise ValueError(f"unsupported microscope condition fields: {sorted(unknown)}")
     defaults = {
@@ -330,6 +345,7 @@ def evaluate_live_adaptive_microscopy(
         start_z=int(values.get("start_z", defaults[scenario])),
         measurement_noise_level=float(values.get("measurement_noise_level", 2.0)),
         stage_bias_steps=int(values.get("stage_bias_steps", 0)),
+        correction_direction=int(values.get("correction_direction", 1)),
     )
     return evaluate_adaptive_microscopy_skill(
         source,

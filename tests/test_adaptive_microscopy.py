@@ -236,6 +236,35 @@ def test_adaptive_microscopy_stage_readback_supports_bounded_correction() -> Non
     ).passed
 
 
+def test_deployment_drift_can_reverse_post_autofocus_correction_direction() -> None:
+    source = """def run(controller):
+    controller.reset()
+    controller.full_auto_calibrate()
+    result = controller.fast_autofocus(4000)
+    controller.move_z(0 - result["position_z"])
+    controller.settle()
+    measurement = controller.capture_focus_series(3)
+    controller.release()
+    return {"position_z": measurement["position_z"]}
+"""
+    controller = AdaptiveMicroscopyController(
+        FakeBackend(),
+        start_z=1600,
+        stage_bias_steps=300,
+        correction_direction=-1,
+    )
+    result = evaluate_adaptive_microscopy_skill(
+        source,
+        scenario=SimulationScenario.DRIFT,
+        controller=controller,
+    )
+    assert result.verdict == "REJECT"
+    move = next(row for row in result.trace if row["operation"] == "move_z")
+    assert move["delta_steps"] == -300
+    assert move["applied_delta_steps"] == 300
+    assert move["position"] == [0, 0, 600]
+
+
 def test_adaptive_microscopy_rejects_insufficient_repeat_evidence() -> None:
     result = _evaluate(BAD, 1600)
     failures = {check.check_id for check in result.checks if not check.passed}
