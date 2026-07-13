@@ -222,9 +222,7 @@ def run_phase(
     simulator_url: str,
 ) -> dict[str, Any]:
     source = candidate_path.read_text(encoding="utf-8")
-    configurations: dict[
-        str, tuple[SimulationScenario, tuple[Mapping[str, float], ...]]
-    ] = {
+    configurations: dict[str, tuple[SimulationScenario, tuple[Mapping[str, float], ...]]] = {
         "acquisition-visible": (SimulationScenario.REPAIR, (ACQUISITION_VISIBLE,)),
         "acquisition-historical": (SimulationScenario.NOMINAL, HISTORICAL_CONDITIONS),
         "acquisition-locked": (SimulationScenario.REPAIR, ACQUISITION_LOCKED),
@@ -301,8 +299,7 @@ def stage(
             changed["candidate_sha256"] == proposal_hash and changed["verdict"] == "PASS"
         ),
         "historical-replay-passed": (
-            historical["candidate_sha256"] == proposal_hash
-            and historical["verdict"] == "PASS"
+            historical["candidate_sha256"] == proposal_hash and historical["verdict"] == "PASS"
         ),
         "locked-replay-passed": (
             locked["candidate_sha256"] == proposal_hash and locked["verdict"] == "PASS"
