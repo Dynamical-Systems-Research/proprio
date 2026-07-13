@@ -12,6 +12,10 @@ This is a simulator-only development contract. It cannot qualify a real microsco
 ## Procedure and controller
 
 Define exactly `run(controller)` under Proprio's bounded adaptive executor contract.
+The executor permits assignments, numeric arithmetic over returned dictionary values, bounded
+`if` branches, and controller calls. It does not permit imports, Python built-ins, conversion
+helpers such as `int()` or `round()`, exceptions, or direct simulator-state reads. Controller
+methods perform their documented numeric coercion, so pass arithmetic results directly.
 
 - `controller.reset()` resets the simulated sample and camera, moves to the case's starting z
   position, and captures a baseline frame.
