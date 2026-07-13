@@ -359,6 +359,19 @@ def snapshot_rejected(output_dir: Path, candidate_path: Path) -> dict[str, Any]:
     return record
 
 
+def snapshot_acquisition_rejected(output_dir: Path, candidate_path: Path) -> dict[str, Any]:
+    record = _read_record(output_dir, "acquisition-visible")
+    if record["verdict"] != "FAIL":
+        raise RuntimeError("the current acquisition-visible record is not rejected")
+    source = candidate_path.read_text(encoding="utf-8")
+    if record["candidate_sha256"] != _sha256_text(source):
+        raise RuntimeError("rejected record does not match the supplied candidate")
+    destination = _record_path(output_dir, "acquisition-rejected")
+    write_canonical_json(destination, {**record, "label": "acquisition-rejected"})
+    print(f"DECISION REJECT candidate={record['candidate_sha256'][:12]}", flush=True)
+    return record
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, required=True)
@@ -369,6 +382,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("candidate", type=Path)
     rejected = subparsers.add_parser("snapshot-rejected")
     rejected.add_argument("candidate", type=Path)
+    acquisition_rejected = subparsers.add_parser("snapshot-acquisition-rejected")
+    acquisition_rejected.add_argument("candidate", type=Path)
     staged = subparsers.add_parser("stage")
     staged.add_argument("parent", type=Path)
     staged.add_argument("proposal", type=Path)
@@ -386,6 +401,8 @@ def main() -> None:
         )
     elif args.command == "snapshot-rejected":
         snapshot_rejected(args.output_dir, args.candidate)
+    elif args.command == "snapshot-acquisition-rejected":
+        snapshot_acquisition_rejected(args.output_dir, args.candidate)
     else:
         stage(parent_path=args.parent, proposal_path=args.proposal, output_dir=args.output_dir)
 
