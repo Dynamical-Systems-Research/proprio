@@ -390,22 +390,29 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
+def main() -> int:
     args = build_parser().parse_args()
     if args.command == "run":
-        run_phase(
+        record = run_phase(
             args.phase,
             candidate_path=args.candidate,
             output_dir=args.output_dir,
             simulator_url=args.simulator_url,
         )
+        return 0 if record["verdict"] == "PASS" else 2
     elif args.command == "snapshot-rejected":
         snapshot_rejected(args.output_dir, args.candidate)
     elif args.command == "snapshot-acquisition-rejected":
         snapshot_acquisition_rejected(args.output_dir, args.candidate)
     else:
-        stage(parent_path=args.parent, proposal_path=args.proposal, output_dir=args.output_dir)
+        summary = stage(
+            parent_path=args.parent,
+            proposal_path=args.proposal,
+            output_dir=args.output_dir,
+        )
+        return 0 if summary["status"] == "STAGED" else 2
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
