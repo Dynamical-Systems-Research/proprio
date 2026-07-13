@@ -1,16 +1,17 @@
 {
-  "schema_version": "proprio.public_video_manifest.v2",
-  "publication_base_commit": "eb1d1ef11f54d3b3d6b4d27f15e901875c504512",
-  "execution_commit": "61a1caa19fe353c1cb7778d3391b023747e018e0",
+  "schema_version": "proprio.public_video_manifest.v3",
+  "publication_base_commit": "86546c6719f22b21044e13acb3e13d5a9fcf5f59",
+  "execution_commit": "9eb250574444b6eb99665612d1b7bd833e1fba6e",
+  "evidence_commit": "d4953ddee264719cb0fca4f5fe4949b9706b27af",
   "selected_instrument": "microscope-autofocus",
   "instrument_family": "adaptive_microscopy",
-  "capture_mode": "live-agent-terminal-with-fresh-native-simulator-execution",
+  "capture_mode": "continuous-live-agent-with-fresh-native-simulator-execution",
   "scope": {
-    "status": "DEVELOPMENT_TRIAL",
-    "claim": "A live agent repaired one OpenFlexure simulator skill under an independent physical gate.",
+    "status": "STAGED",
+    "claim": "One persistent learner acquired and evolved an OpenFlexure simulator skill while independent execution and physical gates retained promotion authority.",
     "exclusions": [
-      "This video does not establish the complete cross-family acquisition-and-evolution result.",
-      "The OpenFlexure family did not pass Proprio's released locked cross-family criterion and is not a published skill.",
+      "This single lineage does not re-estimate the earlier DSV4 population results.",
+      "The registered drift is a controlled simulator stressor, not evidence of real-hardware prevalence.",
       "Verified in simulation. Hardware validation remains separate."
     ]
   },
@@ -21,99 +22,72 @@
     "viewport": "1920x1080",
     "recorded_frame_rate_fps": 25,
     "published_frame_rate_fps": 30,
-    "raw_duration_seconds": 136.6,
-    "published_duration_seconds": 136.6,
-    "layout": "live Codex terminal beside the native OpenFlexure microscope web interface"
+    "raw_duration_seconds": 1328.96,
+    "published_duration_seconds": 1328.966667,
+    "layout": "filtered live Codex terminal beside the native OpenFlexure microscope web interface"
   },
   "agent": {
-    "runtime": "OpenAI Codex CLI 0.144.1",
+    "runtime": "OpenAI Codex CLI",
     "model": "gpt-5.6-luna",
-    "session_id": "019f58a9-5769-7132-a07b-8e9c447b88b6",
-    "reasoning_effort": "none",
-    "reasoning_summaries": "none",
-    "raw_terminal_transcript_sha256": "d5bb4190a3b5f9ca6273a132fea04ca1258d51a3d6e85e49f53d166ef70e9faa",
-    "raw_trace_locator": "codex session 019f58a9-5769-7132-a07b-8e9c447b88b6"
+    "session_id": "019f592f-147a-7fc3-9d90-39d617ca100e",
+    "persistent_context": true,
+    "raw_trace_path": "cassettes/openflexure-full-loop/session-001/trace/raw-trace.jsonl",
+    "raw_trace_sha256": "d7bc845afcc60f1b322c253a7fc977aa55efa6f6aed2613105590e03c00c769f",
+    "filtered_transcript_path": "cassettes/openflexure-full-loop/session-001/trace/filtered-transcript.txt",
+    "filtered_transcript_sha256": "64678daef074d933a25f405287735136fc916449953477d9cd713c4a5b13d1df"
   },
   "source": {
     "path_at_execution_commit": "sources/development/microscope-autofocus/source.md",
-    "url": "https://github.com/Dynamical-Systems-Research/proprio/blob/61a1caa19fe353c1cb7778d3391b023747e018e0/sources/development/microscope-autofocus/source.md",
-    "sha256": "a0a9f0bc76230324fcadf3a15c9ca64bf0c6617114848ecc0c067a911c0feccc"
+    "url": "https://github.com/Dynamical-Systems-Research/proprio/blob/9eb250574444b6eb99665612d1b7bd833e1fba6e/sources/development/microscope-autofocus/source.md",
+    "sha256": "38b94b67d37131eb90583d023859545e0c0b4463f15811b8ee2a6e2032b18ce6"
   },
   "simulator": {
     "repository": "https://gitlab.com/openflexure/openflexure-microscope-server",
     "revision": "d26b93e1be1093e9d696b634dd1f7dde3bb7142a",
-    "runtime": "separate OpenFlexure microscope server process using its public API",
-    "source_archive_sha256": "66109c0f67017c17e8fe26147ac719ca8ae57759435c8868ebffcb30ebeec050",
-    "built_webapp_index_sha256": "c25bebdceb4a92b2187a452d5d00ea0b1e2e7edfa2abc8ae5831deaa130464d1"
+    "git_tree": "a8e138b993aababbbb77ef371446d986e117ae67",
+    "runtime": "separate native OpenFlexure server process using its public API"
   },
   "proprio_runtime": {
     "adapter_path_at_execution_commit": "src/proprio/adaptive_microscopy.py",
-    "adapter_sha256": "54ef4b7551a31d145e5404de51aa5fa47edb91f976491c1f2edd89d7670a5abd",
     "verifier_path_at_execution_commit": "src/proprio/adaptive_microscopy_verifier.py",
     "verifier_source_sha256": "16cb6d3a0d2c30086dc583f96b624425b231dbf09804aaf2bc853753a187effd",
-    "verifier_identity_sha256": "25ad2e96890e8d15c22209c091fe046ff4c2b5f0bf5938ddf42a241e62841519"
+    "thresholds_path_at_execution_commit": "src/proprio/data/adaptive-microscopy-thresholds.yaml",
+    "thresholds_sha256": "f7eac8d104223354d8d3a1d14a19bd71c714b5005a8808b125152bb2aed7a25b"
   },
   "candidate_bindings": {
-    "initial_sha256": "d1b109f05b1f24d2dfed19c8f82d35af63a2d485bd3a149aa1b35e9b5695723c",
-    "repaired_sha256": "5cb84bc0af3f87b81ccb65ba244be185c35536be5cf510fd9880da1361b1de94",
-    "consequential_diff": "controller.fast_autofocus(4000) -> controller.fast_autofocus(8000)"
+    "initial_sha256": "432eca10c30f8b53befa1cdc789f6f5f13f9a1422efaadf1ee696d9101fd9f95",
+    "parent_sha256": "d486c179f0b299ffd0ab978579caecf3febd1c65296d3c12fc5eeb91c7adddb8",
+    "rejected_evolution_sha256": "970a0f17630d868d3b081da0dad08fe82915c65b85591979bf605799c9c11162",
+    "proposal_sha256": "ed3dfb77896c89e6f006ba68c596621af5a029f1f110195830046b10afd04e3a",
+    "parent_immutable": true
   },
-  "fresh_executions": [
-    {
-      "order": 1,
-      "condition": "edge",
-      "start_z": -3500,
-      "candidate_sha256": "d1b109f05b1f24d2dfed19c8f82d35af63a2d485bd3a149aa1b35e9b5695723c",
-      "decision": "REJECT",
-      "record_sha256": "9063846c37b615bcc130f8bc612be11e13742b6a8d2294fcc3eab56c52692d23",
-      "observed_z": -1570,
-      "autofocus_range_z": [-5411.225037269156, -1569.9068140420009],
-      "failed_checks": [
-        "calibrated-focus-reference",
-        "autofocus-reference-covered",
-        "autofocus-peak-prominent",
-        "autofocus-peak-selected"
-      ]
-    },
-    {
-      "order": 2,
-      "condition": "edge",
-      "start_z": -3500,
-      "candidate_sha256": "5cb84bc0af3f87b81ccb65ba244be185c35536be5cf510fd9880da1361b1de94",
-      "decision": "ADMIT",
-      "record_sha256": "7f32e42ab60f6a273e38fdeeb9bb572a4ece38385fbf77edaa2761b6e609bd78",
-      "observed_z": 24,
-      "autofocus_range_z": [-7457.636616139435, 452.72582646859576],
-      "failed_checks": []
-    },
-    {
-      "order": 3,
-      "condition": "historical",
-      "start_z": 800,
-      "candidate_sha256": "5cb84bc0af3f87b81ccb65ba244be185c35536be5cf510fd9880da1361b1de94",
-      "decision": "ADMIT",
-      "record_sha256": "f48e0f14ac493087cc05d8ca655828ffdb0cd069771f5273be2fb13bd761103f",
-      "observed_z": 22,
-      "autofocus_range_z": [-3185.0123949620374, 4705.257630461261],
-      "failed_checks": []
-    }
-  ],
-  "acquisition_artifacts": [
-    {
-      "path_at_execution_commit": "artifacts/invalidated/adaptive-microscopy-causal-binding-transport-incomplete-v1/trials/trial-003/repair-truthful-round-1.json",
-      "url": "https://github.com/Dynamical-Systems-Research/proprio/blob/61a1caa19fe353c1cb7778d3391b023747e018e0/artifacts/invalidated/adaptive-microscopy-causal-binding-transport-incomplete-v1/trials/trial-003/repair-truthful-round-1.json",
-      "sha256": "95511821bc24e2563e73530dde0b4ff03220394a454ebd33084072591677260a"
-    }
-  ],
+  "fresh_executions": {
+    "initial_acquisition": "REJECT",
+    "parent_admission": {"visible": "1/1", "historical": "3/3", "locked": "5/5"},
+    "drift_parent": "REJECT",
+    "magnitude_only_evolution": "REJECT",
+    "proposal_replay": {"changed": "1/1", "historical": "3/3", "locked": "5/5"},
+    "final_decision": "STAGED"
+  },
+  "acquisition_artifacts": {
+    "manifest_path": "cassettes/openflexure-full-loop/session-001/manifest.json",
+    "manifest_sha256": "d0a38cbca8c999320ce383689e252820983a5fe252108418cb73cdaf8e7af4a6",
+    "summary_path": "cassettes/openflexure-full-loop/session-001/summary.json",
+    "summary_sha256": "854500218c909762d7060a635cf91ee7b68f53b49344586f9caed2c5c52e6206"
+  },
   "media": {
     "video_path": "public/proprio-demo.mp4",
-    "video_sha256": "784d814feb561c26292b4a9c0ff4f4835bca073f9d0db0bc04397a441a04d80b",
-    "raw_continuous_webm_sha256": "5b4b8f0976b2d69bafc629fbf11d746a4edbab512fd0a49805975471a8d50236",
-    "poster_path": "docs/assets/proprio-demo-poster.jpg",
-    "poster_sha256": "7670c68b4792eb25f48a2816023ee66aa52932b3a93e11eaeb9a2d417b7614dd",
-    "codec": "H.264 High",
+    "video_sha256": "a6693993ab7776001ef0efc628e72c4262775b4bf6f82787828de324f643fa04",
+    "bytes": 56968292,
+    "codec": "h264",
+    "profile": "High",
     "pixel_format": "yuv420p",
+    "width": 1920,
+    "height": 1080,
+    "frame_rate_fps": 30,
     "fast_start": true,
-    "audio": false
+    "decode_verified": true,
+    "poster_path": "docs/assets/proprio-demo-poster.jpg",
+    "poster_sha256": "b36a7bb78fcf7efe80b19e4a7200c3bc6705ea8752c1af5d4d9165999bac9405"
   }
 }

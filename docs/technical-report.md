@@ -11,7 +11,7 @@
 [HELAO Gamry CV](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/helao-gamry-cv) ·
 [CLSLab spectrometer](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/clslab-light-spectrometer) ·
 [Agent loop](https://github.com/Dynamical-Systems-Research/proprio/blob/main/src/proprio/agent.py) ·
-[Live OpenFlexure development demo](https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@36208cd472bc6340b5996f714ecf92a85450367d/public/proprio-demo.mp4) ·
+[OpenFlexure full-loop agent demo](https://github.com/Dynamical-Systems-Research/proprio/blob/main/public/proprio-demo.mp4) ·
 [Video evidence manifest](https://github.com/Dynamical-Systems-Research/proprio/blob/main/public/proprio-demo.json)
 
 *Every number in this report is recomputed from evidence artifacts committed to `main` at
@@ -503,6 +503,16 @@ attempt exhausted its turn budget with a candidate that still failed the Laplaci
 and regressed the nominal FFT check; only 6/10 locked drift offsets passed, the independent
 reviewer rejected it, and the parent skill was left untouched
 ([cassette](https://github.com/Dynamical-Systems-Research/proprio/tree/c2cd6be/cassettes/microscopy-evolution)).
+A later, separately versioned GPT-5.6 Luna release lineage closed the complete OpenFlexure loop
+under a bounded persistent-context protocol. It began from the instrument source, preserved an
+initial physical rejection and repaired parent admission, detected registered drift, and submitted
+a plausible same-sign residual correction that the independent gate rejected. The same context
+used those readbacks to correct an evolving copy. That proposal passed changed `1/1`, historical
+`3/3`, and locked `5/5` before the gate returned `STAGED`; the admitted parent remained immutable
+([release cassette](https://github.com/Dynamical-Systems-Research/proprio/tree/main/cassettes/openflexure-full-loop/session-001)).
+This is one mechanism-demonstration lineage, not a re-estimate of the earlier DSV4 population gate.
+Verified in simulation. Hardware validation remains separate.
+
 The persistent cross-family panel held to the same discipline. Registered drift invalidated the
 admitted parent in all three families, and the model entered a persistent evolution trajectory with
 the drift record, source bundle, current skill, and complete repair ledger in context. North and
