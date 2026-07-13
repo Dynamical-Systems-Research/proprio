@@ -11,10 +11,18 @@ site-specific hardware validation.
 
 [Technical report](docs/technical-report.md) ·
 [Skill catalog](catalog.json) ·
-[Live OpenFlexure agent demo](https://cdn.jsdelivr.net/gh/Dynamical-Systems-Research/proprio@36208cd472bc6340b5996f714ecf92a85450367d/public/proprio-demo.mp4) ·
+[OpenFlexure full-loop agent demo](public/proprio-demo.mp4) ·
 [Video evidence manifest](public/proprio-demo.json)
 
 ![The agent-to-instrumentation gap](docs/assets/agent-to-instrumentation-gap.png)
+
+The GPT-5.6 Luna release take begins with instrument documentation, preserves one context through
+repair and evolution, re-executes the pinned native simulator, and ends `STAGED` only after
+changed-condition, historical, and locked replay pass. The earlier DSV4 population results below
+remain separate experiments and are not re-estimated by this single release lineage. Inspect the
+[committed release cassette](cassettes/openflexure-full-loop/session-001/manifest.json).
+
+Verified in simulation. Hardware validation remains separate.
 
 ## Overview
 
