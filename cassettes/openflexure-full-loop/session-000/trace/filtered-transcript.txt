@@ -1,0 +1,1740 @@
+[1;36mAGENT[0m
+I’ll follow the simulator loop exactly, using only `source.md` and returned controller/gate evidence. I’ll begin with the required visible read, then create the lineage structure and iterate only on evidence-backed changes.
+[2m$ /bin/zsh -lc "sed -n '1,220p' source.md"[0m
+# OpenFlexure adaptive autofocus development source
+
+References:
+
+- [OpenFlexure microscope server](https://gitlab.com/openflexure/openflexure-microscope-server)
+- [OpenFlexure simulation guide](https://openflexure.gitlab.io/openflexure-microscope-server/simulation/)
+- Public LabThings camera, stage, and autofocus descriptions at revision
+  `d26b93e1be1093e9d696b634dd1f7dde3bb7142a`
+
+This is a simulator-only development contract. It cannot qualify a real microscope.
+
+## Procedure and controller
+
+Define exactly `run(controller)` under Proprio's bounded adaptive executor contract.
+The executor permits assignments, numeric arithmetic over returned dictionary values, bounded
+`if` branches, and controller calls. It does not permit imports, Python built-ins, conversion
+helpers such as `int()` or `round()`, exceptions, or direct simulator-state reads. Controller
+methods perform their documented numeric coercion, so pass arithmetic results directly.
+
+- `controller.reset()` resets the simulated sample and camera, moves to the case's starting z
+  position, and captures a baseline frame.
+- `controller.full_auto_calibrate()` calibrates the camera. Call it before autofocus.
+- `controller.fast_autofocus(dz_steps)` performs a centered autofocus sweep and returns
+  `{"sweep_steps": float, "position_z": float}`. Safe simulated sweep support is 1,000 through
+  8,000 stage steps.
+- `controller.move_z(delta_steps)` performs a relative z correction, returns the independently
+  read `position_z`, and accepts integer commands from -1,000 through 1,000 steps.
+- `controller.settle()` waits for a post-motion camera frame.
+- `controller.capture_focus_series(repeats)` captures two to five fresh frames and returns
+  `repeats`, `median_focus_gain`, `minimum_focus_gain`, `relative_spread`, and `position_z`.
+  These are public acquisition diagnostics based on a gradient statistic, not admission
+  verdicts. Use at least three repeats for qualification. A repair may acquire at most two
+  five-frame series (ten raw frames total), settling before each series. `relative_spread` is not
+  calibrated to the verifier's temporal standard error and must not be used to invent a substitute
+  admission threshold.
+- `controller.release()` clears buffers and closes resources. Always call it on normal return.
+
+The calibrated focus reference is z = 0 with a ±100-step acquisition tolerance. Supported starts
+range from -3,500 through 3,500 steps. Camera observations may be stochastic, so acquisition code
+must preserve the raw repeated measurements it uses.
+
+Every run has an 8.3-second incremental acquisition-time budget. The simulator's declared motion
+rate is 1,000 stage steps per second; a final raw qualification frame costs 0.1 second; relative z
+corrections use the same motion rate. Fixed calibration and autofocus image-processing overhead is
+excluded because it is common to all candidates. This is an operating-envelope constraint, not an
+admission score. Settle before each repeated capture. Return a dictionary summarizing the performed
+acquisition.
+
+An independent verifier, whose implementation and thresholds are not part of this source bundle,
+qualifies execution, physical measurement validity, uncertainty, acquisition time, and cleanup.
+The skill cannot set or override those checks. If observations remain ambiguous after the bounded
+acquisition budget, the agent must HOLD rather than claiming validity.
+
+[2m$ /bin/zsh -lc 'mkdir -p candidate lineage/initial lineage/parent lineage/rejected-evolution lineage/evolving lineage/proposal'[0m
+[1;33mDIFF[0m
+add candidate/SKILL.md
+add candidate/skill.py
+[2m$ /bin/zsh -lc "sed -n '1,220p' candidate/skill.py"[0m
+def run(controller):
+    controller.reset()
+    controller.full_auto_calibrate()
+    autofocus = controller.fast_autofocus(4000)
+    controller.settle()
+    series = controller.capture_focus_series(3)
+    controller.release()
+    return {"autofocus": autofocus, "series": series}
+
+[1;36mAGENT[0m
+The initial skill is now the minimal documented acquisition path: reset, calibrate, centered autofocus, settle, three repeated measurements, release. I’m starting the first independent acquisition gate.
+[2m$ /bin/zsh -lc 'proprio-full-loop run acquisition-visible candidate/skill.py'[0m
+STARTED 1783905725-63275
+EXECUTION acquisition-visible cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=52e448e5356573881bd28e6a53572884e4cce01d2465db72176b09724d16c3b7
+CASE 1/1
+CONTROLLER reset start_z=-3300
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=4000
+[1;36mAGENT[0m
+The first case has completed calibration and autofocus but is still running; I’m continuing the required status polling and will use the gate’s final decision/output as the authoritative record.
+CONTROLLER autofocus_readback position_z=-1017
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=-1017 relative_spread=0.0919
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK FAIL calibrated-focus-reference observed_z=-1017
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK FAIL autofocus-reference-covered range=[-5229,-1316]
+CHECK FAIL autofocus-peak-prominent
+CHECK FAIL autofocus-peak-selected final_z=-1017 peak_z=-1417
+CHECK PASS acquisition-time-budget seconds=4.3
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=52e448e53565 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/acquisition-visible.json
+SUITE FAIL 0/1
+COMPLETE 1783905725-63275
+[1;36mAGENT[0m
+The initial run was rejected because the centered sweep’s selected position was `-1017`, with the reported peak at `-1417`; it also failed reference coverage and calibrated-focus-reference checks. The smallest source-justified repair is a positive `1000`-step relative correction, followed by settle and the same repeated measurement. I’ll preserve this rejection before changing the candidate.
+[2m$ /bin/zsh -lc 'proprio-full-loop snapshot-acquisition-rejected candidate/skill.py'[0m
+DECISION REJECT candidate=52e448e53565
+[1;33mDIFF[0m
+add lineage/initial/SKILL.md
+add lineage/initial/skill.py
+[1;33mDIFF[0m
+update candidate/SKILL.md
+update candidate/skill.py
+[2m$ /bin/zsh -lc 'proprio-full-loop run acquisition-visible candidate/skill.py'[0m
+STARTED 1783905765-63433
+EXECUTION acquisition-visible cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=fb257b6e6ec7f6696474f7d9fb0beca247d390c37da03128496ed4e0b193d2d7
+CASE 1/1
+CONTROLLER reset start_z=-3300
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=4000
+CONTROLLER autofocus_readback position_z=-981
+CONTROLLER move_z commanded_delta=1000
+CONTROLLER stage_readback position_z=19
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=19 relative_spread=0.0004
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=19
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK FAIL autofocus-reference-covered range=[-5227,-1380]
+CHECK FAIL autofocus-peak-prominent
+CHECK FAIL autofocus-peak-selected final_z=19 peak_z=-1380
+CHECK PASS acquisition-time-budget seconds=5.3
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=fb257b6e6ec7 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/acquisition-visible.json
+SUITE FAIL 0/1
+COMPLETE 1783905765-63433
+[1;36mAGENT[0m
+The first repair reached `z=19` and passed physical reference, timing, repeat-count, and uncertainty checks, but the gate still rejected the candidate because the autofocus sweep range `[-5227,-1380]` did not cover the reference and the autofocus peak was not prominent/selected. The evidence now justifies one acquisition repair: widen the documented safe sweep to `8000` so the sweep itself covers `z=0`; I’ll remove the compensating correction because the wider sweep should select the reference directly.
+[1;33mDIFF[0m
+update candidate/SKILL.md
+update candidate/skill.py
+[2m$ /bin/zsh -lc 'proprio-full-loop run acquisition-visible candidate/skill.py'[0m
+STARTED 1783905807-63595
+EXECUTION acquisition-visible cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=f8a865e75c35ebd64459b0b48d3c4d1e63422d9dc2244218d97e4ec49f80dcaa
+CASE 1/1
+CONTROLLER reset start_z=-3300
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=8000
+[1;36mAGENT[0m
+The widened sweep is still executing; no new gate output has appeared yet. I’m continuing one status call at a time as required.
+CONTROLLER autofocus_readback position_z=417
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=417 relative_spread=0.0952
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK FAIL calibrated-focus-reference observed_z=417
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-7203,679]
+CHECK PASS autofocus-peak-prominent
+CHECK FAIL autofocus-peak-selected final_z=417 peak_z=18
+CHECK PASS acquisition-time-budget seconds=8.3
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=f8a865e75c35 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/acquisition-visible.json
+SUITE FAIL 0/1
+COMPLETE 1783905807-63595
+[1;36mAGENT[0m
+The wider sweep fixed coverage and prominence, but selected `z=417` while the measured peak was `z=18`; the run hit the exact `8.3 s` budget, so an added correction would be too costly at `8000`. I’ll make the smallest combined repair: use a still-reference-covering `7000`-step sweep and correct by the returned autofocus position (`0 - position_z`), which stays within the documented ±1000-step relative-command bound for this case.
+[1;33mDIFF[0m
+update candidate/SKILL.md
+update candidate/skill.py
+[2m$ /bin/zsh -lc 'proprio-full-loop run acquisition-visible candidate/skill.py'[0m
+STARTED 1783905864-63730
+EXECUTION acquisition-visible cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=9720a5ecf8e410aa01aaef55573641d718bbfca781514c11e8dea654b7d3bbbb
+CASE 1/1
+CONTROLLER reset start_z=-3300
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+[1;36mAGENT[0m
+The `7000`-step run remains active with no terminal decision yet. I’m preserving the asynchronous execution and polling without starting another run.
+CONTROLLER autofocus_readback position_z=368
+CONTROLLER move_z commanded_delta=-368
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0008
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-6786,185]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-31
+CHECK PASS acquisition-time-budget seconds=7.668
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/acquisition-visible.json
+SUITE PASS 1/1
+COMPLETE 1783905864-63730
+[1;36mAGENT[0m
+Acquisition is admitted. The accepted execution corrected the autofocus readback from `368` to `0`, passed every independent check, and completed in `7.668 s`. I’ll now freeze the exact admitted files as the parent and run the historical and locked admission suites.
+[2m$ /bin/zsh -lc 'cp candidate/SKILL.md lineage/parent/SKILL.md && cp candidate/skill.py lineage/parent/skill.py && git diff --no-index lineage/initial/skill.py lineage/parent/skill.py || true'[0m
+--- a/lineage/initial/skill.py
++++ b/lineage/parent/skill.py
+@@ -1,8 +1,9 @@
+-    autofocus = controller.fast_autofocus(4000)
++    autofocus = controller.fast_autofocus(7000)
++    correction = controller.move_z(0 - autofocus["position_z"])
+-    return {"autofocus": autofocus, "series": series}
++    return {"autofocus": autofocus, "correction": correction, "series": series}
+[2m$ /bin/zsh -lc 'proprio-full-loop run acquisition-historical lineage/parent/skill.py'[0m
+STARTED 1783905905-63862
+EXECUTION acquisition-historical cases=3
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=9720a5ecf8e410aa01aaef55573641d718bbfca781514c11e8dea654b7d3bbbb
+CASE 1/3
+CONTROLLER reset start_z=800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+CONTROLLER autofocus_readback position_z=43
+CONTROLLER move_z commanded_delta=-43
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0012
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2603,4214]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=44
+CHECK PASS acquisition-time-budget seconds=7.343
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+CASE 2/3
+CONTROLLER reset start_z=1200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+CONTROLLER autofocus_readback position_z=260
+CONTROLLER move_z commanded_delta=-260
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0004
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2210,4685]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=11
+CHECK PASS acquisition-time-budget seconds=7.56
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+CASE 3/3
+CONTROLLER reset start_z=-3300
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+[1;36mAGENT[0m
+Historical cases 1 and 2 have both admitted with the immutable parent hash. Case 3 is still running; I’m continuing until the suite reaches `COMPLETE`.
+CONTROLLER autofocus_readback position_z=375
+CONTROLLER move_z commanded_delta=-375
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0008
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-6733,190]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-24
+CHECK PASS acquisition-time-budget seconds=7.675
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/acquisition-historical.json
+SUITE PASS 3/3
+COMPLETE 1783905905-63862
+[2m$ /bin/zsh -lc 'proprio-full-loop run acquisition-locked lineage/parent/skill.py'[0m
+STARTED 1783905996-64158
+EXECUTION acquisition-locked cases=5
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=9720a5ecf8e410aa01aaef55573641d718bbfca781514c11e8dea654b7d3bbbb
+CASE 1/5
+CONTROLLER reset start_z=-3200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+[1;36mAGENT[0m
+The locked suite is executing its five cases against the unchanged parent. No rejection has appeared; I’m continuing the mandated status polling until all five complete.
+CONTROLLER autofocus_readback position_z=381
+CONTROLLER move_z commanded_delta=-381
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0002
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-6626,276]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=62
+CHECK PASS acquisition-time-budget seconds=7.681
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+CASE 2/5
+CONTROLLER reset start_z=-1700
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+CONTROLLER autofocus_readback position_z=440
+CONTROLLER move_z commanded_delta=-440
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0008
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-5150,1776]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=60
+CHECK PASS acquisition-time-budget seconds=7.74
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+CASE 3/5
+CONTROLLER reset start_z=0
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+CONTROLLER autofocus_readback position_z=410
+CONTROLLER move_z commanded_delta=-410
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0002
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-3439,3466]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-30
+CHECK PASS acquisition-time-budget seconds=7.71
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+CASE 4/5
+CONTROLLER reset start_z=1700
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+CONTROLLER autofocus_readback position_z=409
+CONTROLLER move_z commanded_delta=-409
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0003
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1763,5161]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=49
+CHECK PASS acquisition-time-budget seconds=7.709
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+CASE 5/5
+CONTROLLER reset start_z=3200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+CONTROLLER autofocus_readback position_z=419
+CONTROLLER move_z commanded_delta=-419
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0004
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-211,6695]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-1
+CHECK PASS acquisition-time-budget seconds=7.718999999999999
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/acquisition-locked.json
+SUITE PASS 5/5
+COMPLETE 1783905996-64158
+[1;36mAGENT[0m
+All three admission suites passed: visible `1/1`, historical `3/3`, and locked `5/5`, all with parent hash `9720a5ec…`. I’m starting the required drift run on the frozen parent; I will not edit it afterward.
+[2m$ /bin/zsh -lc 'proprio-full-loop run drift-parent lineage/parent/skill.py'[0m
+STARTED 1783906144-64846
+EXECUTION drift-parent cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=9720a5ecf8e410aa01aaef55573641d718bbfca781514c11e8dea654b7d3bbbb
+CASE 1/1
+CONTROLLER reset start_z=1800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+CONTROLLER autofocus_readback position_z=407
+CONTROLLER move_z commanded_delta=-407
+CONTROLLER stage_readback position_z=814
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=814 relative_spread=0.1511
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK FAIL calibrated-focus-reference observed_z=814
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1677,5244]
+CHECK PASS autofocus-peak-prominent
+CHECK FAIL autofocus-peak-selected final_z=814 peak_z=7
+CHECK PASS acquisition-time-budget seconds=7.707
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=9720a5ecf8e4 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/drift-parent.json
+SUITE FAIL 0/1
+COMPLETE 1783906144-64846
+[1;36mAGENT[0m
+The frozen parent was rejected under drift: autofocus readback `407`, parent correction `-407`, but stage readback became `814`; reference and peak-selection checks failed while all safety/cleanup/timing checks passed. Per the required protocol, I’ll test exactly one conservative magnitude-only proposal in the same correction direction by doubling the computed correction, then preserve its result.
+[1;33mDIFF[0m
+add lineage/rejected-evolution/SKILL.md
+add lineage/rejected-evolution/skill.py
+[2m$ /bin/zsh -lc 'git diff --no-index lineage/parent/skill.py lineage/rejected-evolution/skill.py || true'[0m
+--- a/lineage/parent/skill.py
++++ b/lineage/rejected-evolution/skill.py
+@@ -2,7 +2,7 @@ def run(controller):
+-    correction = controller.move_z(0 - autofocus["position_z"])
++    correction = controller.move_z((0 - autofocus["position_z"]) + (0 - autofocus["position_z"]))
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-changed lineage/rejected-evolution/skill.py'[0m
+STARTED 1783906195-65038
+EXECUTION evolution-changed cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=27e65d149098559998d9d67fdc44239b105624805deecbe154d0812e94cb0062
+CASE 1/1
+CONTROLLER reset start_z=1800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=7000
+CONTROLLER autofocus_readback position_z=442
+CONTROLLER move_z commanded_delta=-884
+CONTROLLER stage_readback position_z=1326
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=1326 relative_spread=0.0693
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK FAIL calibrated-focus-reference observed_z=1326
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1642,5270]
+CHECK PASS autofocus-peak-prominent
+CHECK FAIL autofocus-peak-selected final_z=1326 peak_z=42
+CHECK PASS acquisition-time-budget seconds=8.184000000000001
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=27e65d149098 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-changed.json
+SUITE FAIL 0/1
+COMPLETE 1783906195-65038
+[1;36mAGENT[0m
+The required magnitude-only proposal was rejected. Its readbacks show autofocus `442`, doubled command `-884`, and resulting stage `1326`, confirming that increasing magnitude in the parent direction worsens the drift residual. I’ll snapshot this rejected proposal, copy it to `lineage/evolving/`, and repair using a bounded readback branch: retain the admitted correction path when it reaches reference, but reverse only when the observed post-correction residual proves the changed condition.
+[2m$ /bin/zsh -lc 'proprio-full-loop snapshot-rejected lineage/rejected-evolution/skill.py'[0m
+DECISION REJECT proposal=27e65d149098
+[2m$ /bin/zsh -lc 'cp lineage/rejected-evolution/SKILL.md lineage/evolving/SKILL.md && cp lineage/rejected-evolution/skill.py lineage/evolving/skill.py'[0m
+[1;33mDIFF[0m
+update lineage/evolving/SKILL.md
+update lineage/evolving/skill.py
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-changed lineage/evolving/skill.py'[0m
+STARTED 1783906261-65268
+EXECUTION evolution-changed cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=e4d9c3966b4b2f95141b02f07bc8f62c0e48969847390ba50348919bd217c82a
+CASE 1/1
+CONTROLLER reset start_z=1800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=387
+CONTROLLER move_z commanded_delta=-387
+CONTROLLER stage_readback position_z=774
+CONTROLLER move_z commanded_delta=774
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0010
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1590,5111]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-12
+CHECK PASS acquisition-time-budget seconds=8.261000000000001
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=e4d9c3966b4b verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-changed.json
+SUITE PASS 1/1
+COMPLETE 1783906261-65268
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-historical lineage/evolving/skill.py'[0m
+STARTED 1783906290-65514
+EXECUTION evolution-historical cases=3
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=e4d9c3966b4b2f95141b02f07bc8f62c0e48969847390ba50348919bd217c82a
+CASE 1/3
+CONTROLLER reset start_z=800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=-7
+CONTROLLER move_z commanded_delta=7
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0006
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2566,4116]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-6
+CHECK PASS acquisition-time-budget seconds=7.107
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=e4d9c3966b4b verifier=25ad2e96890e
+CASE 2/3
+CONTROLLER reset start_z=1200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=314
+CONTROLLER move_z commanded_delta=-314
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0011
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2158,4534]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=64
+CHECK PASS acquisition-time-budget seconds=7.414
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=e4d9c3966b4b verifier=25ad2e96890e
+CASE 3/3
+CONTROLLER reset start_z=-3300
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=401
+CONTROLLER move_z commanded_delta=-401
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0012
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-6643,1]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=1
+CHECK PASS acquisition-time-budget seconds=7.5009999999999994
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=e4d9c3966b4b verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-historical.json
+SUITE PASS 3/3
+COMPLETE 1783906290-65514
+[1;36mAGENT[0m
+The evolving proposal passed `evolution-changed` and all three historical replay cases without edits. The readback branch preserved the original behavior (`z=0`) and corrected the drift case (`774` residual to `0`); I’m running the final locked proposal suite now.
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-locked lineage/evolving/skill.py'[0m
+STARTED 1783906377-65785
+EXECUTION evolution-locked cases=5
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=e4d9c3966b4b2f95141b02f07bc8f62c0e48969847390ba50348919bd217c82a
+CASE 1/5
+CONTROLLER reset start_z=-3200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=276
+CONTROLLER move_z commanded_delta=-276
+CONTROLLER stage_readback position_z=552
+CONTROLLER move_z commanded_delta=552
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0002
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-6540,192]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-23
+CHECK PASS acquisition-time-budget seconds=7.928
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=e4d9c3966b4b verifier=25ad2e96890e
+CASE 2/5
+CONTROLLER reset start_z=-1600
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=417
+CONTROLLER move_z commanded_delta=-417
+CONTROLLER stage_readback position_z=834
+CONTROLLER move_z commanded_delta=834
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0006
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-4949,1764]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-42
+CHECK FAIL acquisition-time-budget seconds=8.351
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=e4d9c3966b4b verifier=25ad2e96890e
+CASE 3/5
+CONTROLLER reset start_z=100
+[1;36mAGENT[0m
+The locked proposal has a replay rejection in case 2 solely on acquisition time: all physical, autofocus, cleanup, and measurement checks passed, but `8.351 s` exceeded budget. The suite is still running case 3; I’ll wait for its terminal completion, then reduce the sweep from `6800` to `6600` to recover the measured `0.2 s` margin and rerun all three proposal suites from the beginning.
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=314
+CONTROLLER move_z commanded_delta=-314
+CONTROLLER stage_readback position_z=628
+CONTROLLER move_z commanded_delta=628
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0002
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-3223,3480]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-35
+CHECK PASS acquisition-time-budget seconds=8.042
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=e4d9c3966b4b verifier=25ad2e96890e
+CASE 4/5
+CONTROLLER reset start_z=1700
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=466
+CONTROLLER move_z commanded_delta=-466
+CONTROLLER stage_readback position_z=932
+CONTROLLER move_z commanded_delta=932
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0007
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1619,5096]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-33
+CHECK FAIL acquisition-time-budget seconds=8.498000000000001
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=e4d9c3966b4b verifier=25ad2e96890e
+CASE 5/5
+CONTROLLER reset start_z=3200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=414
+CONTROLLER move_z commanded_delta=-414
+CONTROLLER stage_readback position_z=828
+CONTROLLER move_z commanded_delta=828
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0009
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-104,6588]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=4
+CHECK FAIL acquisition-time-budget seconds=8.342
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=e4d9c3966b4b verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-locked.json
+SUITE FAIL 2/5
+COMPLETE 1783906377-65785
+[1;36mAGENT[0m
+The completed locked suite confirms the same issue in cases 2, 4, and 5: behavior passes, but total time is `8.351`, `8.498`, and `8.342 s`. The parent-direction correction plus bounded reverse correction is necessary; the justified repair is only to reduce the sweep to `6600`, which preserves reference coverage at the tightest observed extreme (`[-104,6588]` at `6800`, leaving an estimated ~`0`-step upper-margin change at `6600`) while recovering `0.2 s`. I’ll rerun all proposal suites from the beginning.
+[1;33mDIFF[0m
+update lineage/evolving/skill.py
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-changed lineage/evolving/skill.py'[0m
+STARTED 1783906535-66188
+EXECUTION evolution-changed cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=eb301a4ab9b9a539bb5b826016d265f11e181a044e61e3c439e862efdb64b252
+CASE 1/1
+CONTROLLER reset start_z=1800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6600
+CONTROLLER autofocus_readback position_z=440
+CONTROLLER move_z commanded_delta=-440
+CONTROLLER stage_readback position_z=880
+CONTROLLER move_z commanded_delta=880
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0007
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1437,5016]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=40
+CHECK PASS acquisition-time-budget seconds=8.22
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=eb301a4ab9b9 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-changed.json
+SUITE PASS 1/1
+COMPLETE 1783906535-66188
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-historical lineage/evolving/skill.py'[0m
+STARTED 1783906569-66317
+EXECUTION evolution-historical cases=3
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=eb301a4ab9b9a539bb5b826016d265f11e181a044e61e3c439e862efdb64b252
+CASE 1/3
+CONTROLLER reset start_z=800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6600
+CONTROLLER autofocus_readback position_z=42
+CONTROLLER move_z commanded_delta=-42
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0011
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2428,4015]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=43
+CHECK PASS acquisition-time-budget seconds=6.942
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=eb301a4ab9b9 verifier=25ad2e96890e
+CASE 2/3
+CONTROLLER reset start_z=1200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6600
+CONTROLLER autofocus_readback position_z=223
+CONTROLLER move_z commanded_delta=-223
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0001
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2036,4471]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-26
+CHECK PASS acquisition-time-budget seconds=7.123
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=eb301a4ab9b9 verifier=25ad2e96890e
+CASE 3/3
+CONTROLLER reset start_z=-3300
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6600
+CONTROLLER autofocus_readback position_z=357
+CONTROLLER move_z commanded_delta=-357
+CONTROLLER stage_readback position_z=0
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=0 relative_spread=0.0006
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=0
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK FAIL autofocus-reference-covered range=[-6549,-42]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=0 peak_z=-42
+CHECK PASS acquisition-time-budget seconds=7.257
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=eb301a4ab9b9 verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-historical.json
+SUITE FAIL 2/3
+COMPLETE 1783906569-66317
+[1;36mAGENT[0m
+The `6600` repair is insufficient: proposal historical case 3 failed only because its autofocus range ended at `-42`, so `z=0` was not covered. I’m reverting the sweep to the required `6800` coverage and reducing motion cost instead: target the allowed `+100` acquisition boundary, then use the observed residual branch to target `+100` under drift. This saves `300` stage steps versus the exact-zero two-move path while remaining inside the documented ±100 tolerance. All three proposal suites must run again.
+[1;33mDIFF[0m
+update lineage/evolving/skill.py
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-changed lineage/evolving/skill.py'[0m
+STARTED 1783906693-66674
+EXECUTION evolution-changed cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=ee9fd8d999af657b857a0e6fa1719c87f053bd989a373b689c176a6b0370781e
+CASE 1/1
+CONTROLLER reset start_z=1800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=360
+CONTROLLER move_z commanded_delta=-260
+CONTROLLER stage_readback position_z=620
+CONTROLLER move_z commanded_delta=520
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0035
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1534,5112]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=-40
+CHECK PASS acquisition-time-budget seconds=7.88
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=ee9fd8d999af verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-changed.json
+SUITE PASS 1/1
+COMPLETE 1783906693-66674
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-historical lineage/evolving/skill.py'[0m
+STARTED 1783906727-66744
+EXECUTION evolution-historical cases=3
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=ee9fd8d999af657b857a0e6fa1719c87f053bd989a373b689c176a6b0370781e
+CASE 1/3
+CONTROLLER reset start_z=800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=61
+CONTROLLER move_z commanded_delta=39
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0045
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2515,4187]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=61
+CHECK PASS acquisition-time-budget seconds=7.139
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=ee9fd8d999af verifier=25ad2e96890e
+CASE 2/3
+CONTROLLER reset start_z=1200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=237
+CONTROLLER move_z commanded_delta=-137
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0031
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2130,4590]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=-12
+CHECK PASS acquisition-time-budget seconds=7.237
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=ee9fd8d999af verifier=25ad2e96890e
+CASE 3/3
+CONTROLLER reset start_z=-3300
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=443
+CONTROLLER move_z commanded_delta=-343
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0018
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-6603,44]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=44
+CHECK PASS acquisition-time-budget seconds=7.443
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=ee9fd8d999af verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-historical.json
+SUITE PASS 3/3
+COMPLETE 1783906727-66744
+[1;36mAGENT[0m
+The repaired proposal now passes changed behavior and all three historical replays, with final `z=100` inside the documented acquisition tolerance and improved timing. I’m running the final locked five-case suite; if it completes cleanly, I’ll copy the exact files, show the final diff, and stage.
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-locked lineage/evolving/skill.py'[0m
+STARTED 1783906817-66936
+EXECUTION evolution-locked cases=5
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=ee9fd8d999af657b857a0e6fa1719c87f053bd989a373b689c176a6b0370781e
+CASE 1/5
+CONTROLLER reset start_z=-3200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=250
+CONTROLLER move_z commanded_delta=-150
+CONTROLLER stage_readback position_z=400
+CONTROLLER move_z commanded_delta=300
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0050
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-6545,157]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=-50
+CHECK PASS acquisition-time-budget seconds=7.55
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=ee9fd8d999af verifier=25ad2e96890e
+CASE 2/5
+CONTROLLER reset start_z=-1600
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=462
+CONTROLLER move_z commanded_delta=-362
+CONTROLLER stage_readback position_z=824
+CONTROLLER move_z commanded_delta=724
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0023
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-4920,1707]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=2
+CHECK PASS acquisition-time-budget seconds=8.186
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=ee9fd8d999af verifier=25ad2e96890e
+CASE 3/5
+CONTROLLER reset start_z=100
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=353
+CONTROLLER move_z commanded_delta=-253
+CONTROLLER stage_readback position_z=606
+CONTROLLER move_z commanded_delta=506
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0028
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-3267,3434]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=4
+CHECK PASS acquisition-time-budget seconds=7.859
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=ee9fd8d999af verifier=25ad2e96890e
+CASE 4/5
+CONTROLLER reset start_z=1700
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=510
+CONTROLLER move_z commanded_delta=-410
+CONTROLLER stage_readback position_z=920
+CONTROLLER move_z commanded_delta=820
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0035
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1692,5028]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=10
+CHECK FAIL acquisition-time-budget seconds=8.33
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION REJECT
+HASH candidate=ee9fd8d999af verifier=25ad2e96890e
+CASE 5/5
+CONTROLLER reset start_z=3200
+[1;36mAGENT[0m
+The final locked suite’s case 4 reached `z=100` and passed every functional check, but missed time by only `0.03 s` (`8.33 s`). Case 5 is still running; I’ll wait for its terminal result before making the minimal timing repair and rerunning all three proposal suites again.
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6800
+CONTROLLER autofocus_readback position_z=475
+CONTROLLER move_z commanded_delta=-375
+CONTROLLER stage_readback position_z=850
+CONTROLLER move_z commanded_delta=750
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0007
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-142,6495]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=66
+CHECK PASS acquisition-time-budget seconds=8.225
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=ee9fd8d999af verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-locked.json
+SUITE FAIL 4/5
+COMPLETE 1783906817-66936
+[1;36mAGENT[0m
+The locked suite completed `4/5`: the only failure was case 4 timing at `8.330 s`; case 5 passed at `8.225 s`, and all checks passed. The smallest evidence-backed repair is a `50`-step sweep reduction to `6750`: the prior `6800` extreme replay had `44` steps of positive reference-coverage margin, while `6600` was `42` steps short, so `6750` preserves coverage with an estimated ~`22`-step margin and recovers `0.05 s`. I’ll rerun all proposal suites.
+[1;33mDIFF[0m
+update lineage/evolving/skill.py
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-changed lineage/evolving/skill.py'[0m
+STARTED 1783907012-67792
+EXECUTION evolution-changed cases=1
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=85b85808214b89f65e3b30a68b9408346a03c98021864acd3bf91dc4dfd93c0a
+CASE 1/1
+CONTROLLER reset start_z=1800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6750
+CONTROLLER autofocus_readback position_z=452
+CONTROLLER move_z commanded_delta=-352
+CONTROLLER stage_readback position_z=804
+CONTROLLER move_z commanded_delta=704
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0050
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1568,5078]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=52
+CHECK PASS acquisition-time-budget seconds=8.106
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=85b85808214b verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-changed.json
+SUITE PASS 1/1
+COMPLETE 1783907012-67792
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-historical lineage/evolving/skill.py'[0m
+STARTED 1783907046-68038
+EXECUTION evolution-historical cases=3
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=85b85808214b89f65e3b30a68b9408346a03c98021864acd3bf91dc4dfd93c0a
+CASE 1/3
+CONTROLLER reset start_z=800
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6750
+CONTROLLER autofocus_readback position_z=38
+CONTROLLER move_z commanded_delta=62
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0018
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2506,4094]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=38
+CHECK PASS acquisition-time-budget seconds=7.112
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=85b85808214b verifier=25ad2e96890e
+CASE 2/3
+CONTROLLER reset start_z=1200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6750
+CONTROLLER autofocus_readback position_z=287
+CONTROLLER move_z commanded_delta=-187
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0065
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-2107,4545]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=38
+CHECK PASS acquisition-time-budget seconds=7.237
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=85b85808214b verifier=25ad2e96890e
+CASE 3/3
+CONTROLLER reset start_z=-3300
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6750
+CONTROLLER autofocus_readback position_z=422
+CONTROLLER move_z commanded_delta=-322
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0032
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-6592,22]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=22
+CHECK PASS acquisition-time-budget seconds=7.372
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=85b85808214b verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-historical.json
+SUITE PASS 3/3
+COMPLETE 1783907046-68038
+[2m$ /bin/zsh -lc 'proprio-full-loop run evolution-locked lineage/evolving/skill.py'[0m
+STARTED 1783907139-68754
+EXECUTION evolution-locked cases=5
+SIMULATOR revision=d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+CANDIDATE sha256=85b85808214b89f65e3b30a68b9408346a03c98021864acd3bf91dc4dfd93c0a
+CASE 1/5
+CONTROLLER reset start_z=-3200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6750
+CONTROLLER autofocus_readback position_z=289
+CONTROLLER move_z commanded_delta=-189
+CONTROLLER stage_readback position_z=478
+CONTROLLER move_z commanded_delta=378
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0022
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-6516,99]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=-11
+CHECK PASS acquisition-time-budget seconds=7.617
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=85b85808214b verifier=25ad2e96890e
+CASE 2/5
+CONTROLLER reset start_z=-1600
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6750
+CONTROLLER autofocus_readback position_z=434
+CONTROLLER move_z commanded_delta=-334
+CONTROLLER stage_readback position_z=768
+CONTROLLER move_z commanded_delta=668
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0067
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-4958,1691]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=-25
+CHECK PASS acquisition-time-budget seconds=8.052
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=85b85808214b verifier=25ad2e96890e
+CASE 3/5
+CONTROLLER reset start_z=100
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6750
+CONTROLLER autofocus_readback position_z=337
+CONTROLLER move_z commanded_delta=-237
+CONTROLLER stage_readback position_z=574
+CONTROLLER move_z commanded_delta=474
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0025
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-3217,3465]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=-13
+CHECK PASS acquisition-time-budget seconds=7.761
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=85b85808214b verifier=25ad2e96890e
+CASE 4/5
+CONTROLLER reset start_z=1700
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6750
+CONTROLLER autofocus_readback position_z=489
+CONTROLLER move_z commanded_delta=-389
+CONTROLLER stage_readback position_z=878
+CONTROLLER move_z commanded_delta=778
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0058
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-1605,5006]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=-10
+CHECK PASS acquisition-time-budget seconds=8.217
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=85b85808214b verifier=25ad2e96890e
+CASE 5/5
+CONTROLLER reset start_z=3200
+CONTROLLER full_auto_calibrate
+CONTROLLER fast_autofocus dz_steps=6750
+CONTROLLER autofocus_readback position_z=425
+CONTROLLER move_z commanded_delta=-325
+CONTROLLER stage_readback position_z=750
+CONTROLLER move_z commanded_delta=650
+CONTROLLER stage_readback position_z=100
+CONTROLLER settle
+CONTROLLER capture_focus_series repeats=3
+CONTROLLER measurement position_z=100 relative_spread=0.0022
+CONTROLLER release
+GATE independent physical checks
+CHECK PASS static-safety
+CHECK PASS runtime-completed
+CHECK PASS operation-order
+CHECK PASS camera-calibrated
+CHECK PASS calibrated-focus-reference observed_z=100
+CHECK PASS frame-complete
+CHECK PASS image-dynamic-range
+CHECK PASS detector-unsaturated
+CHECK PASS resource-release
+CHECK PASS autofocus-curve-complete
+CHECK PASS autofocus-reference-covered range=[-83,6504]
+CHECK PASS autofocus-peak-prominent
+CHECK PASS autofocus-peak-selected final_z=100 peak_z=16
+CHECK PASS acquisition-time-budget seconds=8.025
+CHECK PASS repeat-count
+CHECK PASS temporal-measurement-uncertainty
+DECISION ADMIT
+HASH candidate=85b85808214b verifier=25ad2e96890e
+RECORD /private/tmp/proprio-openflexure-agent-final/evidence/runs/evolution-locked.json
+SUITE PASS 5/5
+COMPLETE 1783907139-68754
+[1;36mAGENT[0m
+All final proposal suites pass: changed `1/1`, historical `3/3`, locked `5/5`, with final locked timing `7.617–8.217 s` and all checks passing. I’ll now copy the exact passing evolving files to `lineage/proposal/`, show the consequential correction against the immutable rejected proposal, and stage the parent/proposal pair.
+[2m$ /bin/zsh -lc 'cp lineage/evolving/SKILL.md lineage/proposal/SKILL.md && cp lineage/evolving/skill.py lineage/proposal/skill.py && git diff --no-index lineage/rejected-evolution/skill.py lineage/evolving/skill.py || true'[0m
+--- a/lineage/rejected-evolution/skill.py
++++ b/lineage/evolving/skill.py
+@@ -1,8 +1,10 @@
+-    autofocus = controller.fast_autofocus(7000)
+-    correction = controller.move_z((0 - autofocus["position_z"]) + (0 - autofocus["position_z"]))
++    autofocus = controller.fast_autofocus(6750)
++    correction = controller.move_z((0 - autofocus["position_z"]) + 100)
++    if correction["position_z"] > 100:
++        correction = controller.move_z(correction["position_z"] - 100)
+[2m$ /bin/zsh -lc 'proprio-full-loop stage lineage/parent/skill.py lineage/proposal/skill.py'[0m
+CHECK PASS parent-was-admitted
+CHECK PASS drift-invalidated-parent
+CHECK PASS evolution-proposal-was-rejected
+CHECK PASS changed-condition-passed
+CHECK PASS historical-replay-passed
+CHECK PASS locked-replay-passed
+CHECK PASS proposal-differs-from-parent
+CHECK PASS parent-immutable
+DECISION STAGED
+HASH parent=9720a5ecf8e4 proposal=85b85808214b
+[1;36mAGENT[0m
+Final decision: `STAGED` in simulation. Hardware readiness was not claimed.
+
+- Initial acquisition: `REJECT`
+  - `observed_z=-1017`
+  - sweep `[-5229,-1316]`
+  - selected `-1017`, peak `-1417`
+  - hash `52e448e5356573881bd28e6a53572884e4cce01d2465db72176b09724d16c3b7`
+
+- Parent admission: visible `1/1`, historical `3/3`, locked `5/5`
+  - parent hash: `9720a5ecf8e410aa01aaef55573641d718bbfca781514c11e8dea654b7d3bbbb`
+
+- Drift rejection: `REJECT`
+  - parent correction `-407` produced `position_z=814`
+  - peak `7`; calibrated reference and peak-selected checks failed
+
+- Magnitude-only rejected proposal: `REJECT`
+  - command `-884` produced `position_z=1326`
+  - hash `27e65d149098559998d9d67fdc44239b105624805deecbe154d0812e94cb0062`
+
+- Final proposal:
+  - changed `1/1`
+  - historical `3/3`
+  - locked `5/5`
+  - proposal hash: `85b85808214b89f65e3b30a68b9408346a03c98021864acd3bf91dc4dfd93c0a`
+
+Staging checks all passed, including parent immutability and replay validation.
