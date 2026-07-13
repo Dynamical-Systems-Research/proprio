@@ -45,7 +45,9 @@ DEVELOPMENT_PATH = (
 )
 EVOLUTION_PATH = ROOT / "cassettes" / "microscopy-evolution" / "summary.json"
 METHOD_PATH = ROOT / "artifacts" / "generated" / "adaptive-method-freeze" / "manifest.json"
-SOURCE_PATH = ROOT / "sources" / "development" / "microscope-autofocus" / "source.md"
+# The legacy DeepSeek capture predates the current source contract. Keep its exact source immutable
+# instead of silently rebinding that historical trace to the live development document.
+SOURCE_PATH = ROOT / "artifacts" / "demo" / "proprio-openflexure-legacy-source.md"
 
 
 def _load(path: Path) -> dict[str, Any]:
