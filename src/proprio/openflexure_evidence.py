@@ -26,7 +26,7 @@ THRESHOLDS_PATH = Path(__file__).with_name("data") / "adaptive-microscopy-thresh
 SCHEMA_VERSION = "proprio.openflexure_full_loop.v0.1"
 
 ACQUISITION_VISIBLE: Mapping[str, float] = {
-    "start_z": -3500,
+    "start_z": -3300,
     "measurement_noise_level": 2.0,
     "stage_bias_steps": 400,
     "correction_direction": 1,
@@ -48,7 +48,7 @@ ACQUISITION_LOCKED: tuple[Mapping[str, float], ...] = tuple(
         "stage_bias_steps": bias,
         "correction_direction": 1,
     }
-    for start_z, bias in ((-3400, 320), (-1800, 380), (0, 440), (1800, 360), (3400, 420))
+    for start_z, bias in ((-3200, 320), (-1700, 380), (0, 440), (1700, 360), (3200, 420))
 )
 DRIFT_CONDITION: Mapping[str, float] = {
     "start_z": 1800,
@@ -63,7 +63,7 @@ EVOLUTION_LOCKED: tuple[Mapping[str, float], ...] = tuple(
         "stage_bias_steps": bias,
         "correction_direction": -1,
     }
-    for start_z, bias in ((-3300, 300), (-1600, 460), (100, 350), (1700, 500), (3300, 410))
+    for start_z, bias in ((-3200, 300), (-1600, 460), (100, 350), (1700, 500), (3200, 410))
 )
 
 

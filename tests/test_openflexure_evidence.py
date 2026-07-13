@@ -33,6 +33,8 @@ def test_locked_conditions_are_frozen_and_keep_hidden_drift_direction() -> None:
     assert len(EVOLUTION_LOCKED) == 5
     assert all(row["correction_direction"] == 1 for row in ACQUISITION_LOCKED)
     assert all(row["correction_direction"] == -1 for row in EVOLUTION_LOCKED)
+    assert min(row["start_z"] for row in ACQUISITION_LOCKED) == -3200
+    assert max(row["start_z"] for row in ACQUISITION_LOCKED) == 3200
 
 
 def test_stage_requires_rejection_and_all_three_replays(tmp_path: Path) -> None:
