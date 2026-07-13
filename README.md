@@ -11,10 +11,10 @@ Verified in simulation. Hardware validation remains separate.
 [Technical report](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition) ·
 [Skill catalog](catalog.json) ·
 [Published skills](skills) ·
-[OpenFlexure full-loop demo](public/proprio-demo.mp4) ·
+[OpenFlexure full-loop demo](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition#demo) ·
 [Video evidence manifest](public/proprio-demo.json)
 
-[![The OpenFlexure full-loop agent demo](docs/assets/proprio-demo-poster.jpg)](public/proprio-demo.mp4)
+[![The OpenFlexure full-loop agent demo](docs/assets/proprio-demo-poster.jpg)](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition#demo)
 
 The demo shows a persistent GPT-5.6 Luna agent reading the development source in a live terminal while
 the native OpenFlexure microscope simulator runs beside it. A fresh execution is rejected on its
