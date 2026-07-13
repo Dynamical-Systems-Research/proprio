@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,10 +12,8 @@ from typing import Any
 
 from proprio.artifacts import source_sha256
 from proprio.instrument_types import GateCheck, HardGateResult, SimulationScenario
-from proprio.instrument_verifiers import verify_instrument
-from proprio.reference_instruments import INSTRUMENTS, build_controller
 
-ADAPTIVE_NODES = (
+ALLOWED_NODES = (
     ast.Module,
     ast.FunctionDef,
     ast.arguments,
@@ -47,12 +44,18 @@ ADAPTIVE_NODES = (
     ast.Compare,
     ast.Eq,
     ast.NotEq,
+    ast.In,
+    ast.NotIn,
+    ast.Is,
+    ast.IsNot,
     ast.Lt,
     ast.LtE,
     ast.Gt,
     ast.GtE,
     ast.If,
     ast.For,
+    ast.Break,
+    ast.Continue,
     ast.Subscript,
     ast.keyword,
     ast.Load,
@@ -61,7 +64,7 @@ ADAPTIVE_NODES = (
 
 
 @dataclass(frozen=True)
-class AdaptiveSkillLimits:
+class SkillLimits:
     """Static and runtime bounds for model-authored instrument procedures."""
 
     max_source_bytes: int = 16_384
@@ -70,7 +73,7 @@ class AdaptiveSkillLimits:
     max_controller_calls: int = 96
 
 
-DEFAULT_SKILL_LIMITS = AdaptiveSkillLimits()
+DEFAULT_SKILL_LIMITS = SkillLimits()
 
 
 class _ControllerBudget:
@@ -93,8 +96,13 @@ class _ControllerBudget:
         return bounded_call
 
 
-def _literal_range_iterations(call: ast.Call, limits: AdaptiveSkillLimits) -> int:
-    if not isinstance(call.func, ast.Name) or call.func.id != "range" or call.keywords:
+def _literal_range_iterations(call: ast.AST, limits: SkillLimits) -> int:
+    if (
+        not isinstance(call, ast.Call)
+        or not isinstance(call.func, ast.Name)
+        or call.func.id != "range"
+        or call.keywords
+    ):
         raise ValueError("for loops must iterate over range(...) with literal integer bounds")
     if not 1 <= len(call.args) <= 3:
         raise ValueError("range requires one to three literal integer arguments")
@@ -107,13 +115,11 @@ def _literal_range_iterations(call: ast.Call, limits: AdaptiveSkillLimits) -> in
         values.append(argument.value)
     iterations = len(range(*values))
     if iterations > limits.max_loop_iterations:
-        raise ValueError(
-            f"loop iteration bound {iterations} exceeds {limits.max_loop_iterations}"
-        )
+        raise ValueError(f"loop iteration bound {iterations} exceeds {limits.max_loop_iterations}")
     return iterations
 
 
-def _controller_call_cost(statements: Sequence[ast.stmt], limits: AdaptiveSkillLimits) -> int:
+def _controller_call_cost(statements: Sequence[ast.stmt], limits: SkillLimits) -> int:
     total = 0
     for statement in statements:
         if isinstance(statement, ast.For):
@@ -135,12 +141,13 @@ def _controller_call_cost(statements: Sequence[ast.stmt], limits: AdaptiveSkillL
     return total
 
 
-def _validate_branch_depth(node: ast.AST, limits: AdaptiveSkillLimits, depth: int = 0) -> None:
+def _validate_branch_depth(node: ast.AST, limits: SkillLimits, depth: int = 0) -> None:
     next_depth = depth + 1 if isinstance(node, (ast.If, ast.For)) else depth
     if next_depth > limits.max_branch_depth:
         raise ValueError(f"branch depth exceeds {limits.max_branch_depth}")
     for child in ast.iter_child_nodes(node):
         _validate_branch_depth(child, limits, next_depth)
+
 
 CONDITION_FIELDS = {
     "ot2-transfer": frozenset({"max_transfer_ul"}),
@@ -158,7 +165,7 @@ def compile_instrument_skill(
     source: str,
     allowed_methods: frozenset[str],
     *,
-    limits: AdaptiveSkillLimits = DEFAULT_SKILL_LIMITS,
+    limits: SkillLimits = DEFAULT_SKILL_LIMITS,
 ) -> FunctionType:
     if len(source.encode()) > limits.max_source_bytes:
         raise ValueError(f"skill source exceeds {limits.max_source_bytes} bytes")
@@ -175,7 +182,7 @@ def compile_instrument_skill(
     }
     _validate_branch_depth(tree, limits)
     for node in ast.walk(tree):
-        if not isinstance(node, ADAPTIVE_NODES):
+        if not isinstance(node, ALLOWED_NODES):
             raise ValueError(f"disallowed syntax: {type(node).__name__}")
         if isinstance(node, ast.Call):
             if isinstance(node.func, ast.Name) and node.func.id == "range":
@@ -191,9 +198,7 @@ def compile_instrument_skill(
             raise ValueError("direct reads of simulator state are forbidden")
     call_cost = _controller_call_cost(functions[0].body, limits)
     if call_cost > limits.max_controller_calls:
-        raise ValueError(
-            f"controller call bound {call_cost} exceeds {limits.max_controller_calls}"
-        )
+        raise ValueError(f"controller call bound {call_cost} exceeds {limits.max_controller_calls}")
     namespace: dict[str, Any] = {"__builtins__": {"range": range}}
     exec(compile(tree, "<instrument-skill>", "exec"), namespace)
     function = namespace["run"]
@@ -327,38 +332,4 @@ def evaluate_controller_skill(
         skill_sha256=skill_hash,
         simulator_sha256=source_sha256(simulator_path),
         verifier_sha256=source_sha256(verifier_path),
-    )
-
-
-def evaluate_instrument_skill(
-    instrument_id: str,
-    source: str,
-    *,
-    scenario: SimulationScenario = SimulationScenario.NOMINAL,
-    condition: Mapping[str, float] | None = None,
-) -> HardGateResult:
-    definition = INSTRUMENTS[instrument_id]
-    controller = build_controller(instrument_id, scenario)
-    condition_values = dict(condition or {})
-    unknown_fields = set(condition_values) - CONDITION_FIELDS[instrument_id]
-    if unknown_fields:
-        raise ValueError(
-            f"unsupported condition fields for {instrument_id}: {sorted(unknown_fields)}"
-        )
-    for field, value in condition_values.items():
-        numeric = float(value)
-        if not math.isfinite(numeric) or numeric <= 0.0:
-            raise ValueError(f"condition {field} must be positive and finite")
-        setattr(controller, field, numeric)
-    return evaluate_controller_skill(
-        instrument_id,
-        definition.family,
-        source,
-        scenario=scenario,
-        allowed_methods=definition.allowed_methods,
-        controller=controller,
-        verifier=verify_instrument,
-        simulator_path=Path(__file__).with_name("reference_instruments.py"),
-        verifier_path=Path(__file__).with_name("instrument_verifiers.py"),
-        condition_evidence=condition_values,
     )

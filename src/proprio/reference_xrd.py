@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from proprio.artifacts import source_sha256, write_canonical_json, write_npy
-from proprio.policy import DSV4Client, persist_judgment
+from proprio.policy import OpenAICompatibleClient, persist_judgment
 from proprio.procedural import ProceduralFault, run_procedural
 from proprio.schema import (
     Provenance,
@@ -37,7 +37,7 @@ def run_reference_xrd(
     validity_fault: ValidityFault = ValidityFault.VALID,
     live_judge: bool = False,
 ) -> dict[str, Any]:
-    """Run the complete observability chain and optionally hand the record to live DSV4."""
+    """Run the complete observability chain and optionally call a live baseline policy."""
 
     operation_id = f"proprio-xrd-reference-v0.1-{validity_fault.value}"
     raw_path = output_dir / "raw" / "bluesky.jsonl"
@@ -88,12 +88,17 @@ def run_reference_xrd(
 
     judgment = None
     if live_judge:
-        response = DSV4Client().judge(record)
-        judgment = persist_judgment(
-            record=record,
-            response=response,
-            output_dir=output_dir / "judgment",
-        )
+        client = OpenAICompatibleClient()
+        try:
+            response = client.judge(record)
+            judgment = persist_judgment(
+                record=record,
+                response=response,
+                output_dir=output_dir / "judgment",
+                model=client.model,
+            )
+        finally:
+            client.close()
     summary = {
         "schema_version": "proprio.reference_xrd_run.v0.1",
         "operation_id": operation_id,

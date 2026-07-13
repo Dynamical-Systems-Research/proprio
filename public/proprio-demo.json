@@ -1,0 +1,93 @@
+{
+  "schema_version": "proprio.public_video_manifest.v3",
+  "publication_base_commit": "86546c6719f22b21044e13acb3e13d5a9fcf5f59",
+  "execution_commit": "9eb250574444b6eb99665612d1b7bd833e1fba6e",
+  "evidence_commit": "d4953ddee264719cb0fca4f5fe4949b9706b27af",
+  "selected_instrument": "microscope-autofocus",
+  "instrument_family": "adaptive_microscopy",
+  "capture_mode": "continuous-live-agent-with-fresh-native-simulator-execution",
+  "scope": {
+    "status": "STAGED",
+    "claim": "One persistent learner acquired and evolved an OpenFlexure simulator skill while independent execution and physical gates retained promotion authority.",
+    "exclusions": [
+      "This single lineage does not re-estimate the earlier DSV4 population results.",
+      "The registered drift is a controlled simulator stressor, not evidence of real-hardware prevalence.",
+      "Verified in simulation. Hardware validation remains separate."
+    ]
+  },
+  "capture": {
+    "continuous": true,
+    "spliced": false,
+    "audio": false,
+    "viewport": "1920x1080",
+    "recorded_frame_rate_fps": 25,
+    "published_frame_rate_fps": 30,
+    "raw_duration_seconds": 1328.96,
+    "published_duration_seconds": 1328.966667,
+    "layout": "filtered live Codex terminal beside the native OpenFlexure microscope web interface"
+  },
+  "agent": {
+    "runtime": "OpenAI Codex CLI",
+    "model": "gpt-5.6-luna",
+    "session_id": "019f592f-147a-7fc3-9d90-39d617ca100e",
+    "persistent_context": true,
+    "raw_trace_path": "cassettes/openflexure-full-loop/session-001/trace/raw-trace.jsonl",
+    "raw_trace_sha256": "d7bc845afcc60f1b322c253a7fc977aa55efa6f6aed2613105590e03c00c769f",
+    "filtered_transcript_path": "cassettes/openflexure-full-loop/session-001/trace/filtered-transcript.txt",
+    "filtered_transcript_sha256": "64678daef074d933a25f405287735136fc916449953477d9cd713c4a5b13d1df"
+  },
+  "source": {
+    "path_at_execution_commit": "sources/development/microscope-autofocus/source.md",
+    "url": "https://github.com/Dynamical-Systems-Research/proprio/blob/9eb250574444b6eb99665612d1b7bd833e1fba6e/sources/development/microscope-autofocus/source.md",
+    "sha256": "38b94b67d37131eb90583d023859545e0c0b4463f15811b8ee2a6e2032b18ce6"
+  },
+  "simulator": {
+    "repository": "https://gitlab.com/openflexure/openflexure-microscope-server",
+    "revision": "d26b93e1be1093e9d696b634dd1f7dde3bb7142a",
+    "git_tree": "a8e138b993aababbbb77ef371446d986e117ae67",
+    "runtime": "separate native OpenFlexure server process using its public API"
+  },
+  "proprio_runtime": {
+    "adapter_path_at_execution_commit": "src/proprio/adaptive_microscopy.py",
+    "verifier_path_at_execution_commit": "src/proprio/adaptive_microscopy_verifier.py",
+    "verifier_source_sha256": "16cb6d3a0d2c30086dc583f96b624425b231dbf09804aaf2bc853753a187effd",
+    "thresholds_path_at_execution_commit": "src/proprio/data/adaptive-microscopy-thresholds.yaml",
+    "thresholds_sha256": "f7eac8d104223354d8d3a1d14a19bd71c714b5005a8808b125152bb2aed7a25b"
+  },
+  "candidate_bindings": {
+    "initial_sha256": "432eca10c30f8b53befa1cdc789f6f5f13f9a1422efaadf1ee696d9101fd9f95",
+    "parent_sha256": "d486c179f0b299ffd0ab978579caecf3febd1c65296d3c12fc5eeb91c7adddb8",
+    "rejected_evolution_sha256": "970a0f17630d868d3b081da0dad08fe82915c65b85591979bf605799c9c11162",
+    "proposal_sha256": "ed3dfb77896c89e6f006ba68c596621af5a029f1f110195830046b10afd04e3a",
+    "parent_immutable": true
+  },
+  "fresh_executions": {
+    "initial_acquisition": "REJECT",
+    "parent_admission": {"visible": "1/1", "historical": "3/3", "locked": "5/5"},
+    "drift_parent": "REJECT",
+    "magnitude_only_evolution": "REJECT",
+    "proposal_replay": {"changed": "1/1", "historical": "3/3", "locked": "5/5"},
+    "final_decision": "STAGED"
+  },
+  "acquisition_artifacts": {
+    "manifest_path": "cassettes/openflexure-full-loop/session-001/manifest.json",
+    "manifest_sha256": "d0a38cbca8c999320ce383689e252820983a5fe252108418cb73cdaf8e7af4a6",
+    "summary_path": "cassettes/openflexure-full-loop/session-001/summary.json",
+    "summary_sha256": "854500218c909762d7060a635cf91ee7b68f53b49344586f9caed2c5c52e6206"
+  },
+  "media": {
+    "video_path": "public/proprio-demo.mp4",
+    "video_sha256": "a6693993ab7776001ef0efc628e72c4262775b4bf6f82787828de324f643fa04",
+    "bytes": 56968292,
+    "codec": "h264",
+    "profile": "High",
+    "pixel_format": "yuv420p",
+    "width": 1920,
+    "height": 1080,
+    "frame_rate_fps": 30,
+    "fast_start": true,
+    "decode_verified": true,
+    "poster_path": "docs/assets/proprio-demo-poster.jpg",
+    "poster_sha256": "b36a7bb78fcf7efe80b19e4a7200c3bc6705ea8752c1af5d4d9165999bac9405"
+  }
+}
