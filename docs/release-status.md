@@ -29,6 +29,19 @@ CI treats a failed research claim as evidence that must remain failed, not as a 
 Tests assert the exact external-family rejection, independent-review mismatch, and rejected
 evolution proposal so they cannot silently become passes.
 
+## Post-v0.1 OpenFlexure full-loop evidence — 2026-07-13
+
+A separately versioned GPT-5.6 Luna release lineage completed the source-to-skill, rejection,
+repair, admission, drift, rejected-evolution, correction, replay, and staging loop against the
+pinned native OpenFlexure simulator. The final proposal passed changed `1/1`, historical `3/3`,
+and locked `5/5`; the stage record is `STAGED`, with the admitted parent retained byte-immutably.
+See the [committed release cassette](../cassettes/openflexure-full-loop/session-001/manifest.json)
+and [continuous video](../public/proprio-openflexure-flagship.mp4).
+
+This is one release lineage under a later persistent-context protocol. It does not replace or
+recalculate the frozen DSV4 population gates below. Verified in simulation. Hardware validation
+remains separate.
+
 ## Expanded research gates
 
 | Gate | Result | Status |

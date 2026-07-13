@@ -82,5 +82,6 @@ cross-family evolution from the stopped evidence.
 - Clean-runner sparse checkouts of all three pinned external simulators: 10 generalization tests
   passed.
 - Frozen method verification: pass.
-- `public/proprio-openflexure-flagship.mp4`: H.264 High, 1920x1080, 30 fps, 184.6 seconds,
-  decoded end to end.
+- `public/proprio-openflexure-flagship.mp4`: continuous GPT-5.6 Luna full-loop take; H.264 High,
+  1920x1080, 30 fps, 1328.967 seconds, decoded end to end. The exact release evidence is bound by
+  `cassettes/openflexure-full-loop/session-001/manifest.json`.
