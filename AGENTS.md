@@ -85,6 +85,11 @@ published evidence. See `README.md` and CI.
   selected by a namespaced instrument ID. Reject API, version, namespace, and evidence-identity
   mismatches. Installation makes an instrument available; simulator qualification, hardware
   validation, and skill admission remain separate Proprio decisions.
+- **One verified-skill publication path.** Every `simulation_qualified` or `simulation_staged`
+  package must name a provider instrument and regenerate its compact record through the common
+  inspect, execute, visible-evidence, locked-verification, and registered-evolution runtime.
+  `publish-skills` must fail on any non-reference exception. A `reference` package is explicitly
+  outside the verified-skill claim until it has a complete executable provider.
 
 ## Conventions
 

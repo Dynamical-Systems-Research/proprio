@@ -49,6 +49,10 @@ dev = [
   "pytest-cov>=6.0",
   "ruff>=0.11",
 ]
+openflexure = [
+  "labthings-fastapi>=0.2.1",
+  "pillow>=10.4",
+]
 simulators = [
   "numba>=0.61",
   "pandas>=2.2",
@@ -63,6 +67,8 @@ proprio = "proprio.cli:main"
 
 [project.entry-points."proprio.instrument_providers"]
 "proprio.external_reference" = "proprio.builtin_providers:external_reference_provider"
+"proprio.keithley" = "proprio.builtin_providers:keithley_provider"
+"proprio.openflexure" = "proprio.builtin_providers:openflexure_provider"
 "proprio.reduced_order" = "proprio.builtin_providers:reduced_order_provider"
 
 [tool.hatch.build.targets.wheel]
@@ -80,6 +86,9 @@ testpaths = ["tests"]
 extend-exclude = [
     "artifacts/**",
     "skills/**",
+    # These verifier sources are byte-bound to the registered OpenFlexure run.
+    "src/proprio/adaptive_microscopy_verifier.py",
+    "src/proprio/microscopy_verifier.py",
 ]
 line-length = 100
 target-version = "py312"

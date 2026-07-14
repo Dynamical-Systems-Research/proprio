@@ -1,10 +1,20 @@
+import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from proprio.catalog import validate_catalog
 from proprio.schema import canonical_json
-from proprio.skill_publication import PUBLISHED_SKILLS, build_skill_library
+from proprio.skill_publication import (
+    PUBLISHED_SKILLS,
+    PublishedSkill,
+    build_skill_library,
+    build_skill_verification,
+    publish_skill_library,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,6 +28,10 @@ RESTORED_CODE_HASHES = {
 }
 
 
+@pytest.mark.skipif(
+    os.environ.get("PROPRIO_OPENFLEXURE_LIVE") != "1",
+    reason="full publication replay requires the pinned native OpenFlexure server",
+)
 def test_skill_library_rebuild_is_deterministic_and_passing() -> None:
     publication, records, catalog = build_skill_library(ROOT)
 
@@ -34,7 +48,7 @@ def test_skill_library_rebuild_is_deterministic_and_passing() -> None:
         assert canonical_json(record) == canonical_json(checked_in)
 
 
-def test_restored_skills_preserve_the_validated_implementations() -> None:
+def test_qualified_skills_preserve_the_validated_implementations() -> None:
     catalog = validate_catalog(ROOT)
     entries = {entry.id: entry for entry in catalog.skills}
 
@@ -45,7 +59,124 @@ def test_restored_skills_preserve_the_validated_implementations() -> None:
         verification = json.loads((ROOT / entry.verification.artifact).read_text(encoding="utf-8"))
         assert verification["visible"]["verdict"] == "ADMIT"
         assert verification["locked"]["verdict"] == "ADMIT"
-        assert verification["registered_evolution"]["verdict"] == "REJECT"
+        assert verification["evolution"] is None
+
+
+def test_every_simulation_skill_declares_one_provider() -> None:
+    for skill in PUBLISHED_SKILLS:
+        if skill.status == "reference":
+            assert skill.provider_instrument_id is None
+        else:
+            assert skill.provider_instrument_id is not None
+
+
+def test_keithley_publication_replays_the_common_runtime() -> None:
+    skill = next(row for row in PUBLISHED_SKILLS if row.skill_id.startswith("keithley"))
+    record = build_skill_verification(ROOT, skill)
+
+    assert record["verdict"] == "PASS"
+    assert record["candidate_execution"] == {
+        "decision": "ADMIT",
+        "verdict": "PASS",
+        "visible_evidence_read": True,
+    }
+    assert record["visible"]["verdict"] == "ADMIT"
+    assert record["locked"]["verdict"] == "ADMIT"
+    assert record["evolution"] is None
+    assert "evidence" not in record
+
+
+def test_staged_skill_requires_registered_evolution() -> None:
+    staged = PublishedSkill(
+        "keithley-2450-measure-current",
+        "1.0.0",
+        "Keithley 2450-style SMU",
+        "simulation_staged",
+        "proprio.keithley.keithley-2450-measure-current",
+        "skills/keithley-2450-measure-current/scripts/operate.py",
+    )
+    with pytest.raises(ValueError, match="no registered evolution conditions"):
+        build_skill_verification(ROOT, staged)
+
+
+def test_failed_publication_writes_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    existing = tmp_path / "catalog.json"
+    existing.write_text("unchanged", encoding="utf-8")
+    failed_record = {
+        "candidate_execution": {"verdict": "PASS"},
+        "visible": {"verdict": "ADMIT"},
+        "locked": {"verdict": "REJECT"},
+        "evolution": None,
+        "verdict": "FAIL",
+    }
+
+    monkeypatch.setattr(
+        "proprio.skill_publication.build_skill_library",
+        lambda _root: (
+            {"verdict": "FAIL", "failed_skills": ["broken-skill"]},
+            {"broken-skill": failed_record},
+            {},
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="locked=REJECT"):
+        publish_skill_library(tmp_path)
+    assert existing.read_text(encoding="utf-8") == "unchanged"
+    assert not (tmp_path / "skills").exists()
+
+
+def test_publication_rolls_back_a_mid_commit_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = [
+        tmp_path / "skills" / skill_id / "references" / "verification.json"
+        for skill_id in ("first", "second")
+    ]
+    for index, path in enumerate(paths):
+        path.parent.mkdir(parents=True)
+        path.write_text(f"old-{index}\n", encoding="utf-8")
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text("old-catalog\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "proprio.skill_publication.build_skill_library",
+        lambda _root: (
+            {"verdict": "PASS", "failed_skills": []},
+            {"first": {"verdict": "PASS"}, "second": {"verdict": "PASS"}},
+            {"skills": []},
+        ),
+    )
+    real_replace = os.replace
+    calls = 0
+
+    def fail_second_replace(source: Path, destination: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("injected publication failure")
+        real_replace(source, destination)
+
+    monkeypatch.setattr("proprio.skill_publication.os.replace", fail_second_replace)
+
+    with pytest.raises(OSError, match="injected publication failure"):
+        publish_skill_library(tmp_path)
+    assert [path.read_text(encoding="utf-8") for path in paths] == ["old-0\n", "old-1\n"]
+    assert catalog.read_text(encoding="utf-8") == "old-catalog\n"
+
+
+def test_openflexure_parent_is_compact_and_hash_bound() -> None:
+    skill = next(row for row in PUBLISHED_SKILLS if row.skill_id.startswith("openflexure"))
+    assert skill.parent_code_path is not None
+    parent = ROOT / skill.parent_code_path
+    assert hashlib.sha256(parent.read_bytes()).hexdigest() == (
+        "d486c179f0b299ffd0ab978579caecf3febd1c65296d3c12fc5eeb91c7adddb8"
+    )
+
+
+def test_xrd_reference_is_excluded_from_verified_skill_claim() -> None:
+    skill = next(row for row in PUBLISHED_SKILLS if row.status == "reference")
+    record = build_skill_verification(ROOT, skill)
+    assert record["verified_skill_claim"] is False
+    assert "excluded from the simulator-verified skill claim" in record["claim_boundary"]
 
 
 def test_packages_are_flat_and_have_only_public_skill_surfaces() -> None:

@@ -10,7 +10,10 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      PROPRIO_OPENFLEXURE_LIVE: "1"
+      PROPRIO_OPENFLEXURE_ROOT: /tmp/proprio-candidates/openflexure-microscope-server
     steps:
       - uses: actions/checkout@v7.0.0
         with:
@@ -30,7 +33,22 @@ jobs:
           git clone --quiet --filter=blob:none --no-checkout https://github.com/sparks-baird/self-driving-lab-demo /tmp/proprio-candidates/self-driving-lab-demo
           git -C /tmp/proprio-candidates/self-driving-lab-demo sparse-checkout set src
           git -C /tmp/proprio-candidates/self-driving-lab-demo checkout --quiet 34e4e8cd880bc7b788109d8a56da3f6fae978518
-      - run: uv sync --locked --extra dev --extra simulators
+          git clone --quiet --filter=blob:none https://gitlab.com/openflexure/openflexure-microscope-server /tmp/proprio-candidates/openflexure-microscope-server
+          git -C /tmp/proprio-candidates/openflexure-microscope-server checkout --quiet d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+      - run: uv sync --locked --extra dev --extra simulators --extra openflexure
+      - name: Start pinned OpenFlexure simulator
+        run: |
+          uv venv --python 3.11 /tmp/proprio-candidates/openflexure-microscope-server/.venv
+          uv pip install --python /tmp/proprio-candidates/openflexure-microscope-server/.venv/bin/python --editable /tmp/proprio-candidates/openflexure-microscope-server
+          /tmp/proprio-candidates/openflexure-microscope-server/.venv/bin/python /tmp/proprio-candidates/openflexure-microscope-server/pull_webapp.py -b v3
+          cd /tmp/proprio-candidates/openflexure-microscope-server
+          .venv/bin/openflexure-microscope-server -c ofm_config_simulation.json --host 127.0.0.1 --port 5100 > /tmp/openflexure.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            curl --fail --silent http://127.0.0.1:5100/openapi.json > /dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/openflexure.log
+          exit 1
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run pytest

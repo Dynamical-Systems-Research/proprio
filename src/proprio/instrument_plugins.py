@@ -133,6 +133,8 @@ class InstrumentRegistry:
         except Exception as exc:
             return _hold_result(definition, skill_py, scenario, exc)
 
+        evaluation_error: Exception | None = None
+        close_error: Exception | None = None
         try:
             gate = evaluate_controller_skill(
                 instrument_id,
@@ -148,9 +150,20 @@ class InstrumentRegistry:
                 verifier_path=definition.verifier_path,
                 condition_evidence=condition_values,
             )
-            error = _evidence_error(gate, definition, skill_py, scenario, simulator_path)
         except Exception as exc:
-            return _hold_result(definition, skill_py, scenario, exc)
+            evaluation_error = exc
+        finally:
+            close = getattr(controller, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception as exc:
+                    close_error = exc
+        if close_error is not None:
+            return _hold_result(definition, skill_py, scenario, close_error)
+        if evaluation_error is not None:
+            return _hold_result(definition, skill_py, scenario, evaluation_error)
+        error = _evidence_error(gate, definition, skill_py, scenario, simulator_path)
         return _hold_result(definition, skill_py, scenario, RuntimeError(error)) if error else gate
 
 
@@ -279,12 +292,7 @@ def _validate_provider(provider: InstrumentProvider, installed: ProviderMetadata
             raise ValueError(f"instrument runtime is incomplete: {instrument_id}")
         if any(
             not getattr(definition, field)
-            for field in (
-                "acquisition_conditions",
-                "visible_conditions",
-                "locked_conditions",
-                "evolution_conditions",
-            )
+            for field in ("acquisition_conditions", "visible_conditions", "locked_conditions")
         ):
             raise ValueError(f"instrument conditions are incomplete: {instrument_id}")
 
