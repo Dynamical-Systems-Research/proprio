@@ -90,6 +90,9 @@ published evidence. See `README.md` and CI.
   inspect, execute, visible-evidence, locked-verification, and registered-evolution runtime.
   `publish-skills` must fail on any non-reference exception. A `reference` package is explicitly
   outside the verified-skill claim until it has a complete executable provider.
+- **Keep native replay out of standard CI.** Standard CI covers the provider contract and fast
+  interface tests. Run the full pinned OpenFlexure `publish-skills` replay only through the manual
+  release-validation workflow or explicitly during a release.
 
 ## Conventions
 

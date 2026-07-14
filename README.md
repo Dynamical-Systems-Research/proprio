@@ -218,6 +218,8 @@ Publication reruns source inspection, visible execution, evidence readback, and 
 for every simulation-backed skill. Staged skills also rerun parent qualification and evolution.
 It fails without writing if any provider is unavailable; the pinned native OpenFlexure setup is in
 [`docs/instrument-providers.md`](docs/instrument-providers.md#reproduce-the-openflexure-provider).
+Because that native replay performs 41 simulator executions, it is an explicit manual/release gate
+in [OpenFlexure release validation](.github/workflows/openflexure-release.yml), not standard CI.
 
 ## License and citation
 
