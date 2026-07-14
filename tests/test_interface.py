@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import pytest
@@ -6,6 +5,7 @@ import pytest
 from proprio.external_instruments import VALID_FIXTURES
 from proprio.instrument_qualification import compile_instrument_skill
 from proprio.instrument_types import CandidatePackage
+from proprio.instruments import load_instrument_source
 from proprio.interface import (
     candidate_from_directory,
     execute_candidate,
@@ -17,16 +17,38 @@ from proprio.interface import (
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTRUMENT = "north-pipette-calibration"
+EVOLUTION_FIXTURE = """def run(controller):
+    controller.reset()
+    info = controller.sample_info()
+    target = info['target_volume_ml']
+    liquid = info['liquid']
+    controller.get_constraints(target)
+    if liquid == 'water':
+        overaspirate = 0.025 * target
+    else:
+        overaspirate = 0.0625 * target
+    result = controller.measure(target, overaspirate, 20, 1, 3)
+    for _ in range(5):
+        if result['relative_error'] > 0.04:
+            overaspirate = overaspirate * (target / result['mean_volume_ml'])
+            result = controller.measure(target, overaspirate, 20, 1, 3)
+    controller.cleanup()
+    return result
+"""
 
 
 def _evolved_candidate() -> CandidatePackage:
-    summary = json.loads(
-        (
-            ROOT
-            / "cassettes/cross-family/north-pipette-calibration/session-000/evolution/summary.json"
-        ).read_text(encoding="utf-8")
+    _, source_hash = load_instrument_source(INSTRUMENT)
+    return CandidatePackage(
+        instrument_id=INSTRUMENT,
+        skill_md=(ROOT / "skills" / INSTRUMENT / "SKILL.md").read_text(encoding="utf-8"),
+        skill_py=EVOLUTION_FIXTURE,
+        self_judgment={"verdict": "ACCEPT", "basis": ["test evolution fixture"]},
+        source_sha256=source_hash,
+        prompt_sha256="test-evolution-fixture",
+        model="test-fixture",
+        raw_response={},
     )
-    return CandidatePackage.model_validate(summary["trajectory"]["final_candidate"])
 
 
 def test_source_inspection_exposes_only_the_visible_controller_contract() -> None:

@@ -235,16 +235,28 @@ def _xrd_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
 
 
 def _openflexure_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
-    evidence_path = root / "cassettes/openflexure-full-loop/session-001/summary.json"
+    evidence_path = root / "public/proprio-demo.json"
     evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
     package = root / "skills" / skill.skill_id
     code_path = package / "scripts/operate.py"
     source_path = package / "references/controller.md"
+    fresh = evidence["fresh_executions"]
+    checks = {
+        "initial-acquisition-rejected": fresh["initial_acquisition"] == "REJECT",
+        "parent-admitted": fresh["parent_admission"]
+        == {"visible": "1/1", "historical": "3/3", "locked": "5/5"},
+        "drift-invalidated-parent": fresh["drift_parent"] == "REJECT",
+        "first-evolution-rejected": fresh["magnitude_only_evolution"] == "REJECT",
+        "proposal-replay-passed": fresh["proposal_replay"]
+        == {"changed": "1/1", "historical": "3/3", "locked": "5/5"},
+        "proposal-staged": fresh["final_decision"] == "STAGED",
+        "parent-immutable": evidence["candidate_bindings"]["parent_immutable"] is True,
+    }
     passed = (
-        evidence.get("status") == "STAGED"
-        and all(evidence["checks"].values())
-        and evidence["proposal_skill_sha256"] == _hash(code_path)
-        and evidence["bindings"]["source"]["sha256"] == _hash(source_path)
+        evidence["scope"]["status"] == "STAGED"
+        and all(checks.values())
+        and evidence["candidate_bindings"]["proposal_sha256"] == _hash(code_path)
+        and evidence["source"]["sha256"] == _hash(source_path)
     )
     return {
         "schema_version": "proprio.skill_verification.v0.1",
@@ -254,12 +266,12 @@ def _openflexure_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
         "skill_sha256": _hash(package / "SKILL.md"),
         "code_sha256": _hash(code_path),
         "source_sha256": _hash(source_path),
-        "verifier_sha256": evidence["bindings"]["verifier"]["sha256"],
-        "upstream_revision": evidence["bindings"]["simulator_revision"],
+        "verifier_sha256": evidence["proprio_runtime"]["verifier_source_sha256"],
+        "upstream_revision": evidence["simulator"]["revision"],
         "evidence": {
             "artifact": str(evidence_path.relative_to(root)),
-            "status": evidence["status"],
-            "checks": evidence["checks"],
+            "status": evidence["scope"]["status"],
+            "checks": checks,
         },
         "hardware_validation_required": True,
         "claim_boundary": "Staged in simulation. Hardware validation remains separate.",

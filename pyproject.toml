@@ -74,7 +74,6 @@ testpaths = ["tests"]
 [tool.ruff]
 extend-exclude = [
     "artifacts/**",
-    "cassettes/**",
     "skills/**",
 ]
 line-length = 100

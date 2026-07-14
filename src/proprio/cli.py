@@ -27,7 +27,7 @@ from proprio.metrology import run_metrology
 from proprio.procedural import ProceduralFault, run_fault_battery, run_procedural
 from proprio.reference_xrd import run_composition_battery, run_reference_xrd
 from proprio.release import build_evidence_manifest, verify_evidence_manifest
-from proprio.skill_drafter import run_skill_admission
+from proprio.skill_drafter import run_reference_skill_admission, run_skill_admission
 from proprio.skill_publication import publish_skill_library
 from proprio.support import run_support_battery
 from proprio.xrd_types import ValidityFault
@@ -77,7 +77,11 @@ def _parser() -> argparse.ArgumentParser:
     admission = commands.add_parser(
         "skill-admission", help="Replay deterministic skill admission cases."
     )
-    admission.add_argument("--cassette-dir", type=Path, required=True)
+    admission.add_argument(
+        "--cassette-dir",
+        type=Path,
+        help="Optional user-supplied draft records; defaults to bundled deterministic controls.",
+    )
     admission.add_argument("--output-dir", type=Path, required=True)
 
     freeze = commands.add_parser(
@@ -189,7 +193,9 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "composition-battery":
         return run_composition_battery(args.output_dir)
     if args.command == "skill-admission":
-        return run_skill_admission(args.cassette_dir, args.output_dir)
+        if args.cassette_dir is not None:
+            return run_skill_admission(args.cassette_dir, args.output_dir)
+        return run_reference_skill_admission(args.output_dir)
     if args.command == "cross-family-freeze":
         return freeze_cross_family_method(args.output_dir, evidence_root=args.evidence_root)
     if args.command == "cross-family-session":

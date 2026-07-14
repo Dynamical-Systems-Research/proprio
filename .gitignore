@@ -11,5 +11,6 @@ dist/
 htmlcov/
 tmp/
 runs/
+/cassettes/
 artifacts/generated/
 artifacts/live/

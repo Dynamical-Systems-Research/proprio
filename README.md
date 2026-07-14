@@ -8,7 +8,7 @@ Independent execution and physical checks decide what enters the skill library.
 
 Verified in simulation. Hardware validation remains separate.
 
-[Technical report](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition) ·
+[Research blog](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition) ·
 [Skill catalog](catalog.json) ·
 [Published skills](skills) ·
 [OpenFlexure full-loop demo](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition#demo) ·
@@ -53,17 +53,33 @@ Every package still requires separate validation on real hardware.
 
 ### Install the skill library
 
-Install the whole bundle with the same cross-agent installer used by
-[Google DeepMind Science Skills](https://github.com/google-deepmind/science-skills):
+The [`skills` installer](https://github.com/vercel-labs/skills) discovers the 12 packages directly
+from this repository. List them before installing:
 
 ```bash
-npx skills add Dynamical-Systems-Research/proprio
+npx skills add Dynamical-Systems-Research/proprio --list
 ```
 
-In Codex, ask `$skill-installer` to install the repository or a single path such as
-`skills/openflexure-adaptive-autofocus`. Restart the agent after installation so it discovers the
-new package. Installing a skill does not install the Proprio research runtime; the package tells the
-agent which controller contract and qualification boundary apply.
+Install the complete library into a specific agent project:
+
+```bash
+# Codex -> .agents/skills/
+npx skills add Dynamical-Systems-Research/proprio --skill '*' --agent codex -y
+
+# Claude Code -> .claude/skills/
+npx skills add Dynamical-Systems-Research/proprio --skill '*' --agent claude-code -y
+
+# Cursor, OpenCode, or Gemini CLI
+npx skills add Dynamical-Systems-Research/proprio --skill '*' --agent cursor -y
+npx skills add Dynamical-Systems-Research/proprio --skill '*' --agent opencode -y
+npx skills add Dynamical-Systems-Research/proprio --skill '*' --agent gemini-cli -y
+```
+
+Add `--global` to install into the selected agent's user-level skill directory. To install only one
+package, replace `--skill '*'` with a name such as
+`--skill openflexure-adaptive-autofocus`. Installing a skill does not install the Proprio runtime;
+the package supplies the procedure, controller contract, verification record, and qualification
+boundary an agent needs.
 
 ## Quickstart
 
@@ -107,7 +123,7 @@ uv run proprio inspect-source \
 
 > Read `runs/source.json`. Using only that source and its controller contract, create
 > `runs/candidate/SKILL.md` and `runs/candidate/skill.py`. The Python entry point must be
-> `run(controller)`. Do not inspect existing skills, cassettes, verifier code, or locked conditions.
+> `run(controller)`. Do not inspect existing skills, verifier code, evidence, or locked conditions.
 
 ### 4. Execute, inspect, and repair
 
@@ -165,9 +181,7 @@ skill and reject a plausible wrong-range procedure the model accepted.
 ```bash
 uv run proprio metrology --cases-per-class 300 --output-dir runs/metrology
 uv run proprio composition-battery --output-dir runs/xrd-reference
-uv run proprio skill-admission \
-  --cassette-dir cassettes/skill-admission \
-  --output-dir runs/skill-admission
+uv run proprio skill-admission --output-dir runs/skill-admission
 ```
 
 ## Repository map
@@ -177,9 +191,9 @@ uv run proprio skill-admission \
 - [`src/proprio`](src/proprio) is the reusable method implementation: bounded execution,
   reduced-order simulators, independent verifiers, acquisition, replay, and evolution gates.
 - [`catalog.json`](catalog.json) is the content-addressed publication manifest.
-- [`sources`](sources), [`tests`](tests), and the focused evidence artifacts reproduce and extend
-  the qualification method. Existing cassettes document the research release but are not part of
-  the installed skill surface.
+- [`sources`](sources), [`tests`](tests), and focused verification artifacts reproduce and extend
+  the qualification method. Run transcripts and experimental logs are generated locally under
+  `runs/`; they are not part of the release.
 
 Regenerate the compact package records and catalog without publishing raw traces:
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from proprio.skill_drafter import (
     SKILL_DRAFTER_SYSTEM_PROMPT,
     SkillDraft,
@@ -10,12 +8,12 @@ from proprio.skill_drafter import (
     _normalize_skill_code,
     _source_bundle,
     load_cassette,
+    reference_skill_drafts,
+    run_reference_skill_admission,
     run_skill_admission,
     write_cassette,
 )
 from proprio.skill_gate import evaluate_skill
-
-ROOT = Path(__file__).resolve().parents[1]
 
 CORRECT = """
 def run(controller):
@@ -97,12 +95,10 @@ def test_model_authored_skill_fields_compile_to_valid_markdown() -> None:
     )
 
 
-def test_checked_in_cassettes_close_admit_and_reject(tmp_path) -> None:
-    summary = run_skill_admission(ROOT / "cassettes/skill-admission", tmp_path)
+def test_bundled_controls_close_admit_and_reject_without_logs(tmp_path) -> None:
+    summary = run_reference_skill_admission(tmp_path)
     assert summary["verdict"] == "PASS"
     assert summary["cases"]["correct"]["self_judgment"]["verdict"] == "ACCEPT"
     assert summary["cases"]["wrong-range"]["self_judgment"]["verdict"] == "ACCEPT"
-    assert summary["cases"]["wrong-range"]["cassette_variant"] == "legacy"
-    for variant in ("correct", "wrong-range"):
-        draft = load_cassette(ROOT / f"cassettes/skill-admission/{variant}.json")
-        assert "reasoning_content" in draft.raw_response["preserved_assistant_message"]
+    assert summary["source_provenance"]["mode"] == "bundled-reference-fixtures"
+    assert all(draft.raw_response == {} for draft in reference_skill_drafts())

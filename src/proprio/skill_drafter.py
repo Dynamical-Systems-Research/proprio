@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +40,37 @@ Before emitting the answer, perform a private preflight:
 - self_judgment is ACCEPT exactly when the package is faithful to the supplied sources.
 
 Emit JSON only. Do not use Markdown fences or add commentary outside the JSON object."""
+
+REFERENCE_SKILLS = {
+    "correct": {
+        "name": "keithley-2450-measure-current",
+        "description": "Measure current through a 1 kOhm load with the registered settings.",
+        "code": """def run(controller):
+    controller.reset()
+    controller.set_current_limit(0.002)
+    controller.set_measurement_range(0.01)
+    controller.set_voltage(1.0)
+    controller.enable_output()
+    current_a = controller.measure_current()
+    controller.disable_output()
+    return {'current_a': current_a}
+""",
+    },
+    "wrong-range": {
+        "name": "keithley-2450-wrong-range-control",
+        "description": "Negative control using the stale range and compliance settings.",
+        "code": """def run(controller):
+    controller.reset()
+    controller.set_current_limit(200e-6)
+    controller.set_measurement_range(100e-6)
+    controller.set_voltage(1.000)
+    controller.enable_output()
+    current_a = controller.measure_current()
+    controller.disable_output()
+    return {'current_a': current_a}
+""",
+    },
+}
 
 
 class SkillDraft(BaseModel):
@@ -218,6 +250,50 @@ def draft_skill_cassettes(cassette_dir: Path) -> dict[str, Any]:
     return {"health": health, "drafts": results}
 
 
+def reference_skill_drafts() -> tuple[SkillDraft, ...]:
+    """Build compact deterministic controls without shipping model transcripts."""
+
+    drafts = []
+    for variant, fixture in REFERENCE_SKILLS.items():
+        _, source_hash = _source_bundle(variant)
+        markdown = _compile_skill_markdown(
+            SkillMarkdownDraft(
+                name=fixture["name"],
+                description=fixture["description"],
+                body=(
+                    f"# {fixture['name']}\n\n"
+                    "Execute the bounded procedure. Simulator execution and independent "
+                    "physical checks own admission."
+                ),
+            )
+        )
+        drafts.append(
+            SkillDraft(
+                variant=variant,
+                model="reference-fixture",
+                source_sha256=source_hash,
+                skill_md=markdown,
+                skill_py=fixture["code"],
+                self_judgment={
+                    "verdict": "ACCEPT",
+                    "basis": ["The candidate matches its supplied fixture source."],
+                },
+                raw_response={},
+            )
+        )
+    return tuple(drafts)
+
+
+def run_reference_skill_admission(output_dir: Path) -> dict[str, Any]:
+    """Replay the bundled positive and negative controls through the real admission gate."""
+
+    with tempfile.TemporaryDirectory(prefix="proprio-skill-admission-") as directory:
+        cassette_dir = Path(directory)
+        for draft in reference_skill_drafts():
+            write_cassette(draft, cassette_dir / f"{draft.variant}.json")
+        return run_skill_admission(cassette_dir, output_dir)
+
+
 def run_skill_admission(cassette_dir: Path, output_dir: Path) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     cases: dict[str, Any] = {}
@@ -269,14 +345,20 @@ def run_skill_admission(cassette_dir: Path, output_dir: Path) -> dict[str, Any]:
     wrong_self_accept = str(cases["wrong-range"]["self_judgment"].get("verdict", "")).upper() == (
         "ACCEPT"
     )
+    source_provenance = {"mode": "provided-cassettes"}
+    if all(case["model"] == "reference-fixture" for case in cases.values()):
+        source_provenance = {
+            "mode": "bundled-reference-fixtures",
+            "claim": "Deterministic positive and negative controls; no model transcript included.",
+        }
+    elif cases["wrong-range"]["cassette_variant"] == "legacy":
+        source_provenance["wrong-range"] = (
+            "The model cassette preserves its original `legacy` variant and logical source name; "
+            "the public case name describes the injected fault."
+        )
     summary = {
         "schema_version": "proprio.skill_admission.v0.4",
-        "source_provenance": {
-            "wrong-range": (
-                "The checked-in model cassette preserves its original `legacy` variant and "
-                "logical source name; the public case name describes the injected fault."
-            )
-        },
+        "source_provenance": source_provenance,
         "cases": cases,
         "admit_proof": correct_self_accept and cases["correct"]["admission"] == "ADMIT",
         "reject_proof": wrong_self_accept and cases["wrong-range"]["admission"] == "REJECT",

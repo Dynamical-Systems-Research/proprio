@@ -57,3 +57,12 @@ def test_packages_are_flat_and_have_only_public_skill_surfaces() -> None:
         assert (package / "SKILL.md").is_file()
         assert (package / "agents" / "openai.yaml").is_file()
         assert (package / "references" / "verification.json").is_file()
+
+
+def test_remote_release_surface_excludes_research_archives() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert not (ROOT / "cassettes").exists()
+    assert not (ROOT / "docs" / "technical-report.md").exists()
+    assert "google-deepmind" not in readme.lower()
+    assert "npx skills add Dynamical-Systems-Research/proprio" in readme
