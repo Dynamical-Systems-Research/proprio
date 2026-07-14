@@ -1,8 +1,5 @@
 {
-  "schema_version": "proprio.public_video_manifest.v3",
-  "publication_base_commit": "86546c6719f22b21044e13acb3e13d5a9fcf5f59",
-  "execution_commit": "9eb250574444b6eb99665612d1b7bd833e1fba6e",
-  "evidence_commit": "d4953ddee264719cb0fca4f5fe4949b9706b27af",
+  "schema_version": "proprio.public_video_manifest.v4",
   "selected_instrument": "microscope-autofocus",
   "instrument_family": "adaptive_microscopy",
   "capture_mode": "continuous-live-agent-with-fresh-native-simulator-execution",
@@ -31,13 +28,12 @@
     "model": "gpt-5.6-luna",
     "session_id": "019f592f-147a-7fc3-9d90-39d617ca100e",
     "persistent_context": true,
-    "historical_archive_commit": "411822dcfd88905bf4ee0e1ed30b99c89dd65cf0",
     "raw_trace_sha256": "d7bc845afcc60f1b322c253a7fc977aa55efa6f6aed2613105590e03c00c769f",
     "filtered_transcript_sha256": "64678daef074d933a25f405287735136fc916449953477d9cd713c4a5b13d1df"
   },
   "source": {
     "path_at_execution_commit": "sources/development/microscope-autofocus/source.md",
-    "url": "https://github.com/Dynamical-Systems-Research/proprio/blob/9eb250574444b6eb99665612d1b7bd833e1fba6e/sources/development/microscope-autofocus/source.md",
+    "url": "https://github.com/Dynamical-Systems-Research/proprio/blob/main/sources/development/microscope-autofocus/source.md",
     "sha256": "38b94b67d37131eb90583d023859545e0c0b4463f15811b8ee2a6e2032b18ce6"
   },
   "simulator": {
@@ -69,7 +65,7 @@
     "final_decision": "STAGED"
   },
   "acquisition_artifacts": {
-    "historical_archive_commit": "411822dcfd88905bf4ee0e1ed30b99c89dd65cf0",
+    "archive_status": "raw execution records intentionally omitted from the public repository",
     "manifest_sha256": "d0a38cbca8c999320ce383689e252820983a5fe252108418cb73cdaf8e7af4a6",
     "summary_sha256": "854500218c909762d7060a635cf91ee7b68f53b49344586f9caed2c5c52e6206"
   },

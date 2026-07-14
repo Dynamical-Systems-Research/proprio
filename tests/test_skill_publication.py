@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 from proprio.catalog import validate_catalog
@@ -66,3 +67,47 @@ def test_remote_release_surface_excludes_research_archives() -> None:
     assert not (ROOT / "docs" / "technical-report.md").exists()
     assert "google-deepmind" not in readme.lower()
     assert "npx skills add Dynamical-Systems-Research/proprio" in readme
+
+    history = subprocess.run(
+        [
+            "git",
+            "rev-list",
+            "--objects",
+            "--branches",
+            "--tags",
+            "--remotes=origin",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.splitlines()
+    assert not any(
+        len(row.split(" ", 1)) == 2 and row.split(" ", 1)[1].startswith("cassettes/")
+        for row in history
+    )
+
+
+def test_compact_study_evidence_supports_public_claims() -> None:
+    studies = ROOT / "artifacts" / "evidence" / "studies"
+
+    causal = json.loads((studies / "causal-synthesis.json").read_text())
+    assert (causal["pairs"], causal["truthful_successes"], causal["none_successes"]) == (18, 14, 0)
+
+    replication = json.loads((studies / "replication.json").read_text())
+    assert (replication["instrument_count"], replication["replicate_count"]) == (7, 70)
+
+    confirmatory = json.loads((studies / "confirmatory.json").read_text())
+    assert confirmatory["instrument_count"] == 6
+    assert confirmatory["unsafe_promotions"] == 0
+
+    cross_family = json.loads((studies / "cross-family.json").read_text())
+    assert [row["model_calls_to_first_qualified"] for row in cross_family["families"]] == [
+        6,
+        6,
+        3,
+    ]
+    assert sum(row["invalid_promotion_count"] for row in cross_family["families"]) == 0
+
+    evolution = json.loads((studies / "evolution.json").read_text())
+    assert (evolution["staged_proposals"], evolution["unsafe_promotions"]) == (8, 0)
