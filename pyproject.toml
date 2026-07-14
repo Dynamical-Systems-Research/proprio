@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "proprio"
-version = "0.4.0"
+version = "0.5.0"
 description = "Simulator-verified skill acquisition for scientific instruments."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
@@ -70,6 +70,7 @@ proprio = "proprio.cli:main"
 "proprio.keithley" = "proprio.builtin_providers:keithley_provider"
 "proprio.openflexure" = "proprio.builtin_providers:openflexure_provider"
 "proprio.reduced_order" = "proprio.builtin_providers:reduced_order_provider"
+"proprio.xrd" = "proprio.builtin_providers:xrd_provider"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/proprio"]

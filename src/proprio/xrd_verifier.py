@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import base64
 import math
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -13,14 +15,92 @@ from scipy.signal import find_peaks
 from scipy.stats import chi2
 
 from proprio.artifacts import source_sha256
+from proprio.instrument_types import GateCheck
 from proprio.schema import CheckResult, Provenance, StatusLabel, ValidityRecord
-from proprio.xrd_types import SyntheticFrame, XRDGeometry, load_preregistration
+from proprio.xrd_types import (
+    FrameTelemetry,
+    SyntheticFrame,
+    SyntheticTruth,
+    XRDGeometry,
+    load_preregistration,
+)
 
 
 @dataclass(frozen=True)
 class VerificationResult:
     record: ValidityRecord
     features: dict[str, float]
+
+
+def _gate(check_id: str, passed: bool, **evidence: Any) -> GateCheck:
+    return GateCheck(check_id=check_id, passed=bool(passed), evidence=evidence)
+
+
+def verify_xrd_operation(
+    trace: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    telemetry: dict[str, Any],
+) -> tuple[GateCheck, ...]:
+    """Adapt one raw-frame operation to the preregistered XRD verifier."""
+
+    frame_payload = telemetry.get("frame")
+    if not isinstance(frame_payload, dict):
+        raise ValueError("XRD operation produced no detector frame")
+    if frame_payload.get("encoding") != "zlib-base64-float64-c":
+        raise ValueError("unsupported detector-frame encoding")
+    geometry = XRDGeometry.model_validate(telemetry["geometry"])
+    raw = zlib.decompress(base64.b64decode(frame_payload["data"], validate=True))
+    frame = np.frombuffer(raw, dtype=np.float64)
+    expected_size = int(np.prod(geometry.shape))
+    if frame.size != expected_size:
+        raise ValueError(f"detector-frame size mismatch: {frame.size} != {expected_size}")
+    case = SyntheticFrame(
+        frame=frame.reshape(geometry.shape),
+        geometry=geometry,
+        telemetry=FrameTelemetry.model_validate(telemetry["acquisition"]),
+        truth=SyntheticTruth.model_validate(telemetry["truth"]),
+    )
+    verified = verify_calibrant_frame(case)
+    operations = [str(row.get("operation")) for row in trace]
+    acquisition_count = operations.count("acquire_frame")
+    try:
+        reset_index = operations.index("reset")
+        select_index = operations.index("select_calibrant")
+        acquisition_index = operations.index("acquire_frame")
+        release_index = operations.index("release")
+    except ValueError:
+        reset_index = select_index = acquisition_index = release_index = -1
+    lifecycle = (
+        _gate(
+            "xrd-operation-order",
+            0 <= reset_index < select_index < acquisition_index < release_index,
+            operations=operations,
+        ),
+        _gate(
+            "xrd-single-acquisition",
+            acquisition_count == 1,
+            acquisition_count=acquisition_count,
+        ),
+        _gate(
+            "xrd-detector-released",
+            telemetry.get("released") is True,
+            released=telemetry.get("released"),
+        ),
+    )
+    measurement = tuple(
+        _gate(
+            check.check_id,
+            check.status is StatusLabel.SUCCEEDED,
+            summary=check.summary,
+            metric_name=check.metric_name,
+            metric_value=check.metric_value,
+            threshold=check.threshold,
+            comparator=check.comparator,
+            units=check.units,
+            details=check.details,
+        )
+        for check in verified.record.checks
+    )
+    return (*lifecycle, *measurement)
 
 
 def _provenance(*, preregistration_sha256: str) -> Provenance:

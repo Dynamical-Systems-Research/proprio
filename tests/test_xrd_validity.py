@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import ast
 import inspect
+from pathlib import Path
 
 import pytest
 
 import proprio.xrd_generator as generator_module
+from proprio.instrument_types import SimulationScenario
+from proprio.instruments import evaluate_instrument_skill
 from proprio.schema import StatusLabel
 from proprio.xrd_generator import generate_calibrant_frame
 from proprio.xrd_types import ValidityFault
@@ -52,3 +55,21 @@ def test_invalid_calibrant_frame_fails(fault: ValidityFault) -> None:
     case = generate_calibrant_frame(fault=fault, seed=22)
     result = verify_calibrant_frame(case)
     assert result.record.status is StatusLabel.FAILED, fault
+
+
+def test_xrd_provider_preserves_rejection_and_unavailable_boundaries() -> None:
+    skill = Path("skills/xrd-operate-observe/scripts/operate.py").read_text(encoding="utf-8")
+    drift = evaluate_instrument_skill(
+        "proprio.xrd.xrd-operate-observe",
+        skill,
+        scenario=SimulationScenario.DRIFT,
+    )
+    unavailable = evaluate_instrument_skill(
+        "proprio.xrd.xrd-operate-observe",
+        skill,
+        scenario=SimulationScenario.UNAVAILABLE,
+    )
+
+    assert drift.verdict == "REJECT"
+    assert any(check.check_id == "zero-shift" and not check.passed for check in drift.checks)
+    assert unavailable.verdict == "HOLD"

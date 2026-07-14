@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If Proprio contributes to published research, please cite this software."
 title: "Proprio: Simulator-Verified Skill Acquisition for Scientific Instruments"
 type: software
-version: 0.4.0
+version: 0.5.0
 license: Apache-2.0
 repository-code: "https://github.com/Dynamical-Systems-Research/proprio"
 authors:

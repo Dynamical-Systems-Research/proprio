@@ -367,7 +367,7 @@ def test_provider_runs_public_agent_interface(
 
 
 def test_repository_entry_points_expose_all_namespaced_instruments() -> None:
-    assert len(instrument_ids()) == 11
+    assert len(instrument_ids()) == 12
     assert all(instrument_id.startswith("proprio.") for instrument_id in instrument_ids())
 
 

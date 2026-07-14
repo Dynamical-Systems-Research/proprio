@@ -39,7 +39,7 @@ Every package still requires separate validation on real hardware.
 
 | Instrument | Skill | Status |
 | --- | --- | --- |
-| 2D area-detector powder XRD | [Operate and observe](skills/xrd-operate-observe/SKILL.md) | `reference` |
+| 2D area-detector powder XRD | [Operate and observe](skills/xrd-operate-observe/SKILL.md) | `simulation_qualified` |
 | Keithley 2450-style SMU | [Measure current](skills/keithley-2450-measure-current/SKILL.md) | `simulation_qualified` |
 | Absorbance plate reader | [Read absorbance plate](skills/absorbance-plate-read/SKILL.md) | `simulation_qualified` |
 | Calibrated peristaltic pump | [Dose 10 mL](skills/calibrated-pump-dose/SKILL.md) | `simulation_qualified` |
@@ -183,15 +183,17 @@ independent verifier; Proprio retains execution records and admission authority.
 example. Installing a provider does not publish or admit a skill, and simulation does not qualify
 hardware.
 
-## Reference verification
+## Verification suites
 
-XRD remains a reference workflow and is explicitly excluded from the simulator-verified skill
-claim. The Keithley example is the compact admission proof: circuit-law checks admit the correct
-skill and reject a plausible wrong-range procedure the model accepted.
+XRD's executable skill uses the same provider-backed inspection, visible execution, and locked
+verification interface as the rest of the library. Its independent raw-frame verifier is backed by
+the preregistered metrology suite below. The Keithley suite remains the compact admission proof:
+circuit-law checks admit the correct skill and reject a plausible wrong-range procedure the model
+accepted.
 
 ```bash
 uv run proprio metrology --cases-per-class 300 --output-dir runs/metrology
-uv run proprio composition-battery --output-dir runs/xrd-reference
+uv run proprio composition-battery --output-dir runs/xrd-composition
 uv run proprio skill-admission --output-dir runs/skill-admission
 ```
 

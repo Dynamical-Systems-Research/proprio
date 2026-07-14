@@ -1,4 +1,4 @@
 interface:
   display_name: "XRD Operate and Observe"
-  short_description: "Run and inspect the XRD reference workflow"
-  default_prompt: "Use $xrd-operate-observe to run the simulated XRD reference and inspect its evidence."
+  short_description: "Acquire a simulator-verified LaB6 XRD frame"
+  default_prompt: "Use $xrd-operate-observe to acquire one simulated LaB6 frame through the verified controller sequence."

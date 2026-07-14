@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import tempfile
 from dataclasses import dataclass
@@ -33,13 +32,19 @@ class PublishedSkill:
     skill_id: str
     version: str
     instrument: str
-    status: Literal["reference", "simulation_qualified", "simulation_staged"]
+    status: Literal["simulation_qualified", "simulation_staged"]
     provider_instrument_id: str | None = None
     parent_code_path: str | None = None
 
 
 PUBLISHED_SKILLS = (
-    PublishedSkill("xrd-operate-observe", "0.1.0", "2D area-detector powder XRD", "reference"),
+    PublishedSkill(
+        "xrd-operate-observe",
+        "0.5.0",
+        "2D area-detector powder XRD",
+        "simulation_qualified",
+        "proprio.xrd.xrd-operate-observe",
+    ),
     PublishedSkill(
         "keithley-2450-measure-current",
         "1.0.0",
@@ -119,10 +124,6 @@ PUBLISHED_SKILLS = (
         "skills/openflexure-adaptive-autofocus/references/admitted-parent.py",
     ),
 )
-
-
-def _hash(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def _candidate(
@@ -299,38 +300,7 @@ def _runtime_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
     return record
 
 
-def _reference_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
-    evidence_path = root / "artifacts/evidence/composition/summary.json"
-    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
-    package = root / "skills" / skill.skill_id
-    return {
-        "schema_version": "proprio.skill_verification.v0.1",
-        "skill_id": skill.skill_id,
-        "qualification_status": skill.status,
-        "runtime_kind": "reference-workflow",
-        "skill_sha256": _hash(package / "SKILL.md"),
-        "code_sha256": None,
-        "source_sha256": None,
-        "verifier_sha256": None,
-        "evidence": {
-            "artifact": str(evidence_path.relative_to(root)),
-            "artifact_verdict": evidence.get("verdict"),
-        },
-        "verified_skill_claim": False,
-        "hardware_validation_required": True,
-        "claim_boundary": (
-            "Reference workflow only; excluded from the simulator-verified skill claim. "
-            "Hardware validation remains separate."
-        ),
-        "verdict": "PASS" if evidence.get("verdict") == "PASS" else "FAIL",
-    }
-
-
 def build_skill_verification(root: Path, skill: PublishedSkill) -> dict[str, Any]:
-    if skill.status == "reference":
-        if skill.provider_instrument_id is not None or skill.parent_code_path is not None:
-            raise ValueError(f"reference skill cannot claim a provider runtime: {skill.skill_id}")
-        return _reference_record(root, skill)
     if skill.provider_instrument_id is None:
         raise ValueError(f"verified skill has no provider instrument: {skill.skill_id}")
     if not has_instrument(skill.provider_instrument_id):
