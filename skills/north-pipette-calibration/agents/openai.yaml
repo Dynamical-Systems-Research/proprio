@@ -1,0 +1,4 @@
+interface:
+  display_name: "North Pipette Calibration"
+  short_description: "Calibrate liquid delivery from measured error"
+  default_prompt: "Use $north-pipette-calibration to run the validated liquid-aware calibration."

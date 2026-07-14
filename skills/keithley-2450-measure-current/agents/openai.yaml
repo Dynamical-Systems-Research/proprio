@@ -1,0 +1,4 @@
+interface:
+  display_name: "Keithley 2450 Current Measurement"
+  short_description: "Measure current with explicit safe limits"
+  default_prompt: "Use $keithley-2450-measure-current to run the validated fixture measurement."

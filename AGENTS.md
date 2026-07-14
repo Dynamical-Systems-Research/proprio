@@ -27,6 +27,7 @@ are in `.github/workflows/ci.yml` under "Check out pinned simulators" — run th
 uv run ruff format --check .
 uv run ruff check .
 uv run pytest
+uv run proprio publish-skills --root .
 ```
 
 CI runs those three, then regenerates evidence with the batteries (`procedural-battery`,
@@ -59,8 +60,13 @@ published evidence. See `README.md` and CI.
   conditions, or `artifacts/evidence/`. Admission is held outside the model on purpose. Reading the
   answer key voids the result.
 - **Evidence is immutable.** `cassettes/`, `artifacts/evidence/`, `catalog.json`, and the manifests
-  are content-addressed and hash-bound. Never hand-edit them. Regenerate from pinned seeds and
-  inspect the per-class breakdown, not an aggregate pass rate.
+  are content-addressed and hash-bound. Never hand-edit them. Regenerate the compact skill records
+  with `proprio publish-skills` and research evidence from pinned seeds. Inspect the per-class
+  breakdown, not an aggregate pass rate.
+- **Do not prune verified skills for a research release.** The installable library and the research
+  evidence surface are separate. Keep every verified package in the flat `skills/<skill-name>/`
+  namespace with `SKILL.md`, `agents/openai.yaml`, references, and reusable scripts. Raw cassettes
+  and model logs do not belong inside skill packages.
 - **Never tune a threshold to pass.** Preregistered thresholds, including the metrology battery, are
   fixed. Do not adjust one to make a run pass.
 - **No judgment in operation records.** Operation records carry no phase, material, or
@@ -82,8 +88,8 @@ published evidence. See `README.md` and CI.
 
 - `src/proprio` — persistent agent, bounded runtime, instrument adapters, verifiers, gates, CLI.
 - `sources` — the documentation shown to the model.
-- `skills` — published skill packages: a `SKILL.md`, bounded control code, provenance hashes, and
-  the record that admitted it.
+- `skills` — the flat, installable public library: `SKILL.md`, `agents/openai.yaml`, focused
+  references, reusable code under `scripts/`, and a compact verification record.
 - `cassettes`, `artifacts/evidence` — raw model and execution records, and metrology and
   verification evidence.
 - `catalog.json` — the content-addressed skill catalog. `schemas/` — the skill-package schema.

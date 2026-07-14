@@ -9,12 +9,8 @@ from typing import Any
 
 from proprio.artifacts import write_canonical_json
 from proprio.catalog import parse_skill_markdown
-from proprio.external_instruments import (
-    EXTERNAL_INSTRUMENTS,
-    evaluate_external_skill,
-    load_external_source,
-)
 from proprio.instrument_types import CandidatePackage
+from proprio.instruments import INSTRUMENTS, evaluate_instrument_skill, load_instrument_source
 from proprio.schema import canonical_json
 from proprio.skill_search import DebugSuiteResult, evaluate_debug_suite
 
@@ -41,9 +37,9 @@ def _prepare_output(path: Path) -> None:
 
 
 def _validate_candidate(candidate: CandidatePackage) -> None:
-    if candidate.instrument_id not in EXTERNAL_INSTRUMENTS:
+    if candidate.instrument_id not in INSTRUMENTS:
         raise KeyError(candidate.instrument_id)
-    _, source_hash = load_external_source(candidate.instrument_id)
+    _, source_hash = load_instrument_source(candidate.instrument_id)
     if candidate.source_sha256 != source_hash:
         raise ValueError("candidate source hash does not match the current instrument source")
     parse_skill_markdown(candidate.skill_md)
@@ -57,7 +53,7 @@ def candidate_from_directory(
 ) -> CandidatePackage:
     """Load the conventional SKILL.md and skill.py package produced by any agent."""
 
-    source, source_hash = load_external_source(instrument)
+    source, source_hash = load_instrument_source(instrument)
     skill_md = (directory / "SKILL.md").read_text(encoding="utf-8")
     skill_py = (directory / "skill.py").read_text(encoding="utf-8")
     parse_skill_markdown(skill_md)
@@ -91,8 +87,8 @@ def candidate_from_directory(
 def inspect_source(instrument: str) -> dict[str, Any]:
     """Return the documentation and bounded controller surface for one instrument."""
 
-    definition = EXTERNAL_INSTRUMENTS[instrument]
-    source, source_hash = load_external_source(instrument)
+    definition = INSTRUMENTS[instrument]
+    source, source_hash = load_instrument_source(instrument)
     return {
         "schema_version": "proprio.source_inspection.v0.1",
         "instrument_id": instrument,
@@ -105,7 +101,7 @@ def inspect_source(instrument: str) -> dict[str, Any]:
         "skill_contract": {
             "skill_md": {
                 "frontmatter_required": ["name", "description"],
-                "frontmatter_optional": ["id", "version"],
+                "frontmatter_optional": [],
                 "additional_frontmatter": False,
                 "instruction_body_required": True,
             },
@@ -136,11 +132,11 @@ def execute_candidate(
     if candidate.instrument_id != instrument:
         raise ValueError("candidate instrument does not match the requested instrument")
     _validate_candidate(candidate)
-    definition = EXTERNAL_INSTRUMENTS[instrument]
+    definition = INSTRUMENTS[instrument]
     suite = evaluate_debug_suite(
         candidate,
         definition.visible_conditions,
-        evaluator=evaluate_external_skill,
+        evaluator=evaluate_instrument_skill,
     )
     _prepare_output(output_dir)
     write_canonical_json(output_dir / "candidate.json", candidate)
@@ -184,18 +180,18 @@ def verify_locked(
     """Replay visible behavior and evaluate the candidate on locked conditions."""
 
     _validate_candidate(candidate)
-    definition = EXTERNAL_INSTRUMENTS[candidate.instrument_id]
+    definition = INSTRUMENTS[candidate.instrument_id]
     _prepare_output(output_dir)
     write_canonical_json(output_dir / "candidate.json", candidate)
     visible = evaluate_debug_suite(
         candidate,
         definition.visible_conditions,
-        evaluator=evaluate_external_skill,
+        evaluator=evaluate_instrument_skill,
     )
     locked = evaluate_debug_suite(
         candidate,
         definition.locked_conditions,
-        evaluator=evaluate_external_skill,
+        evaluator=evaluate_instrument_skill,
     )
     write_canonical_json(output_dir / "visible-replay.json", visible)
     write_canonical_json(output_dir / "locked.json", locked)
@@ -231,26 +227,26 @@ def stage_evolution(
     _validate_candidate(candidate)
     if parent.instrument_id != candidate.instrument_id:
         raise ValueError("parent and candidate must target the same instrument")
-    definition = EXTERNAL_INSTRUMENTS[parent.instrument_id]
+    definition = INSTRUMENTS[parent.instrument_id]
     _prepare_output(output_dir)
     write_canonical_json(output_dir / "parent.json", parent)
     write_canonical_json(output_dir / "candidate.json", candidate)
 
     suites = {
         "parent-drift": evaluate_debug_suite(
-            parent, definition.evolution_conditions, evaluator=evaluate_external_skill
+            parent, definition.evolution_conditions, evaluator=evaluate_instrument_skill
         ),
         "candidate-acquisition": evaluate_debug_suite(
-            candidate, definition.acquisition_conditions, evaluator=evaluate_external_skill
+            candidate, definition.acquisition_conditions, evaluator=evaluate_instrument_skill
         ),
         "candidate-visible": evaluate_debug_suite(
-            candidate, definition.visible_conditions, evaluator=evaluate_external_skill
+            candidate, definition.visible_conditions, evaluator=evaluate_instrument_skill
         ),
         "candidate-drift": evaluate_debug_suite(
-            candidate, definition.evolution_conditions, evaluator=evaluate_external_skill
+            candidate, definition.evolution_conditions, evaluator=evaluate_instrument_skill
         ),
         "candidate-locked": evaluate_debug_suite(
-            candidate, definition.locked_conditions, evaluator=evaluate_external_skill
+            candidate, definition.locked_conditions, evaluator=evaluate_instrument_skill
         ),
     }
     for name, suite in suites.items():

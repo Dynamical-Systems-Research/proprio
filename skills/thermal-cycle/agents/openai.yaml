@@ -1,0 +1,4 @@
+interface:
+  display_name: "Thermal Cycle"
+  short_description: "Run a qualified heat-cool cycle"
+  default_prompt: "Use $thermal-cycle to execute the validated 60 C to 20 C cycle."

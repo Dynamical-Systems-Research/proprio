@@ -5,8 +5,8 @@
 [Code](https://github.com/Dynamical-Systems-Research/proprio) ·
 [Skill catalog](https://github.com/Dynamical-Systems-Research/proprio/blob/main/catalog.json) ·
 [Published skills](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills) ·
-[XRD reference](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/xrd-reference) ·
-[Keithley 2450](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/keithley-2450) ·
+[XRD reference](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/xrd-operate-observe) ·
+[Keithley 2450](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/keithley-2450-measure-current) ·
 [North pipette calibration](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/north-pipette-calibration) ·
 [HELAO Gamry CV](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/helao-gamry-cv) ·
 [CLSLab spectrometer](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/clslab-light-spectrometer) ·
@@ -631,12 +631,11 @@ Instrument standards make capabilities portable, and simulators make their acqui
 Independent verification is what makes a skill admissible, and a hash-bound catalog is what makes
 it reusable across agents and workflows. The
 [current catalog](https://github.com/Dynamical-Systems-Research/proprio/blob/main/catalog.json)
-holds five packages: the [XRD reference](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/xrd-reference),
-the [Keithley development skill](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/keithley-2450),
-and the admitted [North](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/north-pipette-calibration),
-[HELAO](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/helao-gamry-cv),
-and [CLSLab](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills/external/clslab-light-spectrometer)
-skills. Each is bound to its verification record and still requires hardware validation.
+holds 12 installable packages: one XRD reference, ten simulation-qualified procedures, and one
+staged OpenFlexure evolution proposal. The flat
+[`skills/`](https://github.com/Dynamical-Systems-Research/proprio/tree/main/skills) directory is the
+current source of truth; each package is bound to its compact verification record and still
+requires hardware validation.
 A laboratory adding an instrument follows the documented recipe by connecting the public API,
 providing a simulator with explicit reset and failure behavior, writing the physical contract,
 building the labeled validity battery *before* asking a model to generate anything, and freezing
