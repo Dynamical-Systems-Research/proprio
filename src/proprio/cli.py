@@ -14,7 +14,6 @@ from proprio.cross_family import (
     run_cross_family_session,
 )
 from proprio.external_instruments import EXTERNAL_INSTRUMENTS
-from proprio.instruments import INSTRUMENTS
 from proprio.interface import (
     candidate_from_directory,
     execute_candidate,
@@ -107,12 +106,12 @@ def _parser() -> argparse.ArgumentParser:
     inspect = commands.add_parser(
         "inspect-source", help="Read one instrument source and controller contract."
     )
-    inspect.add_argument("--instrument", choices=sorted(INSTRUMENTS), required=True)
+    inspect.add_argument("--instrument", required=True)
 
     execute = commands.add_parser(
         "execute-candidate", help="Run an agent-authored candidate on visible conditions."
     )
-    execute.add_argument("--instrument", choices=sorted(INSTRUMENTS), required=True)
+    execute.add_argument("--instrument", required=True)
     execute.add_argument("--candidate-dir", type=Path, required=True)
     execute.add_argument("--output-dir", type=Path, required=True)
     execute.add_argument("--agent", default="external-agent")
@@ -125,7 +124,7 @@ def _parser() -> argparse.ArgumentParser:
     locked = commands.add_parser(
         "verify-locked", help="Replay visible behavior and run locked verification."
     )
-    locked.add_argument("--instrument", choices=sorted(INSTRUMENTS), required=True)
+    locked.add_argument("--instrument", required=True)
     locked.add_argument("--candidate-dir", type=Path, required=True)
     locked.add_argument("--output-dir", type=Path, required=True)
     locked.add_argument("--agent", default="external-agent")
@@ -133,7 +132,7 @@ def _parser() -> argparse.ArgumentParser:
     evolution = commands.add_parser(
         "stage-evolution", help="Stage a non-regressive skill after simulated drift."
     )
-    evolution.add_argument("--instrument", choices=sorted(INSTRUMENTS), required=True)
+    evolution.add_argument("--instrument", required=True)
     evolution.add_argument("--parent-dir", type=Path, required=True)
     evolution.add_argument("--candidate-dir", type=Path, required=True)
     evolution.add_argument("--output-dir", type=Path, required=True)

@@ -10,7 +10,13 @@ from typing import Any
 from proprio.artifacts import write_canonical_json
 from proprio.catalog import parse_skill_markdown
 from proprio.instrument_types import CandidatePackage
-from proprio.instruments import INSTRUMENTS, evaluate_instrument_skill, load_instrument_source
+from proprio.instruments import (
+    evaluate_instrument_skill,
+    get_instrument_definition,
+    has_instrument,
+    instrument_provider_identity,
+    load_instrument_source,
+)
 from proprio.schema import canonical_json
 from proprio.skill_search import DebugSuiteResult, evaluate_debug_suite
 
@@ -37,7 +43,7 @@ def _prepare_output(path: Path) -> None:
 
 
 def _validate_candidate(candidate: CandidatePackage) -> None:
-    if candidate.instrument_id not in INSTRUMENTS:
+    if not has_instrument(candidate.instrument_id):
         raise KeyError(candidate.instrument_id)
     _, source_hash = load_instrument_source(candidate.instrument_id)
     if candidate.source_sha256 != source_hash:
@@ -87,7 +93,7 @@ def candidate_from_directory(
 def inspect_source(instrument: str) -> dict[str, Any]:
     """Return the documentation and bounded controller surface for one instrument."""
 
-    definition = INSTRUMENTS[instrument]
+    definition = get_instrument_definition(instrument)
     source, source_hash = load_instrument_source(instrument)
     return {
         "schema_version": "proprio.source_inspection.v0.1",
@@ -97,6 +103,7 @@ def inspect_source(instrument: str) -> dict[str, Any]:
         "source_sha256": source_hash,
         "controller_methods": sorted(definition.allowed_methods),
         "upstream_revision": definition.upstream_revision,
+        "provider": instrument_provider_identity(instrument),
         "candidate_files": ["SKILL.md", "skill.py"],
         "skill_contract": {
             "skill_md": {
@@ -132,7 +139,7 @@ def execute_candidate(
     if candidate.instrument_id != instrument:
         raise ValueError("candidate instrument does not match the requested instrument")
     _validate_candidate(candidate)
-    definition = INSTRUMENTS[instrument]
+    definition = get_instrument_definition(instrument)
     suite = evaluate_debug_suite(
         candidate,
         definition.visible_conditions,
@@ -148,6 +155,7 @@ def execute_candidate(
         "visible_record": "visible.json",
         "decision": suite.verdict,
         "verdict": _decision(suite.verdict),
+        "provider": instrument_provider_identity(instrument),
     }
     write_canonical_json(output_dir / "summary.json", result)
     return result
@@ -158,16 +166,22 @@ def read_visible_evidence(run: Path) -> dict[str, Any]:
 
     candidate = CandidatePackage.model_validate(_read_object(run / "candidate.json"))
     suite = DebugSuiteResult.model_validate(_read_object(run / "visible.json"))
+    summary = _read_object(run / "summary.json")
     if suite.instrument_id != candidate.instrument_id:
         raise ValueError("visible record belongs to a different instrument")
     if suite.candidate_sha256 != _candidate_hash(candidate):
         raise ValueError("visible record belongs to a different candidate")
+    if summary.get("instrument_id") != candidate.instrument_id:
+        raise ValueError("visible summary belongs to a different instrument")
+    if summary.get("candidate_sha256") != suite.candidate_sha256:
+        raise ValueError("visible summary belongs to a different candidate")
     return {
         "schema_version": "proprio.visible_evidence.v0.1",
         "instrument_id": candidate.instrument_id,
         "candidate_sha256": suite.candidate_sha256,
         "decision": suite.verdict,
         "verdict": _decision(suite.verdict),
+        "provider": summary.get("provider"),
         "evidence": suite.model_dump(mode="json"),
     }
 
@@ -180,7 +194,7 @@ def verify_locked(
     """Replay visible behavior and evaluate the candidate on locked conditions."""
 
     _validate_candidate(candidate)
-    definition = INSTRUMENTS[candidate.instrument_id]
+    definition = get_instrument_definition(candidate.instrument_id)
     _prepare_output(output_dir)
     write_canonical_json(output_dir / "candidate.json", candidate)
     visible = evaluate_debug_suite(
@@ -210,6 +224,7 @@ def verify_locked(
         "decision": decision,
         "verdict": _decision(decision),
         "hardware_validation_required": True,
+        "provider": instrument_provider_identity(candidate.instrument_id),
     }
     write_canonical_json(output_dir / "summary.json", result)
     return result
@@ -227,7 +242,7 @@ def stage_evolution(
     _validate_candidate(candidate)
     if parent.instrument_id != candidate.instrument_id:
         raise ValueError("parent and candidate must target the same instrument")
-    definition = INSTRUMENTS[parent.instrument_id]
+    definition = get_instrument_definition(parent.instrument_id)
     _prepare_output(output_dir)
     write_canonical_json(output_dir / "parent.json", parent)
     write_canonical_json(output_dir / "candidate.json", candidate)
@@ -279,6 +294,7 @@ def stage_evolution(
         }[status],
         "verdict": {"STAGED": "PASS", "REJECTED": "FAIL", "HOLD": "HOLD"}[status],
         "hardware_validation_required": True,
+        "provider": instrument_provider_identity(parent.instrument_id),
     }
     write_canonical_json(output_dir / "summary.json", result)
     return result

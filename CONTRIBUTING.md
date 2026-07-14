@@ -22,3 +22,7 @@ contract, and compact verification record needed to use, reproduce, or extend th
 
 Real hardware is outside the simulation qualification claim. Hardware adapters must fail
 closed and remain unavailable until their separate qualification artifacts pass.
+
+Instrument integrations belong in separately installable providers when they are not part of the
+validated built-in set. Follow [`docs/instrument-providers.md`](docs/instrument-providers.md); do not
+add a second registry, activation system, marketplace, or skill-admission path.

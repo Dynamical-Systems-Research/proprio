@@ -22,6 +22,10 @@ class SimulationScenario(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
+class InstrumentRuntimeUnavailable(RuntimeError):
+    """Provider signal for simulator or instrument transport unavailability."""
+
+
 class CandidatePackage(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 

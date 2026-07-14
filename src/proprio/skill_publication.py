@@ -10,7 +10,12 @@ from typing import Any, Literal
 
 from proprio.artifacts import write_canonical_json
 from proprio.instrument_types import CandidatePackage
-from proprio.instruments import INSTRUMENTS, evaluate_instrument_skill, instrument_kind
+from proprio.instruments import (
+    evaluate_instrument_skill,
+    get_instrument_definition,
+    has_instrument,
+    instrument_kind,
+)
 from proprio.schema import canonical_json
 from proprio.skill_search import DebugSuiteResult, evaluate_debug_suite
 
@@ -21,6 +26,7 @@ class PublishedSkill:
     version: str
     instrument: str
     status: Literal["reference", "simulation_qualified", "simulation_staged"]
+    provider_instrument_id: str | None = None
 
 
 PUBLISHED_SKILLS = (
@@ -36,54 +42,63 @@ PUBLISHED_SKILLS = (
         "0.1.0",
         "reduced-order absorbance plate reader",
         "simulation_qualified",
+        "proprio.reduced_order.absorbance-plate-read",
     ),
     PublishedSkill(
         "calibrated-pump-dose",
         "0.1.0",
         "reduced-order calibrated peristaltic pump",
         "simulation_qualified",
+        "proprio.reduced_order.calibrated-pump-dose",
     ),
     PublishedSkill(
         "dual-pump-blend",
         "0.1.0",
         "reduced-order dual-channel pump array",
         "simulation_qualified",
+        "proprio.reduced_order.dual-pump-blend",
     ),
     PublishedSkill(
         "fluorescence-plate-read",
         "0.1.0",
         "reduced-order fluorescence plate reader",
         "simulation_qualified",
+        "proprio.reduced_order.fluorescence-plate-read",
     ),
     PublishedSkill(
         "isothermal-hold",
         "0.1.0",
         "reduced-order temperature controller",
         "simulation_qualified",
+        "proprio.reduced_order.isothermal-hold",
     ),
     PublishedSkill(
         "thermal-cycle",
         "0.1.0",
         "reduced-order heating and cooling controller",
         "simulation_qualified",
+        "proprio.reduced_order.thermal-cycle",
     ),
     PublishedSkill(
         "north-pipette-calibration",
         "0.4.0",
         "North Cytation pipette calibration",
         "simulation_qualified",
+        "proprio.external_reference.north-pipette-calibration",
     ),
     PublishedSkill(
         "helao-gamry-cv",
         "0.4.0",
         "HELAO Gamry cyclic voltammetry",
         "simulation_qualified",
+        "proprio.external_reference.helao-gamry-cv",
     ),
     PublishedSkill(
         "clslab-light-spectrometer",
         "0.4.0",
         "CLSLab light spectrometer",
         "simulation_qualified",
+        "proprio.external_reference.clslab-light-spectrometer",
     ),
     PublishedSkill(
         "openflexure-adaptive-autofocus",
@@ -98,13 +113,13 @@ def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _candidate(root: Path, skill_id: str) -> CandidatePackage:
+def _candidate(root: Path, skill_id: str, instrument_id: str) -> CandidatePackage:
     from proprio.instruments import load_instrument_source
 
     package = root / "skills" / skill_id
-    _, source_hash = load_instrument_source(skill_id)
+    _, source_hash = load_instrument_source(instrument_id)
     return CandidatePackage(
-        instrument_id=skill_id,
+        instrument_id=instrument_id,
         skill_md=(package / "SKILL.md").read_text(encoding="utf-8"),
         skill_py=(package / "scripts" / "operate.py").read_text(encoding="utf-8"),
         self_judgment={"verdict": "UNVERIFIED", "basis": ["publication replay"]},
@@ -134,8 +149,10 @@ def _suite_summary(suite: DebugSuiteResult) -> dict[str, Any]:
 
 
 def _runtime_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
-    definition = INSTRUMENTS[skill.skill_id]
-    candidate = _candidate(root, skill.skill_id)
+    if skill.provider_instrument_id is None:
+        raise ValueError(f"skill has no provider instrument: {skill.skill_id}")
+    definition = get_instrument_definition(skill.provider_instrument_id)
+    candidate = _candidate(root, skill.skill_id, skill.provider_instrument_id)
     visible = evaluate_debug_suite(
         candidate,
         definition.visible_conditions,
@@ -165,7 +182,7 @@ def _runtime_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
         "schema_version": "proprio.skill_verification.v0.1",
         "skill_id": skill.skill_id,
         "qualification_status": skill.status,
-        "runtime_kind": instrument_kind(skill.skill_id),
+        "runtime_kind": instrument_kind(skill.provider_instrument_id),
         "skill_sha256": hashlib.sha256(candidate.skill_md.encode()).hexdigest(),
         "code_sha256": hashlib.sha256(candidate.skill_py.encode()).hexdigest(),
         "source_sha256": candidate.source_sha256,
@@ -280,7 +297,7 @@ def _openflexure_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
 
 
 def build_skill_verification(root: Path, skill: PublishedSkill) -> dict[str, Any]:
-    if skill.skill_id in INSTRUMENTS:
+    if skill.provider_instrument_id and has_instrument(skill.provider_instrument_id):
         return _runtime_record(root, skill)
     if skill.skill_id == "keithley-2450-measure-current":
         return _keithley_record(root, skill)

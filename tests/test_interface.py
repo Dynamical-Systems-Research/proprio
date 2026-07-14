@@ -16,7 +16,8 @@ from proprio.interface import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-INSTRUMENT = "north-pipette-calibration"
+LOCAL_INSTRUMENT = "north-pipette-calibration"
+INSTRUMENT = "proprio.external_reference.north-pipette-calibration"
 EVOLUTION_FIXTURE = """def run(controller):
     controller.reset()
     info = controller.sample_info()
@@ -41,7 +42,7 @@ def _evolved_candidate() -> CandidatePackage:
     _, source_hash = load_instrument_source(INSTRUMENT)
     return CandidatePackage(
         instrument_id=INSTRUMENT,
-        skill_md=(ROOT / "skills" / INSTRUMENT / "SKILL.md").read_text(encoding="utf-8"),
+        skill_md=(ROOT / "skills" / LOCAL_INSTRUMENT / "SKILL.md").read_text(encoding="utf-8"),
         skill_py=EVOLUTION_FIXTURE,
         self_judgment={"verdict": "ACCEPT", "basis": ["test evolution fixture"]},
         source_sha256=source_hash,
@@ -111,14 +112,22 @@ def test_bounded_dsl_rejects_non_range_iteration_cleanly() -> None:
         compile_instrument_skill(source, frozenset({"measure"}))
 
 
-def test_external_agent_candidate_runs_visible_and_locked_verification(tmp_path: Path) -> None:
+def test_external_agent_candidate_runs_visible_and_locked_verification(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     candidate = _evolved_candidate()
     visible = execute_candidate(INSTRUMENT, candidate, output_dir=tmp_path / "visible")
-    evidence = read_visible_evidence(tmp_path / "visible")
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            "proprio.interface.instrument_provider_identity",
+            lambda _instrument: (_ for _ in ()).throw(AssertionError("provider was reloaded")),
+        )
+        evidence = read_visible_evidence(tmp_path / "visible")
     locked = verify_locked(candidate, output_dir=tmp_path / "locked")
 
     assert visible["decision"] == "ADMIT"
     assert evidence["candidate_sha256"] == visible["candidate_sha256"]
+    assert evidence["provider"] == visible["provider"]
     assert locked["decision"] == "ADMIT"
     assert locked["hardware_validation_required"] is True
 
@@ -134,7 +143,7 @@ def test_evolution_stages_only_after_drift_and_non_regressive_replay(tmp_path: P
         "description: Fixed pipette calibration procedure.\n---\n\n# Run\nCalibrate once.\n",
         encoding="utf-8",
     )
-    (parent_dir / "skill.py").write_text(VALID_FIXTURES[INSTRUMENT], encoding="utf-8")
+    (parent_dir / "skill.py").write_text(VALID_FIXTURES[LOCAL_INSTRUMENT], encoding="utf-8")
     parent = candidate_from_directory(INSTRUMENT, parent_dir, agent="parent")
     candidate = _evolved_candidate()
 

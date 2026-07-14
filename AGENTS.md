@@ -80,6 +80,11 @@ published evidence. See `README.md` and CI.
   way.
 - **Hardware fails closed.** Real-hardware adapters stay unavailable until their separate
   qualification artifacts pass. The simulation claim does not extend to hardware.
+- **Installed providers extend instruments, not admission authority.** Discover
+  `proprio.instrument_providers` without importing provider code, then lazily load only the provider
+  selected by a namespaced instrument ID. Reject API, version, namespace, and evidence-identity
+  mismatches. Installation makes an instrument available; simulator qualification, hardware
+  validation, and skill admission remain separate Proprio decisions.
 
 ## Conventions
 
