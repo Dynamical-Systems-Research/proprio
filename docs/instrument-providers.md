@@ -88,7 +88,7 @@ git -C /tmp/proprio-candidates/openflexure-microscope-server checkout \
   d26b93e1be1093e9d696b634dd1f7dde3bb7142a
 cd /tmp/proprio-candidates/openflexure-microscope-server
 uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python --editable .
+uv pip install --python .venv/bin/python --editable . python-gitlab
 .venv/bin/python pull_webapp.py -b v3
 .venv/bin/openflexure-microscope-server -c ofm_config_simulation.json \
   --host 127.0.0.1 --port 5100

@@ -39,7 +39,7 @@ jobs:
       - name: Start pinned OpenFlexure simulator
         run: |
           uv venv --python 3.11 /tmp/proprio-candidates/openflexure-microscope-server/.venv
-          uv pip install --python /tmp/proprio-candidates/openflexure-microscope-server/.venv/bin/python --editable /tmp/proprio-candidates/openflexure-microscope-server
+          uv pip install --python /tmp/proprio-candidates/openflexure-microscope-server/.venv/bin/python --editable /tmp/proprio-candidates/openflexure-microscope-server python-gitlab
           /tmp/proprio-candidates/openflexure-microscope-server/.venv/bin/python /tmp/proprio-candidates/openflexure-microscope-server/pull_webapp.py -b v3
           cd /tmp/proprio-candidates/openflexure-microscope-server
           .venv/bin/openflexure-microscope-server -c ofm_config_simulation.json --host 127.0.0.1 --port 5100 > /tmp/openflexure.log 2>&1 &
