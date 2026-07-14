@@ -16,9 +16,9 @@ Before opening a change:
 6. Do not tune a preregistered threshold against the metrology battery.
 7. Do not add scientific judgment or decision claims to operation records.
 
-The installable library is the release surface. Do not add raw agent conversations or execution
-logs to a skill package. Keep only the minimal code, controller contract, and compact verification
-record needed to use, reproduce, or extend the procedure.
+The installable library is the release surface. Do not commit raw agent conversations, execution
+logs, a `cassettes/` tree, or a duplicate technical report. Keep only the minimal code, controller
+contract, and compact verification record needed to use, reproduce, or extend the procedure.
 
 Real hardware is outside the simulation qualification claim. Hardware adapters must fail
 closed and remain unavailable until their separate qualification artifacts pass.

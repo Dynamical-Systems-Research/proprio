@@ -31,9 +31,8 @@
     "model": "gpt-5.6-luna",
     "session_id": "019f592f-147a-7fc3-9d90-39d617ca100e",
     "persistent_context": true,
-    "raw_trace_path": "cassettes/openflexure-full-loop/session-001/trace/raw-trace.jsonl",
+    "historical_archive_commit": "411822dcfd88905bf4ee0e1ed30b99c89dd65cf0",
     "raw_trace_sha256": "d7bc845afcc60f1b322c253a7fc977aa55efa6f6aed2613105590e03c00c769f",
-    "filtered_transcript_path": "cassettes/openflexure-full-loop/session-001/trace/filtered-transcript.txt",
     "filtered_transcript_sha256": "64678daef074d933a25f405287735136fc916449953477d9cd713c4a5b13d1df"
   },
   "source": {
@@ -70,9 +69,8 @@
     "final_decision": "STAGED"
   },
   "acquisition_artifacts": {
-    "manifest_path": "cassettes/openflexure-full-loop/session-001/manifest.json",
+    "historical_archive_commit": "411822dcfd88905bf4ee0e1ed30b99c89dd65cf0",
     "manifest_sha256": "d0a38cbca8c999320ce383689e252820983a5fe252108418cb73cdaf8e7af4a6",
-    "summary_path": "cassettes/openflexure-full-loop/session-001/summary.json",
     "summary_sha256": "854500218c909762d7060a635cf91ee7b68f53b49344586f9caed2c5c52e6206"
   },
   "media": {

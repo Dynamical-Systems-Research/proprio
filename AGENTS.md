@@ -6,7 +6,8 @@ cannot see or change decide what enters the skill library. Verified in simulatio
 validation remains separate.
 
 This is the operating guide for any coding agent in this repo. The human quickstart and
-published-skill table are in `README.md`; the method and results are in `docs/technical-report.md`.
+published-skill table are in `README.md`; the method and results are published at
+https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition.
 
 ## Setup
 
@@ -56,17 +57,19 @@ published evidence. See `README.md` and CI.
 ## Rules that keep the results valid
 
 - **Draft blind.** When you draft or repair a skill, use only the `inspect-source` bundle and the
-  controller contract it names. Do not read `skills/`, `cassettes/`, verifier code, locked
-  conditions, or `artifacts/evidence/`. Admission is held outside the model on purpose. Reading the
-  answer key voids the result.
-- **Evidence is immutable.** `cassettes/`, `artifacts/evidence/`, `catalog.json`, and the manifests
-  are content-addressed and hash-bound. Never hand-edit them. Regenerate the compact skill records
-  with `proprio publish-skills` and research evidence from pinned seeds. Inspect the per-class
-  breakdown, not an aggregate pass rate.
+  controller contract it names. Do not read `skills/`, verifier code, locked conditions, or
+  `artifacts/evidence/`. Admission is held outside the model on purpose. Reading the answer key
+  voids the result.
+- **Evidence is immutable.** `artifacts/evidence/`, `catalog.json`, and the manifests are
+  content-addressed and hash-bound. Never hand-edit them. Regenerate the compact skill records with
+  `proprio publish-skills` and research evidence from pinned seeds. Inspect the per-class breakdown,
+  not an aggregate pass rate.
 - **Do not prune verified skills for a research release.** The installable library and the research
   evidence surface are separate. Keep every verified package in the flat `skills/<skill-name>/`
-  namespace with `SKILL.md`, `agents/openai.yaml`, references, and reusable scripts. Raw cassettes
-  and model logs do not belong inside skill packages.
+  namespace with `SKILL.md`, `agents/openai.yaml`, references, and reusable scripts.
+- **Keep the remote usage-focused.** Do not commit a `cassettes/` directory, raw model
+  conversations, run logs, or a duplicate technical report. Generate transient records under
+  `runs/`; publish research narrative on the canonical blog.
 - **Never tune a threshold to pass.** Preregistered thresholds, including the metrology battery, are
   fixed. Do not adjust one to make a run pass.
 - **No judgment in operation records.** Operation records carry no phase, material, or
@@ -78,7 +81,7 @@ published evidence. See `README.md` and CI.
 ## Conventions
 
 - Ruff is linter and formatter: line length 100, target `py312`, double quotes, space indent, lint
-  set `E,F,I,B,UP,RUF`. `artifacts/`, `cassettes/`, and `skills/` are excluded from ruff.
+  set `E,F,I,B,UP,RUF`. `artifacts/` and `skills/` are excluded from ruff.
 - Evidence JSON is written canonically so records are byte-identical across runs. Use
   `proprio.artifacts.write_canonical_json`; do not format evidence by hand.
 - Every schema, verifier, fault class, and CLI path has a test. Add or update one with any change to
@@ -90,8 +93,7 @@ published evidence. See `README.md` and CI.
 - `sources` — the documentation shown to the model.
 - `skills` — the flat, installable public library: `SKILL.md`, `agents/openai.yaml`, focused
   references, reusable code under `scripts/`, and a compact verification record.
-- `cassettes`, `artifacts/evidence` — raw model and execution records, and metrology and
-  verification evidence.
+- `artifacts/evidence` — focused metrology and verification evidence.
 - `catalog.json` — the content-addressed skill catalog. `schemas/` — the skill-package schema.
 - `tests` — one suite per verifier, schema, fault class, and CLI path.
 
@@ -103,6 +105,5 @@ preregistered thresholds and do not add decision claims to operation records.
 
 ## Read next
 
-- `docs/technical-report.md` — the method and results in full.
 - https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition — the published findings.
 - `catalog.json` — what has been admitted, and the records that admitted it.

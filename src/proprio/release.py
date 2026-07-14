@@ -9,16 +9,15 @@ from proprio.artifacts import file_sha256, write_canonical_json
 
 
 def build_evidence_manifest(root: Path, output: Path) -> dict[str, Any]:
-    excluded = output.resolve()
+    excluded = {
+        output.resolve(),
+        (root / "artifacts/evidence/manifest.json").resolve(),
+    }
     artifacts = []
-    evidence_roots = (
-        root / "artifacts/evidence",
-        root / "cassettes/cross-family",
-        root / "cassettes/skill-admission",
-    )
+    evidence_roots = (root / "artifacts/evidence",)
     for evidence_root in evidence_roots:
         for path in sorted(item for item in evidence_root.rglob("*") if item.is_file()):
-            if path.resolve() == excluded:
+            if path.resolve() in excluded:
                 continue
             relative = path.relative_to(root)
             artifacts.append(

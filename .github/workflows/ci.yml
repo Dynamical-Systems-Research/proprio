@@ -36,6 +36,6 @@ jobs:
       - run: uv run proprio metrology --cases-per-class 300 --output-dir /tmp/proprio/metrology
       - run: uv run proprio support-battery --output-dir /tmp/proprio/support
       - run: uv run proprio composition-battery --output-dir /tmp/proprio/composition
-      - run: uv run proprio skill-admission --cassette-dir cassettes/skill-admission --output-dir /tmp/proprio/skill-admission
+      - run: uv run proprio skill-admission --output-dir /tmp/proprio/skill-admission
       - run: uv run proprio cross-family-freeze --output-dir /tmp/proprio/method-freeze
       - run: uv run proprio evidence-manifest --root . --output /tmp/proprio/evidence-manifest.json
