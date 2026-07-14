@@ -194,6 +194,62 @@ def keithley_provider() -> InstrumentProvider:
     )
 
 
+def xrd_provider() -> InstrumentProvider:
+    """Expose the verified XRD generator and metrology gate through the common runtime."""
+
+    from proprio.xrd_generator import XRDController
+    from proprio.xrd_types import ValidityFault
+    from proprio.xrd_verifier import verify_xrd_operation
+
+    provider_id = "proprio.xrd"
+    instrument_id = f"{provider_id}.xrd-operate-observe"
+
+    def controller_factory(
+        scenario: SimulationScenario,
+        parameters: Mapping[str, float],
+    ) -> XRDController:
+        unknown = set(parameters) - {"seed"}
+        if unknown:
+            raise ValueError(f"unsupported XRD condition fields: {sorted(unknown)}")
+        if scenario is SimulationScenario.UNAVAILABLE:
+            raise InstrumentRuntimeUnavailable("XRD detector simulator is unavailable")
+        fault = (
+            ValidityFault.ZERO_SHIFT
+            if scenario is SimulationScenario.DRIFT
+            else ValidityFault.VALID
+        )
+        return XRDController(fault=fault, seed=int(parameters.get("seed", 1729)))
+
+    acquisition = _condition("xrd-acquisition", SimulationScenario.NOMINAL, seed=1729)
+    visible = _condition("xrd-visible", SimulationScenario.NOMINAL, seed=1730)
+    locked = _condition("xrd-locked", SimulationScenario.NOMINAL, seed=2027)
+    instrument = ProviderInstrument(
+        instrument_id=instrument_id,
+        family="xray_diffraction",
+        source_path=_skill_root() / "xrd-operate-observe" / "references" / "controller.md",
+        upstream_revision=(
+            "metrology-preregistration-sha256:"
+            "80ffcee38cf7219b50a2e6a5b4d114b074578127a08f18711b492a5a8e52f113"
+        ),
+        allowed_methods=frozenset({"reset", "select_calibrant", "acquire_frame", "release"}),
+        controller_factory=controller_factory,
+        verifier=verify_xrd_operation,
+        simulator_path=lambda: PACKAGE_ROOT / "xrd_generator.py",
+        verifier_path=PACKAGE_ROOT / "xrd_verifier.py",
+        acquisition_conditions=(acquisition,),
+        visible_conditions=(visible,),
+        locked_conditions=(locked,),
+        evolution_conditions=(),
+    )
+    return InstrumentProvider(
+        api_version="1",
+        provider_id=provider_id,
+        provider_version="0.5.0",
+        instruments={instrument_id: instrument},
+        runtime_kind="built-in-xrd-metrology",
+    )
+
+
 OPENFLEXURE_REVISION = "d26b93e1be1093e9d696b634dd1f7dde3bb7142a"
 OPENFLEXURE_TREE = "a8e138b993aababbbb77ef371446d986e117ae67"
 

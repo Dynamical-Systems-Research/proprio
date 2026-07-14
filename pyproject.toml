@@ -70,6 +70,7 @@ proprio = "proprio.cli:main"
 "proprio.keithley" = "proprio.builtin_providers:keithley_provider"
 "proprio.openflexure" = "proprio.builtin_providers:openflexure_provider"
 "proprio.reduced_order" = "proprio.builtin_providers:reduced_order_provider"
+"proprio.xrd" = "proprio.builtin_providers:xrd_provider"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/proprio"]

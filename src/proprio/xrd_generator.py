@@ -7,8 +7,11 @@ the separately preregistered expected-peak table and integrates with pyFAI.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import math
+import zlib
+from typing import Any
 
 import numpy as np
 
@@ -21,6 +24,73 @@ from proprio.xrd_types import (
     geometry_from_preregistration,
     load_preregistration,
 )
+
+
+class XRDController:
+    """Bounded controller over the existing analytic XRD frame generator."""
+
+    def __init__(self, *, fault: ValidityFault, seed: int) -> None:
+        self._fault = fault
+        self._seed = seed
+        self._calibrant: str | None = None
+        self._case: SyntheticFrame | None = None
+        self._released = False
+        self.trace: list[dict[str, Any]] = []
+
+    def _append(self, operation: str, **details: Any) -> None:
+        self.trace.append({"sequence": len(self.trace), "operation": operation, **details})
+
+    def reset(self) -> None:
+        self._calibrant = None
+        self._case = None
+        self._released = False
+        self._append("reset")
+
+    def select_calibrant(self, calibrant: str) -> None:
+        if calibrant != "lab6":
+            raise ValueError(f"unsupported calibrant: {calibrant}")
+        if self._released:
+            raise RuntimeError("detector session is released")
+        self._calibrant = calibrant
+        self._append("select_calibrant", calibrant=calibrant)
+
+    def acquire_frame(self) -> dict[str, Any]:
+        if self._calibrant is None:
+            raise RuntimeError("select a calibrant before acquisition")
+        if self._released:
+            raise RuntimeError("detector session is released")
+        self._case = generate_calibrant_frame(
+            calibrant=self._calibrant,
+            fault=self._fault,
+            seed=self._seed,
+        )
+        result = {
+            "case_id": self._case.truth.case_id,
+            "calibrant": self._case.truth.calibrant,
+            "exposure_s": self._case.telemetry.exposure_s,
+        }
+        self._append("acquire_frame", **result)
+        return result
+
+    def release(self) -> None:
+        self._released = True
+        self._append("release")
+
+    def telemetry(self) -> dict[str, Any]:
+        case = self._case
+        if case is None:
+            return {"frame": None, "released": self._released}
+        compressed = zlib.compress(case.frame.tobytes(order="C"), level=9)
+        return {
+            "frame": {
+                "encoding": "zlib-base64-float64-c",
+                "data": base64.b64encode(compressed).decode("ascii"),
+            },
+            "geometry": case.geometry.model_dump(mode="json"),
+            "acquisition": case.telemetry.model_dump(mode="json"),
+            "truth": case.truth.model_dump(mode="json"),
+            "released": self._released,
+        }
 
 
 def _allowed_lattice_n(calibrant: str, limit: int = 12) -> list[int]:

@@ -4,8 +4,8 @@
 
 - Added the versioned `proprio.instrument_providers` entry-point seam for independently installed
   simulator integrations without core registry edits.
-- Routed all 11 simulation-backed skills through the common inspect, execute, visible-evidence,
-  locked-verification, and optional evolution path; retained XRD as the sole reference package.
+- Routed all 12 skills through the common inspect, execute, visible-evidence, locked-verification,
+  and optional evolution path, including the existing verified XRD generator and metrology gate.
 - Published the complete flat skill library with compact hash-bound records, instrument sources,
   and the core code required to reproduce and extend the method.
 - Moved the pinned native OpenFlexure replay to an explicit release-validation workflow while

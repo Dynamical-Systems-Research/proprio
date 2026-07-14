@@ -9,7 +9,7 @@ Publish one entry point per provider:
 [project]
 name = "acme-microscope-provider"
 version = "1.0.0"
-dependencies = ["proprio>=0.4,<0.5"]
+dependencies = ["proprio>=0.5,<0.6"]
 
 [project.entry-points."proprio.instrument_providers"]
 "acme.microscope" = "acme_microscope:instrument_provider"

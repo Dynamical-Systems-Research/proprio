@@ -64,10 +64,7 @@ def test_qualified_skills_preserve_the_validated_implementations() -> None:
 
 def test_every_simulation_skill_declares_one_provider() -> None:
     for skill in PUBLISHED_SKILLS:
-        if skill.status == "reference":
-            assert skill.provider_instrument_id is None
-        else:
-            assert skill.provider_instrument_id is not None
+        assert skill.provider_instrument_id is not None
 
 
 def test_keithley_publication_replays_the_common_runtime() -> None:
@@ -172,11 +169,16 @@ def test_openflexure_parent_is_compact_and_hash_bound() -> None:
     )
 
 
-def test_xrd_reference_is_excluded_from_verified_skill_claim() -> None:
-    skill = next(row for row in PUBLISHED_SKILLS if row.status == "reference")
+def test_xrd_publication_replays_the_common_runtime() -> None:
+    skill = next(row for row in PUBLISHED_SKILLS if row.skill_id == "xrd-operate-observe")
     record = build_skill_verification(ROOT, skill)
-    assert record["verified_skill_claim"] is False
-    assert "excluded from the simulator-verified skill claim" in record["claim_boundary"]
+    assert record["verdict"] == "PASS"
+    assert record["verified_skill_claim"] is True
+    assert record["provider"]["provider_id"] == "proprio.xrd"
+    assert record["candidate_execution"]["decision"] == "ADMIT"
+    assert record["visible"]["verdict"] == "ADMIT"
+    assert record["locked"]["verdict"] == "ADMIT"
+    assert record["evolution"] is None
 
 
 def test_packages_are_flat_and_have_only_public_skill_surfaces() -> None:

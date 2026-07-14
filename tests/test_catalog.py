@@ -10,7 +10,6 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_release_catalog_is_evidence_bound() -> None:
     catalog = validate_catalog(ROOT)
     assert {entry.status for entry in catalog.skills} == {
-        "reference",
         "simulation_qualified",
         "simulation_staged",
     }
