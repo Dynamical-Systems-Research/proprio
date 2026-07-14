@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 - 2026-07-14
+
+- Added the versioned `proprio.instrument_providers` entry-point seam for independently installed
+  simulator integrations without core registry edits.
+- Routed all 11 simulation-backed skills through the common inspect, execute, visible-evidence,
+  locked-verification, and optional evolution path; retained XRD as the sole reference package.
+- Published the complete flat skill library with compact hash-bound records, instrument sources,
+  and the core code required to reproduce and extend the method.
+- Moved the pinned native OpenFlexure replay to an explicit release-validation workflow while
+  keeping standard CI focused on the provider and admission contracts.
+
 ## 0.4.0 - 2026-07-11
 
 - Added a persistent, checkpointed agent context for skill drafting, execution, repair, and drift

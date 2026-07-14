@@ -78,7 +78,7 @@ def reduced_order_provider() -> InstrumentProvider:
     return InstrumentProvider(
         api_version="1",
         provider_id=provider_id,
-        provider_version="0.4.0",
+        provider_version="0.5.0",
         instruments=instruments,
         runtime_kind="built-in",
     )
@@ -128,7 +128,7 @@ def external_reference_provider() -> InstrumentProvider:
     return InstrumentProvider(
         api_version="1",
         provider_id=provider_id,
-        provider_version="0.4.0",
+        provider_version="0.5.0",
         instruments=instruments,
         runtime_kind="external",
     )
@@ -188,7 +188,7 @@ def keithley_provider() -> InstrumentProvider:
     return InstrumentProvider(
         api_version="1",
         provider_id=provider_id,
-        provider_version="0.4.0",
+        provider_version="0.5.0",
         instruments={instrument_id: instrument},
         runtime_kind="built-in-pyvisa-sim",
     )
@@ -355,7 +355,7 @@ def openflexure_provider() -> InstrumentProvider:
     return InstrumentProvider(
         api_version="1",
         provider_id=provider_id,
-        provider_version="0.4.0",
+        provider_version="0.5.0",
         instruments={instrument_id: instrument},
         runtime_kind="external-openflexure-server",
     )
