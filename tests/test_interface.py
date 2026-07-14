@@ -1,11 +1,16 @@
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from proprio.external_instruments import VALID_FIXTURES
 from proprio.instrument_qualification import compile_instrument_skill
-from proprio.instrument_types import CandidatePackage
-from proprio.instruments import load_instrument_source
+from proprio.instrument_types import CandidatePackage, InstrumentRuntimeUnavailable
+from proprio.instruments import (
+    evaluate_instrument_skill,
+    get_instrument_definition,
+    load_instrument_source,
+)
 from proprio.interface import (
     candidate_from_directory,
     execute_candidate,
@@ -160,3 +165,114 @@ def test_evolution_holds_when_parent_remains_valid(tmp_path: Path) -> None:
     result = stage_evolution(parent, parent, output_dir=tmp_path / "evolution")
     assert result["drift_detected"] is False
     assert result["status"] == "HOLD"
+
+
+def test_openflexure_provider_exposes_only_the_bounded_source_contract() -> None:
+    record = inspect_source("proprio.openflexure.microscope-autofocus")
+    assert record["source_sha256"] == (
+        "38b94b67d37131eb90583d023859545e0c0b4463f15811b8ee2a6e2032b18ce6"
+    )
+    assert record["controller_methods"] == [
+        "capture_focus_series",
+        "fast_autofocus",
+        "full_auto_calibrate",
+        "move_z",
+        "release",
+        "reset",
+        "settle",
+    ]
+    assert "locked_conditions" not in record
+    assert "verifier" not in record
+
+
+def test_openflexure_provider_preserves_the_frozen_staging_conditions() -> None:
+    definition = get_instrument_definition("proprio.openflexure.microscope-autofocus")
+    assert len(definition.acquisition_conditions) == 1
+    assert len(definition.visible_conditions) == 1
+    assert len(definition.locked_conditions) == 8
+    assert len(definition.evolution_conditions) == 6
+    assert definition.evolution_conditions[0].parameter_map() == {
+        "start_z": 1800.0,
+        "measurement_noise_level": 2.0,
+        "stage_bias_steps": 400.0,
+        "correction_direction": -1.0,
+    }
+
+
+def test_openflexure_missing_simulator_checkout_holds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    instrument = "proprio.openflexure.microscope-autofocus"
+    _, source_hash = load_instrument_source(instrument)
+    source = (ROOT / "skills/openflexure-adaptive-autofocus/scripts/operate.py").read_text()
+    monkeypatch.setenv("PROPRIO_OPENFLEXURE_ROOT", str(tmp_path / "missing"))
+
+    gate = evaluate_instrument_skill(instrument, source)
+
+    assert gate.verdict == "HOLD"
+    assert gate.status == "unavailable"
+    assert gate.skill_sha256
+    assert gate.verifier_sha256
+    assert source_hash
+
+
+def test_openflexure_checkout_identity_rejects_dirty_or_wrong_tree(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from proprio import builtin_providers
+
+    checkout = tmp_path / "openflexure"
+    checkout.mkdir()
+    subprocess.run(["git", "init", "--quiet"], cwd=checkout, check=True)
+    source = checkout / "simulator.py"
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "simulator.py"], cwd=checkout, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Proprio Test",
+            "-c",
+            "user.email=proprio@example.invalid",
+            "commit",
+            "--quiet",
+            "-m",
+            "fixture",
+        ],
+        cwd=checkout,
+        check=True,
+    )
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=checkout,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    tree = subprocess.run(
+        ["git", "rev-parse", "HEAD^{tree}"],
+        cwd=checkout,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    monkeypatch.setenv("PROPRIO_OPENFLEXURE_ROOT", str(checkout))
+    monkeypatch.setattr(builtin_providers, "OPENFLEXURE_REVISION", revision)
+    monkeypatch.setattr(builtin_providers, "OPENFLEXURE_TREE", tree)
+
+    builtin_providers._validate_openflexure_checkout()
+    source.write_text("VALUE = 2\n", encoding="utf-8")
+    skill_source = (ROOT / "skills/openflexure-adaptive-autofocus/scripts/operate.py").read_text(
+        encoding="utf-8"
+    )
+    gate = evaluate_instrument_skill(
+        "proprio.openflexure.microscope-autofocus",
+        skill_source,
+    )
+    assert gate.verdict == "HOLD"
+    assert "uncommitted files" in (gate.runtime_error or "")
+
+    source.write_text("VALUE = 1\n", encoding="utf-8")
+    monkeypatch.setattr(builtin_providers, "OPENFLEXURE_TREE", "0" * 40)
+    with pytest.raises(InstrumentRuntimeUnavailable, match="tree mismatch"):
+        builtin_providers._validate_openflexure_checkout()

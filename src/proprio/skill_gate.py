@@ -12,6 +12,7 @@ from typing import Any
 from proprio.artifacts import source_sha256, write_canonical_json
 from proprio.schema import StatusLabel
 from proprio.smu import OhmicFixture, SimulatedSMUController
+from proprio.smu_verifier import verify_keithley
 
 ALLOWED_METHODS = frozenset(
     {
@@ -104,7 +105,7 @@ def _check(check_id: str, passed: bool, evidence: dict[str, Any]) -> dict[str, A
 def evaluate_skill(source: str, fixture: OhmicFixture | None = None) -> AdmissionResult:
     fixture = fixture or OhmicFixture()
     skill_hash = hashlib.sha256(source.encode()).hexdigest()
-    verifier_hash = source_sha256(Path(__file__))
+    verifier_hash = source_sha256(Path(__file__).with_name("smu_verifier.py"))
     try:
         function = _load_skill(source)
     except Exception as exc:
@@ -130,86 +131,14 @@ def evaluate_skill(source: str, fixture: OhmicFixture | None = None) -> Admissio
         runtime_error = f"{type(exc).__name__}: {exc}"
     finally:
         trace = tuple(controller.trace)
-        state = {
-            "voltage_v": controller.voltage_v,
-            "current_limit_a": controller.current_limit_a,
-            "measurement_range_a": controller.measurement_range_a,
-            "output_enabled": controller.output_enabled,
-            "measurement_a": controller.measurement_a,
-        }
+        telemetry = controller.telemetry()
         controller.close()
 
-    operations = [row["operation"] for row in trace]
-    output_index = operations.index("enable_output") if "enable_output" in operations else -1
-    limit_index = operations.index("set_current_limit") if "set_current_limit" in operations else -1
-    range_index = (
-        operations.index("set_measurement_range") if "set_measurement_range" in operations else -1
-    )
-    expected_current = fixture.expected_current_a
-    measured = state["measurement_a"]
-    relative_error = (
-        abs(float(measured) - expected_current) / expected_current
-        if measured is not None
-        else float("inf")
-    )
+    physical_checks = verify_keithley(trace, telemetry)
     checks = (
         _check("static-safety", True, {"allowed_methods": sorted(ALLOWED_METHODS)}),
         _check("runtime-completed", runtime_error is None, {"error": runtime_error}),
-        _check(
-            "compliance-before-output",
-            0 <= limit_index < output_index,
-            {"limit_index": limit_index, "output_index": output_index},
-        ),
-        _check(
-            "range-before-output",
-            0 <= range_index < output_index,
-            {"range_index": range_index, "output_index": output_index},
-        ),
-        _check(
-            "voltage-contract",
-            state["voltage_v"] is not None
-            and abs(float(state["voltage_v"]) - fixture.target_voltage_v) <= 1e-9,
-            {"observed_v": state["voltage_v"], "required_v": fixture.target_voltage_v},
-        ),
-        _check(
-            "compliance-contract",
-            state["current_limit_a"] is not None
-            and fixture.minimum_compliance_a
-            <= float(state["current_limit_a"])
-            <= fixture.maximum_safe_compliance_a,
-            {
-                "observed_a": state["current_limit_a"],
-                "minimum_a": fixture.minimum_compliance_a,
-                "maximum_a": fixture.maximum_safe_compliance_a,
-            },
-        ),
-        _check(
-            "range-contract",
-            state["measurement_range_a"] is not None
-            and fixture.minimum_measurement_range_a
-            <= float(state["measurement_range_a"])
-            <= fixture.maximum_measurement_range_a,
-            {
-                "observed_a": state["measurement_range_a"],
-                "minimum_a": fixture.minimum_measurement_range_a,
-                "maximum_a": fixture.maximum_measurement_range_a,
-            },
-        ),
-        _check(
-            "ohms-law",
-            relative_error <= fixture.relative_current_tolerance,
-            {
-                "measured_current_a": measured,
-                "expected_current_a": expected_current,
-                "relative_error": relative_error,
-                "tolerance": fixture.relative_current_tolerance,
-            },
-        ),
-        _check(
-            "output-disabled-at-return",
-            not bool(state["output_enabled"]),
-            {"output_enabled": state["output_enabled"]},
-        ),
+        *(_check(check.check_id, check.passed, check.evidence) for check in physical_checks),
     )
     admitted = all(check["status"] is StatusLabel.SUCCEEDED for check in checks)
     return AdmissionResult(

@@ -9,7 +9,7 @@ description: Run the staged OpenFlexure simulator autofocus procedure with calib
 
 Calibrate the camera, perform a centered autofocus sweep, correct the independently read stage
 position, capture repeated focus evidence, and release simulator resources. This package publishes
-the corrected evolution proposal demonstrated by Proprio; its evidence status is `STAGED`.
+a provider-replayed evolution of the demonstrated procedure; its evidence status is `STAGED`.
 
 ## Requirements
 
@@ -21,10 +21,10 @@ the corrected evolution proposal demonstrated by Proprio; its evidence status is
 ## Workflow
 
 1. Reset and run full camera calibration.
-2. Run a centered 6,800-step autofocus sweep.
-3. Compute and clamp the first relative correction; use the registered direction repair for a
-   sweep ending above 400 steps.
-4. Read position after motion, clamp the residual, and apply the second bounded correction.
+2. Run a centered 7,000-step autofocus sweep.
+3. Apply a bounded 100-step probe and compare its readback with the sweep endpoint to infer stage
+   polarity without accessing simulator internals.
+4. Compute, clamp, and apply the polarity-correct residual move to the calibrated plane.
 5. Settle, capture three repeated focus frames, release resources, and return all observations.
 
 Use [`scripts/operate.py`](scripts/operate.py) as the exact bounded implementation.

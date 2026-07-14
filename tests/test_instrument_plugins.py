@@ -366,6 +366,35 @@ def test_provider_runs_public_agent_interface(
     assert locked["decision"] == "ADMIT"
 
 
-def test_repository_entry_points_expose_nine_namespaced_instruments() -> None:
-    assert len(instrument_ids()) == 9
+def test_repository_entry_points_expose_all_namespaced_instruments() -> None:
+    assert len(instrument_ids()) == 11
     assert all(instrument_id.startswith("proprio.") for instrument_id in instrument_ids())
+
+
+def test_provider_finalizes_controller_after_static_rejection(tmp_path: Path) -> None:
+    source = tmp_path / "source.md"
+    source.write_text("# Fake controller\n", encoding="utf-8")
+    provider = _fake_provider(source)
+    instrument_id = "example.measurement.fake"
+    controllers: list[FakeController] = []
+
+    class ClosingController(FakeController):
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    def factory(scenario: SimulationScenario, _parameters: Any) -> ClosingController:
+        controller = ClosingController(scenario)
+        controllers.append(controller)
+        return controller
+
+    definition = replace(provider.instruments[instrument_id], controller_factory=factory)
+    registry = build_instrument_registry(
+        (_loaded(replace(provider, instruments={instrument_id: definition})),)
+    )
+
+    gate = registry.evaluate(instrument_id, "import os\ndef run(controller):\n    return {}\n")
+
+    assert gate.verdict == "REJECT"
+    assert controllers[0].closed is True

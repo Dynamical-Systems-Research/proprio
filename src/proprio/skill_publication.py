@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -11,13 +13,19 @@ from typing import Any, Literal
 from proprio.artifacts import write_canonical_json
 from proprio.instrument_types import CandidatePackage
 from proprio.instruments import (
-    evaluate_instrument_skill,
     get_instrument_definition,
     has_instrument,
     instrument_kind,
 )
+from proprio.interface import (
+    execute_candidate,
+    inspect_source,
+    read_visible_evidence,
+    stage_evolution,
+    verify_locked,
+)
 from proprio.schema import canonical_json
-from proprio.skill_search import DebugSuiteResult, evaluate_debug_suite
+from proprio.skill_search import DebugSuiteResult
 
 
 @dataclass(frozen=True)
@@ -27,6 +35,7 @@ class PublishedSkill:
     instrument: str
     status: Literal["reference", "simulation_qualified", "simulation_staged"]
     provider_instrument_id: str | None = None
+    parent_code_path: str | None = None
 
 
 PUBLISHED_SKILLS = (
@@ -36,6 +45,7 @@ PUBLISHED_SKILLS = (
         "1.0.0",
         "Keithley 2450-style SMU",
         "simulation_qualified",
+        "proprio.keithley.keithley-2450-measure-current",
     ),
     PublishedSkill(
         "absorbance-plate-read",
@@ -102,9 +112,11 @@ PUBLISHED_SKILLS = (
     ),
     PublishedSkill(
         "openflexure-adaptive-autofocus",
-        "0.1.0",
+        "0.2.0",
         "OpenFlexure adaptive autofocus",
         "simulation_staged",
+        "proprio.openflexure.microscope-autofocus",
+        "skills/openflexure-adaptive-autofocus/references/admitted-parent.py",
     ),
 )
 
@@ -113,7 +125,14 @@ def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _candidate(root: Path, skill_id: str, instrument_id: str) -> CandidatePackage:
+def _candidate(
+    root: Path,
+    skill_id: str,
+    instrument_id: str,
+    *,
+    code_path: Path | None = None,
+    model: str = "publication-replay",
+) -> CandidatePackage:
     from proprio.instruments import load_instrument_source
 
     package = root / "skills" / skill_id
@@ -121,11 +140,11 @@ def _candidate(root: Path, skill_id: str, instrument_id: str) -> CandidatePackag
     return CandidatePackage(
         instrument_id=instrument_id,
         skill_md=(package / "SKILL.md").read_text(encoding="utf-8"),
-        skill_py=(package / "scripts" / "operate.py").read_text(encoding="utf-8"),
+        skill_py=(code_path or package / "scripts" / "operate.py").read_text(encoding="utf-8"),
         self_judgment={"verdict": "UNVERIFIED", "basis": ["publication replay"]},
         source_sha256=source_hash,
         prompt_sha256="publication-replay",
-        model="publication-replay",
+        model=model,
         raw_response={},
     )
 
@@ -137,6 +156,7 @@ def _suite_summary(suite: DebugSuiteResult) -> dict[str, Any]:
             {
                 "condition_id": row.condition.condition_id,
                 "scenario": row.condition.scenario.value,
+                "parameters": dict(row.condition.parameters),
                 "repetitions": row.condition.repetitions,
                 "admitted_repetitions": row.admitted_repetitions,
                 "required_admissions": row.required_admissions,
@@ -151,84 +171,135 @@ def _suite_summary(suite: DebugSuiteResult) -> dict[str, Any]:
 def _runtime_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
     if skill.provider_instrument_id is None:
         raise ValueError(f"skill has no provider instrument: {skill.skill_id}")
-    definition = get_instrument_definition(skill.provider_instrument_id)
+    inspection = inspect_source(skill.provider_instrument_id)
     candidate = _candidate(root, skill.skill_id, skill.provider_instrument_id)
-    visible = evaluate_debug_suite(
-        candidate,
-        definition.visible_conditions,
-        evaluator=evaluate_instrument_skill,
+    if candidate.source_sha256 != inspection["source_sha256"]:
+        raise RuntimeError(f"source identity changed during publication replay: {skill.skill_id}")
+
+    with tempfile.TemporaryDirectory(prefix=f"proprio-publish-{skill.skill_id}-") as temporary:
+        run_root = Path(temporary)
+        execution = execute_candidate(
+            skill.provider_instrument_id,
+            candidate,
+            output_dir=run_root / "execute",
+        )
+        visible_evidence = read_visible_evidence(run_root / "execute")
+        visible = DebugSuiteResult.model_validate(visible_evidence["evidence"])
+        locked_result = verify_locked(candidate, output_dir=run_root / "locked")
+        locked = DebugSuiteResult.model_validate_json(
+            (run_root / "locked" / "locked.json").read_text(encoding="utf-8")
+        )
+        replayed_visible = DebugSuiteResult.model_validate_json(
+            (run_root / "locked" / "visible-replay.json").read_text(encoding="utf-8")
+        )
+        suites = [visible, replayed_visible, locked]
+        evolution_record: dict[str, Any] | None = None
+
+        if skill.status == "simulation_staged":
+            assert skill.parent_code_path is not None
+            parent = _candidate(
+                root,
+                skill.skill_id,
+                skill.provider_instrument_id,
+                code_path=root / skill.parent_code_path,
+                model="publication-parent-replay",
+            )
+            parent_locked = verify_locked(parent, output_dir=run_root / "parent-locked")
+            parent_visible_suite = DebugSuiteResult.model_validate_json(
+                (run_root / "parent-locked" / "visible-replay.json").read_text(encoding="utf-8")
+            )
+            parent_locked_suite = DebugSuiteResult.model_validate_json(
+                (run_root / "parent-locked" / "locked.json").read_text(encoding="utf-8")
+            )
+            evolution = stage_evolution(parent, candidate, output_dir=run_root / "evolution")
+            staged_suites = {
+                name: DebugSuiteResult.model_validate_json(
+                    (run_root / "evolution" / f"{name}.json").read_text(encoding="utf-8")
+                )
+                for name in (
+                    "parent-drift",
+                    "candidate-acquisition",
+                    "candidate-visible",
+                    "candidate-drift",
+                    "candidate-locked",
+                )
+            }
+            suites.extend((parent_visible_suite, parent_locked_suite, *staged_suites.values()))
+            evolution_record = {
+                "status": evolution["status"],
+                "verdict": evolution["verdict"],
+                "parent_sha256": evolution["parent_sha256"],
+                "candidate_sha256": evolution["candidate_sha256"],
+                "candidate_changed": evolution["candidate_changed"],
+                "drift_detected": evolution["drift_detected"],
+                "parent_qualification": {
+                    "visible": _suite_summary(parent_visible_suite),
+                    "locked": _suite_summary(parent_locked_suite),
+                    "verdict": parent_locked["verdict"],
+                },
+                "parent_drift": _suite_summary(staged_suites["parent-drift"]),
+                "candidate_acquisition": _suite_summary(staged_suites["candidate-acquisition"]),
+                "candidate_drift": _suite_summary(staged_suites["candidate-drift"]),
+            }
+        else:
+            parent_locked = evolution = None
+
+    gates = [gate for suite in suites for condition in suite.conditions for gate in condition.gates]
+    verifier_hashes = {gate.verifier_sha256 for gate in gates}
+    simulator_hashes = {gate.simulator_sha256 for gate in gates}
+    if len(verifier_hashes) != 1 or len(simulator_hashes) != 1:
+        raise RuntimeError(f"runtime identity changed within publication replay: {skill.skill_id}")
+    common_pass = (
+        execution["verdict"] == "PASS"
+        and visible_evidence["verdict"] == "PASS"
+        and locked_result["verdict"] == "PASS"
     )
-    locked = evaluate_debug_suite(
-        candidate,
-        definition.locked_conditions,
-        evaluator=evaluate_instrument_skill,
+    staged_pass = skill.status != "simulation_staged" or (
+        parent_locked is not None
+        and evolution is not None
+        and parent_locked["verdict"] == "PASS"
+        and evolution["status"] == "STAGED"
     )
-    evolution = evaluate_debug_suite(
-        candidate,
-        definition.evolution_conditions,
-        evaluator=evaluate_instrument_skill,
-    )
-    gates = [
-        gate
-        for suite in (visible, locked)
-        for condition in suite.conditions
-        for gate in condition.gates
-    ]
-    hashes = {gate.verifier_sha256 for gate in gates}
-    if len(hashes) != 1:
-        raise RuntimeError(f"verifier identity changed within publication replay: {skill.skill_id}")
-    verdict = "PASS" if visible.verdict == locked.verdict == "ADMIT" else "FAIL"
-    return {
+    record = {
         "schema_version": "proprio.skill_verification.v0.1",
         "skill_id": skill.skill_id,
         "qualification_status": skill.status,
         "runtime_kind": instrument_kind(skill.provider_instrument_id),
+        "provider": inspection["provider"],
         "skill_sha256": hashlib.sha256(candidate.skill_md.encode()).hexdigest(),
         "code_sha256": hashlib.sha256(candidate.skill_py.encode()).hexdigest(),
         "source_sha256": candidate.source_sha256,
-        "verifier_sha256": next(iter(hashes)),
-        "upstream_revision": definition.upstream_revision,
+        "simulator_sha256": next(iter(simulator_hashes)),
+        "verifier_sha256": next(iter(verifier_hashes)),
+        "upstream_revision": inspection["upstream_revision"],
+        "source_inspection": {
+            "instrument_id": inspection["instrument_id"],
+            "family": inspection["family"],
+            "controller_methods": inspection["controller_methods"],
+            "source_sha256": inspection["source_sha256"],
+        },
+        "candidate_execution": {
+            "decision": execution["decision"],
+            "verdict": execution["verdict"],
+            "visible_evidence_read": visible_evidence["candidate_sha256"]
+            == execution["candidate_sha256"],
+        },
         "visible": _suite_summary(visible),
         "locked": _suite_summary(locked),
-        "registered_evolution": _suite_summary(evolution),
+        "evolution": evolution_record,
+        "verified_skill_claim": True,
         "hardware_validation_required": True,
-        "claim_boundary": "Verified in simulation. Hardware validation remains separate.",
-        "verdict": verdict,
+        "claim_boundary": (
+            "Staged in simulation. Hardware validation remains separate."
+            if skill.status == "simulation_staged"
+            else "Verified in simulation. Hardware validation remains separate."
+        ),
+        "verdict": "PASS" if common_pass and staged_pass else "FAIL",
     }
+    return record
 
 
-def _keithley_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
-    evidence_path = root / "artifacts/evidence/skill-admission/summary.json"
-    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
-    correct = evidence["cases"]["correct"]
-    package = root / "skills" / skill.skill_id
-    code_path = package / "scripts/operate.py"
-    passed = (
-        evidence.get("verdict") == "PASS"
-        and correct["admission"] == "ADMIT"
-        and correct["verified_skill_sha256"] == _hash(code_path)
-    )
-    return {
-        "schema_version": "proprio.skill_verification.v0.1",
-        "skill_id": skill.skill_id,
-        "qualification_status": skill.status,
-        "runtime_kind": "built-in-pyvisa-sim",
-        "skill_sha256": _hash(package / "SKILL.md"),
-        "code_sha256": _hash(code_path),
-        "source_sha256": correct["source_sha256"],
-        "verifier_sha256": correct["verifier_sha256"],
-        "evidence": {
-            "artifact": str(evidence_path.relative_to(root)),
-            "admission": correct["admission"],
-            "reject_control": evidence["cases"]["wrong-range"]["admission"],
-        },
-        "hardware_validation_required": True,
-        "claim_boundary": "Verified in simulation. Hardware validation remains separate.",
-        "verdict": "PASS" if passed else "FAIL",
-    }
-
-
-def _xrd_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
+def _reference_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
     evidence_path = root / "artifacts/evidence/composition/summary.json"
     evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
     package = root / "skills" / skill.skill_id
@@ -245,67 +316,38 @@ def _xrd_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
             "artifact": str(evidence_path.relative_to(root)),
             "artifact_verdict": evidence.get("verdict"),
         },
+        "verified_skill_claim": False,
         "hardware_validation_required": True,
-        "claim_boundary": "Reference workflow only. Hardware validation remains separate.",
+        "claim_boundary": (
+            "Reference workflow only; excluded from the simulator-verified skill claim. "
+            "Hardware validation remains separate."
+        ),
         "verdict": "PASS" if evidence.get("verdict") == "PASS" else "FAIL",
     }
 
 
-def _openflexure_record(root: Path, skill: PublishedSkill) -> dict[str, Any]:
-    evidence_path = root / "public/proprio-demo.json"
-    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
-    package = root / "skills" / skill.skill_id
-    code_path = package / "scripts/operate.py"
-    source_path = package / "references/controller.md"
-    fresh = evidence["fresh_executions"]
-    checks = {
-        "initial-acquisition-rejected": fresh["initial_acquisition"] == "REJECT",
-        "parent-admitted": fresh["parent_admission"]
-        == {"visible": "1/1", "historical": "3/3", "locked": "5/5"},
-        "drift-invalidated-parent": fresh["drift_parent"] == "REJECT",
-        "first-evolution-rejected": fresh["magnitude_only_evolution"] == "REJECT",
-        "proposal-replay-passed": fresh["proposal_replay"]
-        == {"changed": "1/1", "historical": "3/3", "locked": "5/5"},
-        "proposal-staged": fresh["final_decision"] == "STAGED",
-        "parent-immutable": evidence["candidate_bindings"]["parent_immutable"] is True,
-    }
-    passed = (
-        evidence["scope"]["status"] == "STAGED"
-        and all(checks.values())
-        and evidence["candidate_bindings"]["proposal_sha256"] == _hash(code_path)
-        and evidence["source"]["sha256"] == _hash(source_path)
-    )
-    return {
-        "schema_version": "proprio.skill_verification.v0.1",
-        "skill_id": skill.skill_id,
-        "qualification_status": skill.status,
-        "runtime_kind": "external-openflexure-server",
-        "skill_sha256": _hash(package / "SKILL.md"),
-        "code_sha256": _hash(code_path),
-        "source_sha256": _hash(source_path),
-        "verifier_sha256": evidence["proprio_runtime"]["verifier_source_sha256"],
-        "upstream_revision": evidence["simulator"]["revision"],
-        "evidence": {
-            "artifact": str(evidence_path.relative_to(root)),
-            "status": evidence["scope"]["status"],
-            "checks": checks,
-        },
-        "hardware_validation_required": True,
-        "claim_boundary": "Staged in simulation. Hardware validation remains separate.",
-        "verdict": "PASS" if passed else "FAIL",
-    }
-
-
 def build_skill_verification(root: Path, skill: PublishedSkill) -> dict[str, Any]:
-    if skill.provider_instrument_id and has_instrument(skill.provider_instrument_id):
-        return _runtime_record(root, skill)
-    if skill.skill_id == "keithley-2450-measure-current":
-        return _keithley_record(root, skill)
-    if skill.skill_id == "xrd-operate-observe":
-        return _xrd_record(root, skill)
-    if skill.skill_id == "openflexure-adaptive-autofocus":
-        return _openflexure_record(root, skill)
-    raise KeyError(skill.skill_id)
+    if skill.status == "reference":
+        if skill.provider_instrument_id is not None or skill.parent_code_path is not None:
+            raise ValueError(f"reference skill cannot claim a provider runtime: {skill.skill_id}")
+        return _reference_record(root, skill)
+    if skill.provider_instrument_id is None:
+        raise ValueError(f"verified skill has no provider instrument: {skill.skill_id}")
+    if not has_instrument(skill.provider_instrument_id):
+        raise KeyError(skill.provider_instrument_id)
+    definition = get_instrument_definition(skill.provider_instrument_id)
+    if skill.status == "simulation_staged":
+        if skill.parent_code_path is None:
+            raise ValueError(f"staged skill has no reproducible parent: {skill.skill_id}")
+        if not (root / skill.parent_code_path).is_file():
+            raise FileNotFoundError(root / skill.parent_code_path)
+        if not definition.evolution_conditions:
+            raise ValueError(
+                f"staged skill has no registered evolution conditions: {skill.skill_id}"
+            )
+    elif skill.parent_code_path is not None:
+        raise ValueError(f"qualified skill cannot declare a staged parent: {skill.skill_id}")
+    return _runtime_record(root, skill)
 
 
 def _catalog_entry(root: Path, skill: PublishedSkill, record: dict[str, Any]) -> dict[str, Any]:
@@ -336,6 +378,9 @@ def build_skill_library(
     """Build the publication payload without changing the repository."""
 
     root = root.resolve()
+    skill_ids = [skill.skill_id for skill in PUBLISHED_SKILLS]
+    if len(skill_ids) != len(set(skill_ids)):
+        raise ValueError("published skill IDs must be unique")
     records = {}
     entries = []
     for skill in PUBLISHED_SKILLS:
@@ -360,8 +405,52 @@ def publish_skill_library(root: Path) -> dict[str, Any]:
 
     root = root.resolve()
     publication, records, catalog = build_skill_library(root)
-    for skill_id, record in records.items():
-        output = root / "skills" / skill_id / "references/verification.json"
-        write_canonical_json(output, record)
-    write_canonical_json(root / "catalog.json", catalog)
+    if publication["verdict"] != "PASS":
+        failures = []
+        for skill_id in publication["failed_skills"]:
+            record = records[skill_id]
+            stages = [
+                f"execute={record.get('candidate_execution', {}).get('verdict', 'n/a')}",
+                f"visible={record.get('visible', {}).get('verdict', 'n/a')}",
+                f"locked={record.get('locked', {}).get('verdict', 'n/a')}",
+            ]
+            evolution = record.get("evolution")
+            if evolution is not None:
+                stages.append(f"evolution={evolution.get('status', 'n/a')}")
+                stages.append(
+                    f"parent={evolution.get('parent_qualification', {}).get('verdict', 'n/a')}"
+                )
+            failures.append(f"{skill_id} ({', '.join(stages)})")
+        raise RuntimeError(
+            "skill publication failed; no files were written: " + "; ".join(failures)
+        )
+    outputs = {
+        root / "skills" / skill_id / "references/verification.json": record
+        for skill_id, record in records.items()
+    }
+    outputs[root / "catalog.json"] = catalog
+    originals = {path: path.read_bytes() if path.is_file() else None for path in outputs}
+    replaced: list[Path] = []
+    with tempfile.TemporaryDirectory(prefix=".proprio-publication-", dir=root) as temporary:
+        staged_root = Path(temporary)
+        staged = {}
+        for index, (path, value) in enumerate(outputs.items()):
+            staged_path = staged_root / f"{index:02d}.json"
+            write_canonical_json(staged_path, value)
+            staged[path] = staged_path
+        try:
+            for path, staged_path in staged.items():
+                path.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(staged_path, path)
+                replaced.append(path)
+        except Exception:
+            for path in reversed(replaced):
+                original = originals[path]
+                if original is None:
+                    path.unlink(missing_ok=True)
+                    continue
+                rollback = staged_root / f"rollback-{len(replaced):02d}.json"
+                rollback.write_bytes(original)
+                os.replace(rollback, path)
+            raise
     return publication

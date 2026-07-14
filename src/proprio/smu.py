@@ -42,6 +42,7 @@ class SimulatedSMUController:
         self.measurement_range_a: float | None = None
         self.output_enabled = False
         self.measurement_a: float | None = None
+        self.closed = False
 
     def _append(self, operation: str, value: Any = None, response: Any = None) -> None:
         self.trace.append(
@@ -98,9 +99,33 @@ class SimulatedSMUController:
         self._append("error_query", response=response)
         return response
 
+    def telemetry(self) -> dict[str, Any]:
+        """Return the simulator state and independently configured fixture limits."""
+
+        return {
+            "voltage_v": self.voltage_v,
+            "current_limit_a": self.current_limit_a,
+            "measurement_range_a": self.measurement_range_a,
+            "output_enabled": self.output_enabled,
+            "measurement_a": self.measurement_a,
+            "fixture": {
+                "resistance_ohm": self.fixture.resistance_ohm,
+                "target_voltage_v": self.fixture.target_voltage_v,
+                "minimum_compliance_a": self.fixture.minimum_compliance_a,
+                "maximum_safe_compliance_a": self.fixture.maximum_safe_compliance_a,
+                "minimum_measurement_range_a": self.fixture.minimum_measurement_range_a,
+                "maximum_measurement_range_a": self.fixture.maximum_measurement_range_a,
+                "relative_current_tolerance": self.fixture.relative_current_tolerance,
+                "expected_current_a": self.fixture.expected_current_a,
+            },
+        }
+
     def close(self) -> None:
+        if self.closed:
+            return
         self.instrument.close()
         self.resource_manager.close()
+        self.closed = True
 
     def __enter__(self) -> SimulatedSMUController:
         return self

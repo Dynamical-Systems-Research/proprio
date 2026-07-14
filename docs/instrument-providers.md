@@ -51,6 +51,9 @@ def instrument_provider():
 `controller_factory(scenario, parameters)` returns a fresh controller with a public `trace` and
 `telemetry()` method. `verifier(trace, telemetry)` returns `GateCheck` values. Candidate code can
 call only `allowed_methods`; imports, direct simulator-state reads, and verifier access are rejected.
+If the controller owns transport resources, expose `close()`; Proprio finalizes it after every
+outcome. `evolution_conditions` may be empty for a qualified skill, but publication requires them
+for a staged skill.
 Adapters should raise `InstrumentRuntimeUnavailable` for transport or simulator outages. These,
 standard connection/timeout errors, malformed telemetry, missing verifier code, and verifier
 exceptions produce `HOLD`; candidate procedure errors remain `REJECT`.
@@ -72,3 +75,25 @@ proprio verify-locked --instrument acme.microscope.flake-search \
 
 Provider availability, simulation evidence, skill publication, and real-hardware qualification are
 separate states. A provider cannot publish or self-admit a skill.
+
+## Reproduce the OpenFlexure provider
+
+The OpenFlexure server remains a separate native simulator process. Pin and start it before running
+`publish-skills`:
+
+```bash
+git clone https://gitlab.com/openflexure/openflexure-microscope-server \
+  /tmp/proprio-candidates/openflexure-microscope-server
+git -C /tmp/proprio-candidates/openflexure-microscope-server checkout \
+  d26b93e1be1093e9d696b634dd1f7dde3bb7142a
+cd /tmp/proprio-candidates/openflexure-microscope-server
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python --editable . python-gitlab
+.venv/bin/python pull_webapp.py -b v3
+.venv/bin/openflexure-microscope-server -c ofm_config_simulation.json \
+  --host 127.0.0.1 --port 5100
+```
+
+In another shell, install Proprio's client dependencies with `uv sync --extra openflexure`, then run
+the normal interface or `uv run proprio publish-skills --root .`. A missing checkout, wrong revision,
+unreachable server, missing raw image evidence, or verifier failure produces `HOLD`.

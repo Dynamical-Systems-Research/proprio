@@ -19,10 +19,11 @@ Verified in simulation. Hardware validation remains separate.
 The demo shows a persistent GPT-5.6 Luna agent reading the development source in a live terminal while
 the native OpenFlexure microscope simulator runs beside it. A fresh execution is rejected on its
 acquisition-time budget, the agent repairs the skill to an admitted parent, a registered drift breaks
-it, a first evolution proposal is rejected, and a corrected proposal is staged. This is a
-development-trial demonstration, not a published OpenFlexure skill. Its
-[evidence manifest](public/proprio-demo.json) binds the agent session, fresh simulator executions,
-candidate hashes, verifier records, and media identity.
+it, a first evolution proposal is rejected, and a corrected proposal is staged. The published
+OpenFlexure package retains the exact admitted parent and a current staged proposal that reruns the
+same provider-backed evolution gate. Its compact verification record binds the current proposal;
+the historical [evidence manifest](public/proprio-demo.json) separately binds the recorded agent
+session, original proposal, fresh simulator executions, verifier records, and media identity.
 
 ## Published skills
 
@@ -184,8 +185,8 @@ hardware.
 
 ## Reference verification
 
-XRD is the reference instrument, using Bluesky and Ophyd for execution and an independent pyFAI-based
-verifier. The Keithley example is the compact admission proof: circuit-law checks admit the correct
+XRD remains a reference workflow and is explicitly excluded from the simulator-verified skill
+claim. The Keithley example is the compact admission proof: circuit-law checks admit the correct
 skill and reject a plausible wrong-range procedure the model accepted.
 
 ```bash
@@ -212,6 +213,13 @@ Regenerate the compact package records and catalog without publishing raw traces
 ```bash
 uv run proprio publish-skills --root .
 ```
+
+Publication reruns source inspection, visible execution, evidence readback, and locked verification
+for every simulation-backed skill. Staged skills also rerun parent qualification and evolution.
+It fails without writing if any provider is unavailable; the pinned native OpenFlexure setup is in
+[`docs/instrument-providers.md`](docs/instrument-providers.md#reproduce-the-openflexure-provider).
+Because that native replay performs 41 simulator executions, it is an explicit manual/release gate
+in [OpenFlexure release validation](.github/workflows/openflexure-release.yml), not standard CI.
 
 ## License and citation
 

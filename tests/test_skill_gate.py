@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from proprio.instrument_types import SimulationScenario
+from proprio.instruments import evaluate_instrument_skill
 from proprio.skill_gate import evaluate_skill
 from proprio.smu import SimulatedSMUController
 
@@ -73,3 +75,23 @@ def test_imports_are_rejected_without_execution() -> None:
     result = evaluate_skill("import os\ndef run(controller):\n    return {}\n")
     assert result.verdict == "REJECT"
     assert result.trace == ()
+
+
+def test_provider_preserves_keithley_negative_control() -> None:
+    gate = evaluate_instrument_skill(
+        "proprio.keithley.keithley-2450-measure-current",
+        WRONG_RANGE_SKILL,
+    )
+    failed = {check.check_id for check in gate.checks if not check.passed}
+    assert gate.verdict == "REJECT"
+    assert {"range-contract", "compliance-contract"} <= failed
+
+
+def test_provider_holds_when_keithley_simulator_is_unavailable() -> None:
+    gate = evaluate_instrument_skill(
+        "proprio.keithley.keithley-2450-measure-current",
+        CORRECT_SKILL,
+        scenario=SimulationScenario.UNAVAILABLE,
+    )
+    assert gate.verdict == "HOLD"
+    assert gate.status == "unavailable"
