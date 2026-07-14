@@ -70,8 +70,9 @@ published evidence. See `README.md` and CI.
 - **Keep the remote usage-focused.** Do not commit a `cassettes/` directory, raw model
   conversations, run logs, or a duplicate technical report. Generate transient records under
   `runs/`; publish research narrative on the canonical blog. Release cleanup includes every
-  branch and tag, not only the current tree: `git rev-list --objects --all` must contain no path
-  under `cassettes/` before a release is called clean.
+  branch and tag, not only the current tree: `git rev-list --objects --branches --tags
+  --remotes=origin` must contain no path under `cassettes/` before a release is called clean.
+  Local application refs such as `refs/codex/*` are not part of the published release surface.
 - **Never tune a threshold to pass.** Preregistered thresholds, including the metrology battery, are
   fixed. Do not adjust one to make a run pass.
 - **No judgment in operation records.** Operation records carry no phase, material, or

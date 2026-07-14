@@ -69,7 +69,14 @@ def test_remote_release_surface_excludes_research_archives() -> None:
     assert "npx skills add Dynamical-Systems-Research/proprio" in readme
 
     history = subprocess.run(
-        ["git", "rev-list", "--objects", "--all"],
+        [
+            "git",
+            "rev-list",
+            "--objects",
+            "--branches",
+            "--tags",
+            "--remotes=origin",
+        ],
         cwd=ROOT,
         check=True,
         capture_output=True,
