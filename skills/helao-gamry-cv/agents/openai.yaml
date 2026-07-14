@@ -1,0 +1,4 @@
+interface:
+  display_name: "HELAO Gamry CV"
+  short_description: "Acquire a corrected cyclic voltammogram"
+  default_prompt: "Use $helao-gamry-cv to acquire the validated HELAO cyclic voltammogram."

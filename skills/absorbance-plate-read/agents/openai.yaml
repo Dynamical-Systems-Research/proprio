@@ -1,0 +1,4 @@
+interface:
+  display_name: "Absorbance Plate Read"
+  short_description: "Acquire a qualified absorbance measurement"
+  default_prompt: "Use $absorbance-plate-read to run the validated blank-subtracted absorbance workflow."

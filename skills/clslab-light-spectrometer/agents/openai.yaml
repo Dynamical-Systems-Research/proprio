@@ -1,0 +1,4 @@
+interface:
+  display_name: "CLSLab Light Spectrometer"
+  short_description: "Acquire an adaptive eight-channel spectrum"
+  default_prompt: "Use $clslab-light-spectrometer to acquire a detector-safe CLSLab spectrum."

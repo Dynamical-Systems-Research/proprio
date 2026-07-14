@@ -26,17 +26,44 @@ candidate hashes, verifier records, and media identity.
 
 ## Published skills
 
-Every published package contains a `SKILL.md`, bounded control code where required, provenance hashes,
-and a link to the record that admitted it. [`catalog.json`](catalog.json) binds each skill, source
-bundle, control implementation, verifier, and admission record by hash.
+The public interface is the flat [`skills/`](skills) directory. Every package is independently
+installable and contains `SKILL.md`, an `agents/openai.yaml` discovery manifest, exact bounded code
+where required, focused controller references, and a compact verification record. The historical
+raw model conversations are not required to install, use, reproduce, or extend these packages.
 
-| Instrument | Skill | Verification record |
+[`catalog.json`](catalog.json) content-addresses all 12 packages. `simulation_qualified` means the
+exact code passed visible and independently held simulator checks. `simulation_staged` means the
+proposal passed its recorded evolution gate but has not received the broader qualification claim.
+Every package still requires separate validation on real hardware.
+
+| Instrument | Skill | Status |
 | --- | --- | --- |
-| 2D powder XRD | [XRD reference](skills/xrd-reference/SKILL.md) | [Composition record](artifacts/evidence/composition/summary.json) |
-| Keithley 2450-style SMU | [Current measurement](skills/keithley-2450/SKILL.md) | [Admission record](artifacts/evidence/skill-admission/summary.json) |
-| North Cytation | [Pipette calibration](skills/external/north-pipette-calibration/SKILL.md) | [Session record](cassettes/cross-family/north-pipette-calibration/session-000/summary.json) |
-| HELAO Gamry | [Cyclic voltammetry](skills/external/helao-gamry-cv/SKILL.md) | [Session record](cassettes/cross-family/helao-gamry-cv/session-000/summary.json) |
-| CLSLab | [Light spectroscopy](skills/external/clslab-light-spectrometer/SKILL.md) | [Session record](cassettes/cross-family/clslab-light-spectrometer/session-000/summary.json) |
+| 2D area-detector powder XRD | [Operate and observe](skills/xrd-operate-observe/SKILL.md) | `reference` |
+| Keithley 2450-style SMU | [Measure current](skills/keithley-2450-measure-current/SKILL.md) | `simulation_qualified` |
+| Absorbance plate reader | [Read absorbance plate](skills/absorbance-plate-read/SKILL.md) | `simulation_qualified` |
+| Calibrated peristaltic pump | [Dose 10 mL](skills/calibrated-pump-dose/SKILL.md) | `simulation_qualified` |
+| Dual-channel pump array | [Blend two pumps](skills/dual-pump-blend/SKILL.md) | `simulation_qualified` |
+| Fluorescence plate reader | [Read fluorescence plate](skills/fluorescence-plate-read/SKILL.md) | `simulation_qualified` |
+| Temperature controller | [Run isothermal hold](skills/isothermal-hold/SKILL.md) | `simulation_qualified` |
+| Thermal controller | [Run thermal cycle](skills/thermal-cycle/SKILL.md) | `simulation_qualified` |
+| North Cytation | [Calibrate pipette](skills/north-pipette-calibration/SKILL.md) | `simulation_qualified` |
+| HELAO Gamry | [Run cyclic voltammetry](skills/helao-gamry-cv/SKILL.md) | `simulation_qualified` |
+| CLSLab | [Measure light spectrum](skills/clslab-light-spectrometer/SKILL.md) | `simulation_qualified` |
+| OpenFlexure microscope | [Run adaptive autofocus](skills/openflexure-adaptive-autofocus/SKILL.md) | `simulation_staged` |
+
+### Install the skill library
+
+Install the whole bundle with the same cross-agent installer used by
+[Google DeepMind Science Skills](https://github.com/google-deepmind/science-skills):
+
+```bash
+npx skills add Dynamical-Systems-Research/proprio
+```
+
+In Codex, ask `$skill-installer` to install the repository or a single path such as
+`skills/openflexure-adaptive-autofocus`. Restart the agent after installation so it discovers the
+new package. Installing a skill does not install the Proprio research runtime; the package tells the
+agent which controller contract and qualification boundary apply.
 
 ## Quickstart
 
@@ -145,12 +172,20 @@ uv run proprio skill-admission \
 
 ## Repository map
 
-- [`src/proprio`](src/proprio) contains the persistent agent, bounded runtime, adapters, and gates.
-- [`sources`](sources) contains the documentation shown to the model.
-- [`skills`](skills) contains the published skill packages.
-- [`cassettes`](cassettes) contains raw model and execution records.
-- [`artifacts/evidence`](artifacts/evidence) contains metrology and verification evidence.
-- [`catalog.json`](catalog.json) is the content-addressed skill catalog.
+- [`skills`](skills) is the installable public library: instructions, controller references, exact
+  operating code, and compact verification records.
+- [`src/proprio`](src/proprio) is the reusable method implementation: bounded execution,
+  reduced-order simulators, independent verifiers, acquisition, replay, and evolution gates.
+- [`catalog.json`](catalog.json) is the content-addressed publication manifest.
+- [`sources`](sources), [`tests`](tests), and the focused evidence artifacts reproduce and extend
+  the qualification method. Existing cassettes document the research release but are not part of
+  the installed skill surface.
+
+Regenerate the compact package records and catalog without publishing raw traces:
+
+```bash
+uv run proprio publish-skills --root .
+```
 
 ## License and citation
 

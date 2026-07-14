@@ -8,7 +8,7 @@ MARKDOWN_LINK = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 def test_local_markdown_links_exist() -> None:
     documents = [ROOT / "README.md", ROOT / "CONTRIBUTING.md"]
     documents.extend((ROOT / "docs").glob("*.md"))
-    documents.extend((ROOT / "skills").glob("*/SKILL.md"))
+    documents.extend((ROOT / "skills").rglob("*.md"))
     missing = []
     for document in documents:
         for target in MARKDOWN_LINK.findall(document.read_text(encoding="utf-8")):

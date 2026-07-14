@@ -12,7 +12,9 @@ def test_release_catalog_is_evidence_bound() -> None:
     assert {entry.status for entry in catalog.skills} == {
         "reference",
         "simulation_qualified",
+        "simulation_staged",
     }
+    assert len(catalog.skills) == 12
     assert all(entry.hardware_qualification_required for entry in catalog.skills)
 
 
