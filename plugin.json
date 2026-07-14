@@ -1,0 +1,10 @@
+{
+  "name": "proprio",
+  "version": "0.4.0",
+  "description": "Simulator-verified scientific instrument skills and reproducible qualification code.",
+  "author": {
+    "name": "Dynamical Systems"
+  },
+  "repository": "https://github.com/Dynamical-Systems-Research/proprio",
+  "license": "Apache 2.0"
+}

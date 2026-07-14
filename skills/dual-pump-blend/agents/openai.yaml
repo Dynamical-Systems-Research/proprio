@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dual-Pump Blend"
+  short_description: "Deliver a qualified two-channel blend"
+  default_prompt: "Use $dual-pump-blend to execute the validated 6:4 pump blend."

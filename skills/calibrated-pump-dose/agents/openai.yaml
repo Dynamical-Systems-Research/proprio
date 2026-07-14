@@ -1,0 +1,4 @@
+interface:
+  display_name: "Calibrated Pump Dose"
+  short_description: "Deliver a qualified calibrated pump dose"
+  default_prompt: "Use $calibrated-pump-dose to execute the validated 10 mL dosing procedure."

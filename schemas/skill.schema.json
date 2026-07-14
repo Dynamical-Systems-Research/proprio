@@ -11,7 +11,7 @@
     "instrument": {"type": "string", "minLength": 1},
     "path": {"type": "string", "pattern": "^skills/.+/SKILL\\.md$"},
     "code_path": {"type": ["string", "null"]},
-    "status": {"enum": ["reference", "simulation_qualified"]},
+    "status": {"enum": ["reference", "simulation_qualified", "simulation_staged"]},
     "hardware_qualification_required": {"const": true},
     "verification": {
       "type": "object",

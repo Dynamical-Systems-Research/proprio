@@ -14,6 +14,7 @@ from proprio.cross_family import (
     run_cross_family_session,
 )
 from proprio.external_instruments import EXTERNAL_INSTRUMENTS
+from proprio.instruments import INSTRUMENTS
 from proprio.interface import (
     candidate_from_directory,
     execute_candidate,
@@ -27,6 +28,7 @@ from proprio.procedural import ProceduralFault, run_fault_battery, run_procedura
 from proprio.reference_xrd import run_composition_battery, run_reference_xrd
 from proprio.release import build_evidence_manifest, verify_evidence_manifest
 from proprio.skill_drafter import run_skill_admission
+from proprio.skill_publication import publish_skill_library
 from proprio.support import run_support_battery
 from proprio.xrd_types import ValidityFault
 
@@ -101,12 +103,12 @@ def _parser() -> argparse.ArgumentParser:
     inspect = commands.add_parser(
         "inspect-source", help="Read one instrument source and controller contract."
     )
-    inspect.add_argument("--instrument", choices=sorted(EXTERNAL_INSTRUMENTS), required=True)
+    inspect.add_argument("--instrument", choices=sorted(INSTRUMENTS), required=True)
 
     execute = commands.add_parser(
         "execute-candidate", help="Run an agent-authored candidate on visible conditions."
     )
-    execute.add_argument("--instrument", choices=sorted(EXTERNAL_INSTRUMENTS), required=True)
+    execute.add_argument("--instrument", choices=sorted(INSTRUMENTS), required=True)
     execute.add_argument("--candidate-dir", type=Path, required=True)
     execute.add_argument("--output-dir", type=Path, required=True)
     execute.add_argument("--agent", default="external-agent")
@@ -119,7 +121,7 @@ def _parser() -> argparse.ArgumentParser:
     locked = commands.add_parser(
         "verify-locked", help="Replay visible behavior and run locked verification."
     )
-    locked.add_argument("--instrument", choices=sorted(EXTERNAL_INSTRUMENTS), required=True)
+    locked.add_argument("--instrument", choices=sorted(INSTRUMENTS), required=True)
     locked.add_argument("--candidate-dir", type=Path, required=True)
     locked.add_argument("--output-dir", type=Path, required=True)
     locked.add_argument("--agent", default="external-agent")
@@ -127,7 +129,7 @@ def _parser() -> argparse.ArgumentParser:
     evolution = commands.add_parser(
         "stage-evolution", help="Stage a non-regressive skill after simulated drift."
     )
-    evolution.add_argument("--instrument", choices=sorted(EXTERNAL_INSTRUMENTS), required=True)
+    evolution.add_argument("--instrument", choices=sorted(INSTRUMENTS), required=True)
     evolution.add_argument("--parent-dir", type=Path, required=True)
     evolution.add_argument("--candidate-dir", type=Path, required=True)
     evolution.add_argument("--output-dir", type=Path, required=True)
@@ -138,6 +140,11 @@ def _parser() -> argparse.ArgumentParser:
     )
     manifest.add_argument("--root", type=Path, default=Path.cwd())
     manifest.add_argument("--output", type=Path, required=True)
+
+    publish = commands.add_parser(
+        "publish-skills", help="Regenerate compact skill verification records and catalog."
+    )
+    publish.add_argument("--root", type=Path, default=Path.cwd())
     return parser
 
 
@@ -215,6 +222,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         if errors:
             result["verdict"] = "FAIL"
         return result
+    if args.command == "publish-skills":
+        return publish_skill_library(args.root)
     raise AssertionError(args.command)
 
 

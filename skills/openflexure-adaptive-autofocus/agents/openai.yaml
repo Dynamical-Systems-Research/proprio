@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenFlexure Adaptive Autofocus"
+  short_description: "Run bounded simulated microscope autofocus"
+  default_prompt: "Use $openflexure-adaptive-autofocus to run the staged OpenFlexure autofocus procedure."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Isothermal Hold"
+  short_description: "Run a qualified stabilized thermal hold"
+  default_prompt: "Use $isothermal-hold to execute the validated 80 C hold procedure."

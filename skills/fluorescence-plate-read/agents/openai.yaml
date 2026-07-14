@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fluorescence Plate Read"
+  short_description: "Acquire a qualified fluorescence measurement"
+  default_prompt: "Use $fluorescence-plate-read to run the validated blank-subtracted fluorescence workflow."
