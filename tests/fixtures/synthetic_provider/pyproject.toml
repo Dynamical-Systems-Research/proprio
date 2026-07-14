@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "proprio-synthetic-provider"
+version = "1.0.0"
+requires-python = ">=3.12"
+
+[project.entry-points."proprio.instrument_providers"]
+"broken.unrelated" = "does_not_exist:instrument_provider"
+"third_party.synthetic" = "synthetic_provider:instrument_provider"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/synthetic_provider"]

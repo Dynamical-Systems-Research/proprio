@@ -61,11 +61,16 @@ simulators = [
 [project.scripts]
 proprio = "proprio.cli:main"
 
+[project.entry-points."proprio.instrument_providers"]
+"proprio.external_reference" = "proprio.builtin_providers:external_reference_provider"
+"proprio.reduced_order" = "proprio.builtin_providers:reduced_order_provider"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/proprio"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "sources" = "proprio/sources"
+"skills" = "proprio/skills"
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"

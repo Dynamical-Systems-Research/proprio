@@ -11,7 +11,12 @@ from types import FunctionType
 from typing import Any
 
 from proprio.artifacts import source_sha256
-from proprio.instrument_types import GateCheck, HardGateResult, SimulationScenario
+from proprio.instrument_types import (
+    GateCheck,
+    HardGateResult,
+    InstrumentRuntimeUnavailable,
+    SimulationScenario,
+)
 
 ALLOWED_NODES = (
     ast.Module,
@@ -260,17 +265,29 @@ def evaluate_controller_skill(
     condition_values = dict(condition_evidence or {})
     result: dict[str, Any] | None = None
     runtime_error: str | None = None
+    runtime_unavailable = False
     try:
         raw_result = function(controller)
         if not isinstance(raw_result, dict):
             raise ValueError("run must return a dictionary")
         result = raw_result
+    except (InstrumentRuntimeUnavailable, ConnectionError, TimeoutError, OSError) as exc:
+        runtime_error = f"{type(exc).__name__}: {exc}"
+        runtime_unavailable = True
     except Exception as exc:
         runtime_error = f"{type(exc).__name__}: {exc}"
-    telemetry = controller.telemetry()
-    trace = tuple(controller.trace)
-
-    if scenario is SimulationScenario.UNAVAILABLE:
+    try:
+        telemetry = controller.telemetry()
+        raw_trace = controller.trace
+        if not isinstance(telemetry, dict):
+            raise TypeError("controller telemetry must be a dictionary")
+        if not isinstance(raw_trace, (list, tuple)) or any(
+            not isinstance(row, dict) for row in raw_trace
+        ):
+            raise TypeError("controller trace must be a sequence of dictionaries")
+        trace = tuple(raw_trace)
+    except Exception as exc:
+        telemetry_error = f"{type(exc).__name__}: {exc}"
         return HardGateResult(
             instrument_id=instrument_id,
             family=family,
@@ -279,7 +296,30 @@ def evaluate_controller_skill(
             status="unavailable",
             checks=(
                 GateCheck(
-                    check_id="simulator-available",
+                    check_id="simulator-telemetry",
+                    passed=False,
+                    evidence={"error": telemetry_error},
+                ),
+            ),
+            trace=(),
+            telemetry={},
+            result=result,
+            runtime_error=telemetry_error,
+            skill_sha256=skill_hash,
+            simulator_sha256=source_sha256(simulator_path),
+            verifier_sha256=source_sha256(verifier_path),
+        )
+
+    if scenario is SimulationScenario.UNAVAILABLE or runtime_unavailable:
+        return HardGateResult(
+            instrument_id=instrument_id,
+            family=family,
+            scenario=scenario,
+            verdict="HOLD",
+            status="unavailable",
+            checks=(
+                GateCheck(
+                    check_id="simulator-runtime" if runtime_unavailable else "simulator-available",
                     passed=False,
                     evidence={"error": runtime_error or "simulator unavailable"},
                 ),
@@ -288,6 +328,36 @@ def evaluate_controller_skill(
             telemetry=telemetry,
             result=result,
             runtime_error=runtime_error,
+            skill_sha256=skill_hash,
+            simulator_sha256=source_sha256(simulator_path),
+            verifier_sha256=source_sha256(verifier_path),
+        )
+
+    try:
+        verifier_checks = verifier(instrument_id, family, trace, telemetry)
+        if not isinstance(verifier_checks, tuple) or any(
+            not isinstance(check, GateCheck) for check in verifier_checks
+        ):
+            raise TypeError("verifier must return a tuple of GateCheck values")
+    except Exception as exc:
+        verifier_error = f"{type(exc).__name__}: {exc}"
+        return HardGateResult(
+            instrument_id=instrument_id,
+            family=family,
+            scenario=scenario,
+            verdict="HOLD",
+            status="unavailable",
+            checks=(
+                GateCheck(
+                    check_id="verifier-execution",
+                    passed=False,
+                    evidence={"error": verifier_error},
+                ),
+            ),
+            trace=trace,
+            telemetry=telemetry,
+            result=result,
+            runtime_error=verifier_error,
             skill_sha256=skill_hash,
             simulator_sha256=source_sha256(simulator_path),
             verifier_sha256=source_sha256(verifier_path),
@@ -315,7 +385,7 @@ def evaluate_controller_skill(
             if condition_values
             else ()
         ),
-        *verifier(instrument_id, family, trace, telemetry),
+        *verifier_checks,
     )
     admitted = all(check.passed for check in checks)
     return HardGateResult(

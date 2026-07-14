@@ -70,7 +70,7 @@
     "summary_sha256": "854500218c909762d7060a635cf91ee7b68f53b49344586f9caed2c5c52e6206"
   },
   "media": {
-    "video_path": "public/proprio-demo.mp4",
+    "video_path": "https://dynamicalsystems.ai/proprio-demo.mp4",
     "video_sha256": "a6693993ab7776001ef0efc628e72c4262775b4bf6f82787828de324f643fa04",
     "bytes": 56968292,
     "codec": "h264",

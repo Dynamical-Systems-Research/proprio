@@ -8,7 +8,7 @@ Independent execution and physical checks decide what enters the skill library.
 
 Verified in simulation. Hardware validation remains separate.
 
-[Research blog](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition) ·
+[Technical report](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition) ·
 [Skill catalog](catalog.json) ·
 [Published skills](skills) ·
 [OpenFlexure full-loop demo](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition#demo) ·
@@ -118,7 +118,7 @@ the agent to draft a skill from it alone.
 ```bash
 mkdir -p runs/candidate
 uv run proprio inspect-source \
-  --instrument north-pipette-calibration > runs/source.json
+  --instrument proprio.external_reference.north-pipette-calibration > runs/source.json
 ```
 
 > Read `runs/source.json`. Using only that source and its controller contract, create
@@ -129,7 +129,7 @@ uv run proprio inspect-source \
 
 ```bash
 uv run proprio execute-candidate \
-  --instrument north-pipette-calibration \
+  --instrument proprio.external_reference.north-pipette-calibration \
   --candidate-dir runs/candidate \
   --output-dir runs/attempt-001
 uv run proprio read-visible-evidence \
@@ -147,7 +147,7 @@ these during drafting or repair.
 
 ```bash
 uv run proprio verify-locked \
-  --instrument north-pipette-calibration \
+  --instrument proprio.external_reference.north-pipette-calibration \
   --candidate-dir runs/candidate \
   --output-dir runs/locked
 ```
@@ -162,7 +162,7 @@ replays the behavior that admitted its parent.
 
 ```bash
 uv run proprio stage-evolution \
-  --instrument north-pipette-calibration \
+  --instrument proprio.external_reference.north-pipette-calibration \
   --parent-dir runs/admitted \
   --candidate-dir runs/proposal \
   --output-dir runs/evolution
@@ -171,6 +171,16 @@ uv run proprio stage-evolution \
 These operations are also importable from [`proprio.interface`](src/proprio/interface.py) as
 `inspect_source`, `execute_candidate`, `read_visible_evidence`, `verify_locked`, and
 `stage_evolution`. The agent owns its context; Proprio owns execution records and promotion.
+
+## Add an instrument provider
+
+Install a Python package that publishes a versioned `proprio.instrument_providers` entry point.
+Its namespaced instruments become available to the same commands above without editing Proprio.
+The provider supplies documentation, a bounded controller adapter, simulator, conditions, and an
+independent verifier; Proprio retains execution records and admission authority. See
+[`docs/instrument-providers.md`](docs/instrument-providers.md) for the small contract and package
+example. Installing a provider does not publish or admit a skill, and simulation does not qualify
+hardware.
 
 ## Reference verification
 
@@ -190,6 +200,8 @@ uv run proprio skill-admission --output-dir runs/skill-admission
   operating code, and compact verification records.
 - [`src/proprio`](src/proprio) is the reusable method implementation: bounded execution,
   reduced-order simulators, independent verifiers, acquisition, replay, and evolution gates.
+- [`docs/instrument-providers.md`](docs/instrument-providers.md) is the extension contract for
+  separately installable instrument/simulator packages.
 - [`catalog.json`](catalog.json) is the content-addressed publication manifest.
 - [`sources`](sources), [`tests`](tests), and focused verification artifacts reproduce and extend
   the qualification method. Run transcripts and experimental logs are generated locally under
