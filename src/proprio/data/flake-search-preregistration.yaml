@@ -42,7 +42,7 @@
 schema_version: proprio.flake_search_preregistration.v1
 frozen_at: "2026-07-14T00:00:00Z"
 # Filled by the release/commit step after this file's own commit hash exists; do not guess it.
-frozen_at_commit: "SET-AT-COMMIT"
+frozen_at_commit: "bc6c834"
 claim_boundary: >-
   Verified in simulation only, against a reduced-order deterministic optical flake-search model.
   The claim is workflow-level: declared-region coverage, chip-relative coordinate integrity,

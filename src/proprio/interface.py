@@ -114,6 +114,7 @@ def inspect_source(instrument: str) -> dict[str, Any]:
             },
             "skill_py": {
                 "entrypoint": "run(controller)",
+                "entrypoint_returns": "dictionary",
                 "imports": False,
                 "controller_calls_only": "controller methods plus bounded range(...) calls",
                 "direct_controller_state_reads": False,

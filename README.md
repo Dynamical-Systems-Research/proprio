@@ -125,7 +125,8 @@ uv run proprio inspect-source \
 
 > Read `runs/source.json`. Using only that source and its controller contract, create
 > `runs/candidate/SKILL.md` and `runs/candidate/skill.py`. The Python entry point must be
-> `run(controller)`. Do not inspect existing skills, verifier code, evidence, or locked conditions.
+> `run(controller)` and return a dictionary. Do not inspect existing skills, verifier code,
+> evidence, or locked conditions.
 
 ### 4. Execute, inspect, and repair
 
