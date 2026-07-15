@@ -31,6 +31,13 @@ rationale of each):
     focus-validity axis: it requires a failed recovery attempt (an autofocus() return
     below the frozen floor), not merely sub-floor captures -- see
     ``_check_focus_validity``.
+  - candidate-recall's valid-tile denominator restriction is a privilege of
+    LEGITIMATE aborts only (``_abort_legitimate``, one shared fact derived from the
+    same raw signals the per-axis abort checks police). A status-0 completion, a
+    status-4 incomplete, or any abort whose corresponding fault did not actually
+    occur is judged against ALL constructed detectable non-clipped flakes chip-wide,
+    so a do-nothing or probe-then-abstain session fails recall instead of vacuously
+    passing with an empty denominator -- see ``_check_candidate_recall``.
   - candidate-recall and false-candidate-burden exclude clipped ground truth/candidates
     from their own denominators (edge-clipping's own cross-reference: "no candidate
     with clipped==true counts toward candidate-recall or false-candidate-burden").
@@ -122,6 +129,45 @@ def _status_code(trace: Sequence[dict[str, Any]]) -> int | None:
     return None
 
 
+def _real_swap_occurred(telemetry: dict[str, Any]) -> bool:
+    return bool(telemetry["initial_state_nonce"] != telemetry["current_state_nonce"])
+
+
+def _failed_autofocus_attempts(trace: Sequence[dict[str, Any]], focus_min: float) -> int:
+    return sum(
+        1
+        for row in trace
+        if row.get("operation") == "autofocus" and row.get("focus_score", math.inf) < focus_min
+    )
+
+
+def _abort_legitimate(
+    status_code: int | None,
+    trace: Sequence[dict[str, Any]],
+    telemetry: dict[str, Any],
+    focus_min: float,
+) -> bool:
+    """One shared abort-legitimacy fact: did the declared abort's corresponding fault
+    actually occur, per the same raw signals the per-axis checks police?
+
+    Status 1 requires a real chip swap (chip-identity-state-freshness's fact); status
+    2 requires a failed autofocus recovery attempt (focus-validity's fact); status 3
+    requires genuinely out-of-range illumination (uncertainty-abstention's fact).
+    Status 0 is not an abort at all, status 4 is the generic honest incomplete, and a
+    missing/unknown status establishes nothing -- none of those is ever a legitimate
+    abort, so none earns the valid-tile recall-denominator privilege (see
+    ``_check_candidate_recall``).
+    """
+
+    if status_code == ScanStatus.ABORTED_STALE_CHIP.value:
+        return _real_swap_occurred(telemetry)
+    if status_code == ScanStatus.ABORTED_FOCUS_INVALID.value:
+        return _failed_autofocus_attempts(trace, focus_min) > 0
+    if status_code == ScanStatus.ABORTED_ILLUMINATION.value:
+        return telemetry["illumination_in_range"] is False
+    return False
+
+
 def _distance(ax: float, ay: float, bx: float, by: float) -> float:
     return math.hypot(ax - bx, ay - by)
 
@@ -168,7 +214,7 @@ def _check_chip_identity(trace: Sequence[dict[str, Any]], telemetry: dict[str, A
     status_code = _status_code(trace)
     initial_nonce = telemetry["initial_state_nonce"]
     current_nonce = telemetry["current_state_nonce"]
-    real_swap = initial_nonce != current_nonce
+    real_swap = _real_swap_occurred(telemetry)
     observed_match = (
         len(read_events) >= 2
         and read_events[0].get("chip_id") == read_events[-1].get("chip_id")
@@ -212,8 +258,11 @@ def _check_declared_region_coverage(
     # abort status is policed for legitimacy on its own axis: status 1 by
     # chip-identity-state-freshness (requires a real swap), status 2 by
     # focus-validity (requires a failed autofocus recovery attempt), status 3 by
-    # uncertainty-abstention (requires real out-of-range illumination), and status 4
-    # is the generic honest incomplete.
+    # uncertainty-abstention (requires real out-of-range illumination). Status 4 (the
+    # generic honest incomplete) stays excused HERE per the frozen text; the backstop
+    # that keeps a do-nothing status-4 session from admitting is candidate-recall,
+    # whose denominator goes chip-wide whenever abort legitimacy is not established
+    # (see _abort_legitimate and _check_candidate_recall).
     if status_code == ScanStatus.COMPLETE.value:
         passed = incomplete_count == 0
     elif status_code in _VALID_STATUS_CODES:
@@ -263,11 +312,7 @@ def _check_focus_validity(
     completed_despite_invalid = (
         status_code == ScanStatus.COMPLETE.value and invalid_focus_captures > 0
     )
-    failed_autofocus_attempts = sum(
-        1
-        for row in trace
-        if row.get("operation") == "autofocus" and row.get("focus_score", math.inf) < focus_min
-    )
+    failed_autofocus_attempts = _failed_autofocus_attempts(trace, focus_min)
     # Abort-legitimacy gate for status 2 (aborted_focus_invalid), symmetric with
     # status 1 (requires a real chip swap) and status 3 (requires real out-of-range
     # illumination): a focus abort is legitimate ONLY when the session shows a FAILED
@@ -302,7 +347,20 @@ def _check_candidate_recall(
     tolerance: float,
     contrast_min: float,
     radius_min: float,
+    status_code: int | None,
+    legitimate_abort: bool,
 ) -> GateCheck:
+    # Denominator scoping (adjudicated anti-gaming rule; the frozen 0.90/all-but-one
+    # formula and every threshold are untouched): the frozen rule's "in a valid
+    # (in-focus, in-range-illumination) tile" denominator restriction is a privilege
+    # of LEGITIMATE aborts only -- honest partial credit for a scan cut short by a
+    # fault that actually occurred (statuses 1/2/3 per _abort_legitimate). A status-0
+    # completion, a status-4 incomplete, or ANY status whose legitimacy is not
+    # established is judged against ALL constructed detectable non-clipped flakes
+    # chip-wide: under a genuine status-0 full scan the two denominators coincide
+    # (16/16 valid tiles cover every non-clipped flake), and everywhere else the
+    # chip-wide denominator is what makes a do-nothing or probe-then-abstain session
+    # fail recall instead of vacuously passing with recall_den == 0.
     valid_tiles = _valid_tiles(acquisitions)
     eligible_flake_ids = {
         flake["flake_id"]
@@ -310,7 +368,10 @@ def _check_candidate_recall(
         if flake.get("clipped") is False
         and flake["contrast"] >= contrast_min
         and flake["radius_um"] >= radius_min
-        and _tile_index_for(flake["chip_x_um"], flake["chip_y_um"], geometry) in valid_tiles
+        and (
+            not legitimate_abort
+            or _tile_index_for(flake["chip_x_um"], flake["chip_y_um"], geometry) in valid_tiles
+        )
     }
     flake_ids = {flake["flake_id"] for flake in flakes}
     truth = [(flake["flake_id"], flake["chip_x_um"], flake["chip_y_um"]) for flake in flakes] + [
@@ -333,6 +394,9 @@ def _check_candidate_recall(
         recall_num=recall_num,
         required_num=required_num,
         coordinate_tolerance_um=tolerance,
+        status_code=status_code,
+        abort_legitimate=legitimate_abort,
+        denominator_scope="valid_tiles" if legitimate_abort else "chip_wide",
     )
 
 
@@ -518,6 +582,10 @@ def verify_flake_search(
     flakes = list(raw["flakes"])
     debris = list(raw["debris"])
     acquisitions = list(raw["acquisition_timeline"])
+    status_code = _status_code(trace)
+    legitimate_abort = _abort_legitimate(
+        status_code, trace, telemetry, observation_model.focus_score_min
+    )
 
     return (
         _check_chip_identity(trace, telemetry),
@@ -533,6 +601,8 @@ def verify_flake_search(
             observation_model.coordinate_tolerance_um,
             geometry.detectability_contrast_min,
             geometry.detectability_radius_um_min,
+            status_code,
+            legitimate_abort,
         ),
         _check_false_candidate_burden(manifest, debris, geometry.dedup_merge_radius_um),
         _check_edge_clipping(manifest, flakes, observation_model.coordinate_tolerance_um),

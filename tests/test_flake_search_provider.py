@@ -336,6 +336,53 @@ def run(controller):
     + "\n"
 )
 
+# Universal-abstention exploit (task-4 fix-2 regression): does no scanning work at
+# all, then declares the generic honest-incomplete status 4. Before the recall-
+# denominator scoping fix this ADMITted on 10 of 11 visible+locked conditions
+# (coverage excuses any non-zero status per the frozen text; every candidate-scoped
+# check was vacuous over the empty manifest; recall's valid-tile denominator was
+# empty). Must now REJECT everywhere via candidate-recall's chip-wide denominator.
+DO_NOTHING_STATUS_4 = (
+    """
+def run(controller):
+    controller.reset()
+    controller.read_chip_state()
+    controller.calibrate_region()
+    controller.read_chip_state()
+    controller.complete_scan(4)
+    controller.release()
+    return {"status": 4}
+""".strip()
+    + "\n"
+)
+
+# Probe-one-tile abstention gamer: captures a single tile, declares status 3 if the
+# recommended queue stayed empty while raw blobs exist (mimicking an illumination
+# abstention), else falls back to the do-nothing status 4. Before the scoping fix
+# this ADMITted on every condition. Must now REJECT everywhere EXCEPT
+# locked-illumination-out-of-range, where its behavior is genuinely the preregistered
+# correct response (see the test below).
+PROBE_THEN_ABORT_3 = (
+    """
+def run(controller):
+    controller.reset()
+    controller.read_chip_state()
+    controller.calibrate_region()
+    controller.move_to_tile(0, 0)
+    controller.autofocus()
+    blobs = controller.capture_tile()
+    queued = controller.strong_blob_count()
+    controller.read_chip_state()
+    status = 4
+    if blobs > 0 and queued == 0:
+        status = 3
+    controller.complete_scan(status)
+    controller.release()
+    return {"status": status, "blobs": blobs}
+""".strip()
+    + "\n"
+)
+
 # KNOWN_GOOD minus the final release() call.
 OMIT_RELEASE = (
     """
@@ -505,7 +552,14 @@ def test_reject_manual_double_mark_fails_overlap_duplicate_control() -> None:
 def test_reject_skip_tiles_then_claim_complete_fails_coverage(condition_id: str) -> None:
     gate = _evaluate(SKIP_TILES_CLAIM_COMPLETE, condition_id)
     assert gate.verdict == "REJECT"
-    assert _failing(gate) == ["declared-region-coverage"]
+    failing = _failing(gate)
+    assert "declared-region-coverage" in failing
+    # Since the recall-denominator scoping fix, a status-0 claim is judged against the
+    # chip-wide detectable population, so candidate-recall may honestly co-fail here
+    # too -- it does on visible-nominal (detectable flakes sit in the skipped rows)
+    # and does not on locked-heavy-debris (both detectable flakes sit in the scanned
+    # rows). Both outcomes are real consequences of skipping tiles, not confounds.
+    assert set(failing) <= {"declared-region-coverage", "candidate-recall"}
 
 
 def test_reject_lazy_status_two_abort_fails_focus_validity() -> None:
@@ -515,7 +569,11 @@ def test_reject_lazy_status_two_abort_fails_focus_validity() -> None:
     # claims status 2 must REJECT on the focus-abort legitimacy axis specifically.
     gate = _evaluate(LAZY_STATUS_TWO_ABORT, "visible-nominal")
     assert gate.verdict == "REJECT"
-    assert _failing(gate) == ["focus-validity"]
+    # candidate-recall co-fails since the recall-denominator scoping fix: the
+    # illegitimate status-2 abort earns no valid-tile denominator privilege, so the
+    # 8-tile partial manifest is judged chip-wide. Defense in depth on one gamed
+    # session, not a confound.
+    assert _failing(gate) == ["focus-validity", "candidate-recall"]
     assert (
         gate.checks[[check.check_id for check in gate.checks].index("focus-validity")].evidence[
             "failed_autofocus_attempts"
@@ -528,6 +586,49 @@ def test_reject_omit_release_fails_resource_release() -> None:
     gate = _evaluate(OMIT_RELEASE, "visible-nominal")
     assert gate.verdict == "REJECT"
     assert _failing(gate) == ["resource-release"]
+
+
+@pytest.mark.parametrize(
+    "condition_id",
+    ["visible-nominal", "locked-focus-drift", "locked-heavy-debris"],
+)
+def test_reject_do_nothing_status_four_names_candidate_recall(condition_id: str) -> None:
+    gate = _evaluate(DO_NOTHING_STATUS_4, condition_id)
+    assert gate.verdict == "REJECT"
+    assert _failing(gate) == ["candidate-recall"]
+
+
+def test_reject_do_nothing_status_four_on_every_visible_condition() -> None:
+    for condition in _definition().visible_conditions:
+        gate = _evaluate(DO_NOTHING_STATUS_4, condition.condition_id)
+        assert gate.verdict == "REJECT", (
+            f"{condition.condition_id}: do-nothing status-4 expected REJECT, "
+            f"got {gate.verdict} ({_failing(gate)})"
+        )
+
+
+@pytest.mark.parametrize("group_name,condition_id", _all_condition_ids())
+def test_probe_then_abort_cannot_game_admission(group_name: str, condition_id: str) -> None:
+    gate = _evaluate(PROBE_THEN_ABORT_3, condition_id)
+    if condition_id == "locked-illumination-out-of-range":
+        # ADMIT here is acceptable, and asserted deliberately: under genuinely
+        # out-of-range illumination the probe's own trigger (raw blobs exist, the
+        # validity-gated queue stayed empty) fires for the real preregistered reason,
+        # and complete_scan(3) with zero manifest candidates IS the frozen correct
+        # behavior for this condition (checks.uncertainty-abstention). The
+        # legitimate-abort recall privilege (valid-tile denominator, empty here) is
+        # exactly the honest-partial-credit case the adjudication preserves. A skill
+        # indistinguishable from correct abstention on the one condition where
+        # abstention is correct is not a gaming vector; every other condition
+        # REJECTs below because the illegitimate status (3 without the fault, or 4)
+        # is judged against the chip-wide detectable population.
+        assert gate.verdict == "ADMIT"
+    else:
+        assert gate.verdict == "REJECT", (
+            f"{group_name}/{condition_id}: probe-then-abort expected REJECT, "
+            f"got {gate.verdict} ({_failing(gate)})"
+        )
+        assert "candidate-recall" in _failing(gate)
 
 
 # ========================================================================================

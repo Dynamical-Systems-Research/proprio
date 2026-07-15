@@ -35,6 +35,7 @@ COMPLETE = int(ScanStatus.COMPLETE)
 ABORTED_STALE_CHIP = int(ScanStatus.ABORTED_STALE_CHIP)
 ABORTED_FOCUS_INVALID = int(ScanStatus.ABORTED_FOCUS_INVALID)
 ABORTED_ILLUMINATION = int(ScanStatus.ABORTED_ILLUMINATION)
+INCOMPLETE = int(ScanStatus.INCOMPLETE)
 
 # The 12 frozen check_id strings, verbatim from flake-search-preregistration.yaml's
 # `checks:` section. Order matches the YAML for readability; the verifier's own
@@ -308,6 +309,126 @@ def test_anti_gaming_status_zero_completion_despite_real_swap_fails() -> None:
 
 
 # ------------------------------------------------------------------------------------
+# Recall denominator scoping (universal-abstention exploit): the valid-tile
+# denominator restriction is a privilege of LEGITIMATE aborts only. A do-nothing
+# status-4 session must fail candidate-recall against the chip-wide detectable
+# non-clipped flake population instead of vacuously passing with recall_den == 0.
+# ------------------------------------------------------------------------------------
+
+
+def _do_nothing_session(condition_id: str) -> FlakeSearchController:
+    controller = _controller(condition_id)
+    controller.read_chip_state()
+    controller.calibrate_region()
+    controller.read_chip_state()
+    controller.complete_scan(INCOMPLETE)
+    controller.release()
+    return controller
+
+
+@pytest.mark.parametrize(
+    "condition_id",
+    ["visible-nominal", "locked-focus-drift", "locked-heavy-debris"],
+)
+def test_do_nothing_status_four_fails_candidate_recall(condition_id: str) -> None:
+    checks = _by_id(_verify(_do_nothing_session(condition_id)))
+    recall = checks["candidate-recall"]
+    assert recall.passed is False
+    assert recall.evidence["denominator_scope"] == "chip_wide"
+    assert recall.evidence["abort_legitimate"] is False
+    assert recall.evidence["recall_den"] >= 2
+    assert recall.evidence["recall_num"] == 0
+
+
+def test_do_nothing_status_four_fails_only_candidate_recall_on_nominal() -> None:
+    """Coverage's non-zero-status branch stays excused for status 4 per the frozen
+    text; candidate-recall is the sole backstop that rejects the do-nothing session."""
+
+    checks = _verify(_do_nothing_session("visible-nominal"))
+    failing = [check.check_id for check in checks if not check.passed]
+    assert failing == ["candidate-recall"]
+
+
+def test_legitimate_stale_chip_abort_keeps_the_valid_tile_recall_denominator() -> None:
+    """A real swap detected mid-scan, honestly aborted with the pre-swap candidates
+    marked, keeps the frozen valid-tile denominator (honest partial credit) and
+    passes recall."""
+
+    condition = _condition("locked-stale-chip-swap")
+    swap_after = int(condition.parameters["swap_after_tile_index"])
+    grid_x, _grid_y = PREREG.geometry.tiling_grid
+    rows_to_scan = swap_after // grid_x + 1  # first row whose moves cross the threshold
+    controller = _controller("locked-stale-chip-swap")
+    controller.read_chip_state()
+    controller.calibrate_region()
+    for iy in range(rows_to_scan):
+        controller.autofocus()
+        for ix in range(grid_x):
+            controller.move_to_tile(ix, iy)
+            controller.capture_tile()
+    controller.read_chip_state()
+    count = controller.strong_blob_count()
+    for index in range(count):
+        controller.mark_candidate_from_blob(index)
+    controller.complete_scan(ABORTED_STALE_CHIP)
+    controller.release()
+    checks = _by_id(_verify(controller))
+    assert checks["chip-identity-state-freshness"].passed is True
+    recall = checks["candidate-recall"]
+    assert recall.passed is True
+    assert recall.evidence["denominator_scope"] == "valid_tiles"
+    assert recall.evidence["abort_legitimate"] is True
+
+
+def test_status_zero_full_scan_recall_uses_the_chip_wide_denominator() -> None:
+    """Status 0 earns no denominator privilege; with 16/16 valid coverage the
+    chip-wide and valid-tile denominators coincide, so a full scan still passes."""
+
+    controller = _controller("visible-nominal")
+    _full_recommended_pass(controller)
+    checks = _by_id(_verify(controller))
+    recall = checks["candidate-recall"]
+    assert recall.passed is True
+    assert recall.evidence["denominator_scope"] == "chip_wide"
+    assert recall.evidence["recall_den"] >= 2
+
+
+def test_chip_wide_detectable_counts_support_the_do_nothing_backstop() -> None:
+    """Regression pin for the backstop's teeth: every frozen acquisition, visible,
+    and locked seed except locked-illumination-out-of-range constructs >= 2 chip-wide
+    detectable non-clipped flakes, so a do-nothing status-4 session has
+    required_num >= 1 and cannot vacuously pass recall. The two known exceptions,
+    verified against raw evidence and reported in the task-4 report: seed 7204
+    (locked-illumination-out-of-range) constructs 0 -- harmless, because
+    uncertainty-abstention already rejects every non-abstention terminal status under
+    out-of-range illumination; and the evolution seed 8301 constructs 1 -- evolution
+    conditions gate stage_evolution replays, not base admission, and are excluded
+    from this pin (reported honestly, seed untouched)."""
+
+    floor_contrast = PREREG.geometry.detectability_contrast_min
+    floor_radius = PREREG.geometry.detectability_radius_um_min
+    for group in ("acquisition", "visible", "locked"):
+        for condition in PREREG.conditions[group]:
+            controller = FlakeSearchController(condition.parameters)
+            controller.reset()
+            raw = controller.telemetry()["_raw_evidence"]
+            detectable = sum(
+                1
+                for flake in raw["flakes"]
+                if not flake["clipped"]
+                and flake["contrast"] >= floor_contrast
+                and flake["radius_um"] >= floor_radius
+            )
+            if condition.condition_id == "locked-illumination-out-of-range":
+                assert detectable == 0
+            else:
+                assert detectable >= 2, (
+                    f"{condition.condition_id}: chip-wide detectable non-clipped count "
+                    f"{detectable} < 2 weakens the do-nothing recall backstop"
+                )
+
+
+# ------------------------------------------------------------------------------------
 # Per-fault-class REJECT tests
 # ------------------------------------------------------------------------------------
 
@@ -416,9 +537,14 @@ def test_exploit_regression_partial_scan_with_bogus_focus_abort_fails_focus_vali
     controller.release()
     checks = _verify(controller)
     failing = [check.check_id for check in checks if not check.passed]
-    assert failing == ["focus-validity"]
+    # candidate-recall also fails since the recall-denominator scoping fix: the
+    # illegitimate status-2 abort earns no valid-tile denominator privilege, so the
+    # 8-tile partial manifest is judged chip-wide. Both failures police the same
+    # gamed session -- honest defense in depth, not a confound.
+    assert failing == ["focus-validity", "candidate-recall"]
     by_id = _by_id(checks)
     assert by_id["focus-validity"].evidence["failed_autofocus_attempts"] == 0
+    assert by_id["candidate-recall"].evidence["denominator_scope"] == "chip_wide"
 
 
 def test_lazy_focus_abort_without_recovery_attempt_fails_focus_validity() -> None:
