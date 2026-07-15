@@ -548,18 +548,26 @@ def test_reject_manual_double_mark_fails_overlap_duplicate_control() -> None:
     assert _failing(gate) == ["overlap-duplicate-control"]
 
 
-@pytest.mark.parametrize("condition_id", ["visible-nominal", "locked-heavy-debris"])
-def test_reject_skip_tiles_then_claim_complete_fails_coverage(condition_id: str) -> None:
+@pytest.mark.parametrize(
+    ("condition_id", "expected_failing"),
+    [
+        # Since the recall-denominator scoping fix, a status-0 claim is judged against
+        # the chip-wide detectable population, so candidate-recall may honestly co-fail
+        # here too -- it does on visible-nominal (detectable flakes sit in the skipped
+        # rows) and does not on locked-heavy-debris (both detectable flakes sit in the
+        # scanned rows). Both outcomes are real consequences of skipping tiles, not
+        # confounds; pinned exactly (not as a bounded superset) so a future change that
+        # silently drops either co-failure is caught.
+        ("visible-nominal", ["declared-region-coverage", "candidate-recall"]),
+        ("locked-heavy-debris", ["declared-region-coverage"]),
+    ],
+)
+def test_reject_skip_tiles_then_claim_complete_fails_coverage(
+    condition_id: str, expected_failing: list[str]
+) -> None:
     gate = _evaluate(SKIP_TILES_CLAIM_COMPLETE, condition_id)
     assert gate.verdict == "REJECT"
-    failing = _failing(gate)
-    assert "declared-region-coverage" in failing
-    # Since the recall-denominator scoping fix, a status-0 claim is judged against the
-    # chip-wide detectable population, so candidate-recall may honestly co-fail here
-    # too -- it does on visible-nominal (detectable flakes sit in the skipped rows)
-    # and does not on locked-heavy-debris (both detectable flakes sit in the scanned
-    # rows). Both outcomes are real consequences of skipping tiles, not confounds.
-    assert set(failing) <= {"declared-region-coverage", "candidate-recall"}
+    assert _failing(gate) == expected_failing
 
 
 def test_reject_lazy_status_two_abort_fails_focus_validity() -> None:

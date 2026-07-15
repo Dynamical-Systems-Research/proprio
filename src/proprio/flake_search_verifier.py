@@ -141,6 +141,10 @@ def _failed_autofocus_attempts(trace: Sequence[dict[str, Any]], focus_min: float
     )
 
 
+def _illumination_bad(telemetry: dict[str, Any]) -> bool:
+    return telemetry["illumination_in_range"] is False
+
+
 def _abort_legitimate(
     status_code: int | None,
     trace: Sequence[dict[str, Any]],
@@ -164,7 +168,7 @@ def _abort_legitimate(
     if status_code == ScanStatus.ABORTED_FOCUS_INVALID.value:
         return _failed_autofocus_attempts(trace, focus_min) > 0
     if status_code == ScanStatus.ABORTED_ILLUMINATION.value:
-        return telemetry["illumination_in_range"] is False
+        return _illumination_bad(telemetry)
     return False
 
 
@@ -486,7 +490,7 @@ def _check_uncertainty_abstention(
 ) -> GateCheck:
     status_code = _status_code(trace)
     illumination_in_range = telemetry["illumination_in_range"]
-    illumination_bad = illumination_in_range is False
+    illumination_bad = _illumination_bad(telemetry)
     if status_code == ScanStatus.ABORTED_ILLUMINATION.value:
         passed = illumination_bad and len(manifest) == 0
     elif illumination_bad:

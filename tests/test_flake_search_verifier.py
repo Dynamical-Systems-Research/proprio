@@ -428,6 +428,110 @@ def test_chip_wide_detectable_counts_support_the_do_nothing_backstop() -> None:
                 )
 
 
+def test_valid_tile_recall_denominator_pin_for_locked_abort_trajectories() -> None:
+    """Regression pin for the OTHER recall-denominator scope's vacuity check
+    (companion to test_chip_wide_detectable_counts_support_the_do_nothing_backstop,
+    which pins the chip-wide scope). required_num = 0 if recall_den == 0 else
+    min(recall_den - 1, ceil(0.90 * recall_den)) is vacuous at recall_den in {0, 1};
+    the valid_tiles scope is exercised only by LEGITIMATE aborts (status 1/2/3, see
+    _abort_legitimate) and had no pin before this test. Pins each locked abort
+    condition's own canonical honest trajectory, with locked-illumination-out-of-range
+    documented as the one intentional exception: its valid_tiles denominator is 0 BY
+    DESIGN because uncertainty-abstention, not candidate-recall, is the check that
+    actually polices out-of-range illumination.
+    """
+
+    # locked-stale-chip-swap: honest partial scan through the real swap point, then a
+    # legitimate status-1 abort with the pre-swap candidates marked (same trajectory as
+    # test_legitimate_stale_chip_abort_keeps_the_valid_tile_recall_denominator above).
+    condition = _condition("locked-stale-chip-swap")
+    swap_after = int(condition.parameters["swap_after_tile_index"])
+    grid_x, _grid_y = GEOMETRY.tiling_grid
+    rows_to_scan = swap_after // grid_x + 1  # first row whose moves cross the threshold
+    controller = _controller("locked-stale-chip-swap")
+    controller.read_chip_state()
+    controller.calibrate_region()
+    for iy in range(rows_to_scan):
+        controller.autofocus()
+        for ix in range(grid_x):
+            controller.move_to_tile(ix, iy)
+            controller.capture_tile()
+    controller.read_chip_state()
+    count = controller.strong_blob_count()
+    for index in range(count):
+        controller.mark_candidate_from_blob(index)
+    controller.complete_scan(ABORTED_STALE_CHIP)
+    controller.release()
+    recall = _by_id(_verify(controller))["candidate-recall"]
+    assert recall.evidence["abort_legitimate"] is True
+    assert recall.evidence["denominator_scope"] == "valid_tiles"
+    assert recall.evidence["recall_den"] == 2
+
+    # locked-focus-drift: a full recommended-shape pass with autofocus called before
+    # every move (decay never crosses the floor, so all 16 tiles are genuinely valid),
+    # then a status-2 abort with one synthesized failed recovery attempt patched onto
+    # the trace -- autofocus() unconditionally restores focus to nominal in this
+    # simulator, so a real sub-floor RETURN is not producible by any call sequence
+    # (same synthetic-evidence technique as
+    # test_legitimate_focus_abort_with_failed_recovery_attempt_passes_focus_validity
+    # below). With full coverage, the valid_tiles and chip_wide denominators coincide,
+    # so this pins the same count (7) as this condition's row in
+    # test_chip_wide_detectable_counts_support_the_do_nothing_backstop above.
+    controller = _controller("locked-focus-drift")
+    controller.read_chip_state()
+    controller.calibrate_region()
+    grid_x, grid_y = GEOMETRY.tiling_grid
+    for iy in range(grid_y):
+        for ix in range(grid_x):
+            controller.autofocus()
+            controller.move_to_tile(ix, iy)
+            controller.capture_tile()
+    controller.read_chip_state()
+    count = controller.strong_blob_count()
+    for index in range(count):
+        controller.mark_candidate_from_blob(index)
+    controller.complete_scan(ABORTED_FOCUS_INVALID)
+    controller.release()
+    telemetry = controller.telemetry()
+    trace = [dict(row) for row in controller.trace]
+    for row in reversed(trace):
+        if row["operation"] == "autofocus":
+            row["focus_score"] = OBSERVATION_MODEL.focus_score_min - 0.05
+            break
+    recall = _by_id(verify_flake_search(trace, telemetry))["candidate-recall"]
+    assert recall.evidence["abort_legitimate"] is True
+    assert recall.evidence["denominator_scope"] == "valid_tiles"
+    assert recall.evidence["recall_den"] == 7
+
+    # locked-illumination-out-of-range: den == 0 here is intentional, not an oversight.
+    # Pin both halves: the honest immediate-abstention trajectory (same as
+    # test_pass_correct_abstention_under_real_illumination_fault above) constructs
+    # recall_den == 0 and vacuously passes candidate-recall, AND, on the identical
+    # fault, uncertainty-abstention is the check that actually polices a gamed
+    # non-empty manifest (mirrors
+    # test_reject_emit_manifest_under_out_of_range_illumination_fails_abstention
+    # below) -- so the vacuity has a live backstop, not a silent hole.
+    honest = _controller("locked-illumination-out-of-range")
+    honest.read_chip_state()
+    honest.complete_scan(ABORTED_ILLUMINATION)
+    honest.release()
+    honest_checks = _by_id(_verify(honest))
+    honest_recall = honest_checks["candidate-recall"]
+    assert honest_recall.evidence["abort_legitimate"] is True
+    assert honest_recall.evidence["denominator_scope"] == "valid_tiles"
+    assert honest_recall.evidence["recall_den"] == 0
+    assert honest_recall.passed is True
+    assert honest_checks["uncertainty-abstention"].passed is True
+
+    gamed = _controller("locked-illumination-out-of-range")
+    gamed.read_chip_state()
+    gamed.move_to_tile(0, 0)
+    gamed.mark_candidate(1000.0, 1000.0, 25.0, 0.5, False)
+    gamed.complete_scan(ABORTED_ILLUMINATION)
+    gamed.release()
+    assert _by_id(_verify(gamed))["uncertainty-abstention"].passed is False
+
+
 # ------------------------------------------------------------------------------------
 # Per-fault-class REJECT tests
 # ------------------------------------------------------------------------------------
