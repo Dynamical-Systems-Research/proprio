@@ -8,9 +8,11 @@ tests fail if the frozen YAML and this test file drift apart.
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import re
 from importlib.resources import files
+from typing import Any
 
 import pytest
 
@@ -31,6 +33,7 @@ from proprio.flake_search_types import (
     FOCUS_SCORE_MIN,
     ConditionSpec,
     FlakeSearchPreregistration,
+    ScanStatus,
     contract_geometry,
     contract_observation_model,
     load_flake_search_preregistration,
@@ -332,6 +335,42 @@ def test_mirrored_frame_applies_only_when_uncalibrated() -> None:
                 chip_x = origin_x + ix * tile_w + x
                 chip_y = origin_y + iy * tile_h + y
                 assert _nearest_truth_distance(chip_x, chip_y, truth_points) <= noise_bound * 2**0.5
+
+
+@pytest.mark.parametrize("condition_id", ["locked-wrong-origin-offset", "locked-mirrored-frame"])
+def test_calibration_gated_faults_on_the_recommended_path(condition_id: str) -> None:
+    """Regression for the fault-gating fix: recommended path is empty while
+    uncalibrated (valid_acquisition_rule), and coordinate-correct once calibrated."""
+
+    condition = _condition(condition_id)
+
+    uncalibrated = FlakeSearchController(condition.parameters)
+    uncalibrated.reset()
+    _full_scan(uncalibrated, calibrate=False)
+    assert uncalibrated.strong_blob_count() == 0
+    assert uncalibrated.mark_candidate_from_blob(0) is False
+    assert uncalibrated.telemetry()["manifest_size"] == 0
+    timeline = uncalibrated.telemetry()["_raw_evidence"]["acquisition_timeline"]
+    assert timeline and all(not entry["valid"] for entry in timeline)
+
+    calibrated = FlakeSearchController(condition.parameters)
+    calibrated.reset()
+    _full_scan(calibrated, calibrate=True)
+    count = calibrated.strong_blob_count()
+    assert count > 0
+    for index in range(count):
+        calibrated.mark_candidate_from_blob(index)
+    telemetry = calibrated.telemetry()
+    truth_by_id = {item["flake_id"]: item for item in telemetry["_raw_evidence"]["flakes"]}
+    per_axis_bound = STAGE_NOISE_UM + QUANTIZATION_STEP_UM / 2 + HOMOGRAPHY_RESIDUAL_UM
+    manifest = telemetry["_raw_evidence"]["manifest"]
+    queue_truth = telemetry["_raw_evidence"]["queue_truth"]
+    assert manifest
+    for record, provenance in zip(manifest, queue_truth, strict=True):
+        truth = truth_by_id[provenance["true_object_id"]]
+        assert abs(record["chip_x_um"] - truth["chip_x_um"]) <= per_axis_bound
+        assert abs(record["chip_y_um"] - truth["chip_y_um"]) <= per_axis_bound
+        assert per_axis_bound < COORDINATE_TOLERANCE_UM
 
 
 def test_focus_decays_by_frozen_rate_per_move_and_autofocus_restores() -> None:
@@ -704,6 +743,60 @@ def test_contract_accessors_never_expose_condition_data() -> None:
     assert "conditions" not in observation_fields
     assert "seed" not in geometry_fields
     assert "seed" not in observation_fields
+
+
+def _string_values(payload: Any) -> list[str]:
+    """Every str-typed value reachable in a nested trace/telemetry structure."""
+
+    if isinstance(payload, str):
+        return [payload]
+    if isinstance(payload, dict):
+        found: list[str] = []
+        for key, value in payload.items():
+            found.extend(_string_values(key))
+            found.extend(_string_values(value))
+        return found
+    if isinstance(payload, (list, tuple)):
+        found = []
+        for item in payload:
+            found.extend(_string_values(item))
+        return found
+    return []
+
+
+def test_chip_id_is_opaque_and_seed_is_unrecoverable_from_trace_and_compact_telemetry() -> None:
+    """M4 leak guard: locked seeds must be structurally unrecoverable from what a
+    drafting agent can see (trace + compact telemetry). chip_id must be the one-way
+    sha256 derivation, and no string value in either surface may embed the seed digits.
+    (_raw_evidence is exempt: it is the verifier-only channel and carries the seed
+    deliberately.)"""
+
+    for group in PREREG.conditions.values():
+        for condition in group:
+            seed = int(condition.parameters["seed"])
+            controller = FlakeSearchController(condition.parameters)
+            controller.reset()
+            state = controller.read_chip_state()
+
+            digest = hashlib.sha256(f"proprio.flake_search|{seed}".encode()).hexdigest()
+            assert state["chip_id"] == f"chip-{digest[:12]}"
+
+            compact = dict(controller.telemetry())
+            assert "_raw_evidence" in compact
+            compact.pop("_raw_evidence")
+            assert "seed" not in compact
+            seed_text = str(seed)
+            for value in _string_values(list(controller.trace)) + _string_values(compact):
+                assert seed_text not in value
+
+
+def test_scan_status_enum_matches_frozen_status_codes() -> None:
+    """Drift guard: ScanStatus must mirror observation_model.status_codes exactly."""
+
+    codes = PREREG.observation_model.status_codes
+    assert {status.value for status in ScanStatus} == set(codes)
+    for status in ScanStatus:
+        assert status.name.lower() == codes[status.value]
 
 
 def test_nominal_full_scan_matches_the_frozen_call_budget_total() -> None:

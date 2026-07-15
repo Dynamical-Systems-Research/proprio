@@ -25,6 +25,7 @@ strictly scalar, matching every other atom's own frozen signature exactly.
 
 from __future__ import annotations
 
+import hashlib
 import random
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -308,7 +309,12 @@ class FlakeSearchController:
         """Deterministic re-init to the condition. Must be the first call."""
 
         self._rng = random.Random(self._seed)
-        self._chip_id = f"flake-search-chip-{self._seed}"
+        # Opaque chip identity: deterministic per condition but not seed-recoverable.
+        # chip_id appears verbatim in read_chip_state() trace entries and compact
+        # telemetry, both of which a drafting agent may see during the repair loop --
+        # embedding the raw seed there would leak locked-condition content (M4).
+        chip_digest = hashlib.sha256(f"proprio.flake_search|{self._seed}".encode()).hexdigest()
+        self._chip_id = f"chip-{chip_digest[:12]}"
         self._initial_state_nonce = 1
         self._corner_found = True
         self._calibrated = False
