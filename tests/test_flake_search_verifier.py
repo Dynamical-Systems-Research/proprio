@@ -1,12 +1,10 @@
 """Scripted controller sessions exercising the 12 frozen flake-search checks.
 
 Every test builds a real ``FlakeSearchController`` for a named preregistration
-condition and drives it exactly as a correct or deliberately faulty skill would (never
-through ``compile_instrument_skill`` -- that AST/budget layer is a separate, already-
-tested static-safety concern; here we test the INDEPENDENT verifier's own judgment
-directly against raw controller trace + telemetry, per task-4-brief.md). All expected
-numeric values are read from ``load_flake_search_preregistration()`` -- no duplicated
-magic numbers.
+condition and drives it exactly as a correct or deliberately faulty skill would --
+never through ``compile_instrument_skill``, since this tests the independent
+verifier's own judgment directly against raw controller trace + telemetry. All
+expected numeric values are read from ``load_flake_search_preregistration()``.
 """
 
 from __future__ import annotations
@@ -37,10 +35,8 @@ ABORTED_FOCUS_INVALID = int(ScanStatus.ABORTED_FOCUS_INVALID)
 ABORTED_ILLUMINATION = int(ScanStatus.ABORTED_ILLUMINATION)
 INCOMPLETE = int(ScanStatus.INCOMPLETE)
 
-# The 12 frozen check_id strings, verbatim from flake-search-preregistration.yaml's
-# `checks:` section. Order matches the YAML for readability; the verifier's own
-# contract only guarantees the SET matches, not the order (see
-# test_emits_exactly_the_twelve_frozen_check_ids).
+# The 12 frozen check_id strings, verbatim from the YAML's `checks:` section. Order
+# matches the YAML for readability; the verifier only guarantees the set, not order.
 EXPECTED_CHECK_IDS = (
     "chip-identity-state-freshness",
     "declared-region-coverage",
@@ -122,12 +118,8 @@ def _manual_scan(
     keep_debris: bool = False,
 ) -> None:
     """Drive the manual escape-hatch path: get_blob() + mark_candidate(), always
-    reporting clipped=False (the correctness of clip-reporting is not this helper's
-    concern -- individual tests that need a correct clip determination build it
-    themselves; every REJECT test that uses this helper wants clipped=False either as
-    the fault itself (edge-clipping) or simply to keep candidates eligible for the
-    checks under test, which all exclude clipped=True candidates from consideration).
-    """
+    reporting clipped=False. Tests needing a correct clip determination build it
+    themselves."""
 
     controller.read_chip_state()
     if calibrate:
@@ -156,11 +148,6 @@ def _manual_scan(
                 y = controller.get_blob(index, "y_um")
                 controller.mark_candidate(nominal_x + x, nominal_y + y, radius, contrast, False)
     controller.read_chip_state()
-
-
-# ------------------------------------------------------------------------------------
-# Structural contract: exactly 12 checks, matching YAML ids, no forbidden vocabulary
-# ------------------------------------------------------------------------------------
 
 
 def test_emits_exactly_the_twelve_frozen_check_ids() -> None:
@@ -220,11 +207,6 @@ def test_no_judgment_key_or_material_vocabulary_at_any_depth() -> None:
             assert not any(word in text.lower() for word in forbidden_substrings)
 
 
-# ------------------------------------------------------------------------------------
-# PASS paths per required visible condition -- all 12 checks pass
-# ------------------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "condition_id",
     ["visible-nominal", "visible-mild-defocus", "visible-mild-illumination"],
@@ -243,11 +225,6 @@ def test_pass_acquisition_nominal_admits_on_all_twelve_checks() -> None:
     checks = _verify(controller)
     failing = [check.check_id for check in checks if not check.passed]
     assert failing == []
-
-
-# ------------------------------------------------------------------------------------
-# Anti-gaming PASS-side sanity: correct handling of a REAL fault also passes
-# ------------------------------------------------------------------------------------
 
 
 def test_pass_correct_abort_under_real_stale_chip_swap() -> None:
@@ -277,11 +254,6 @@ def test_pass_correct_abstention_under_real_illumination_fault() -> None:
     assert checks["declared-region-coverage"].passed is True
 
 
-# ------------------------------------------------------------------------------------
-# Anti-gaming REJECT tests (explicitly required by the brief)
-# ------------------------------------------------------------------------------------
-
-
 def test_anti_gaming_abort_status_one_under_nominal_with_no_swap_fails() -> None:
     controller = _controller("visible-nominal")
     controller.read_chip_state()
@@ -308,12 +280,9 @@ def test_anti_gaming_status_zero_completion_despite_real_swap_fails() -> None:
     assert checks["chip-identity-state-freshness"].passed is False
 
 
-# ------------------------------------------------------------------------------------
-# Recall denominator scoping (universal-abstention exploit): the valid-tile
-# denominator restriction is a privilege of LEGITIMATE aborts only. A do-nothing
-# status-4 session must fail candidate-recall against the chip-wide detectable
-# non-clipped flake population instead of vacuously passing with recall_den == 0.
-# ------------------------------------------------------------------------------------
+# The valid-tile recall denominator is a privilege of legitimate aborts only; a
+# do-nothing status-4 session must fail against the chip-wide detectable population
+# instead of vacuously passing with recall_den == 0.
 
 
 def _do_nothing_session(condition_id: str) -> FlakeSearchController:
@@ -351,8 +320,7 @@ def test_do_nothing_status_four_fails_only_candidate_recall_on_nominal() -> None
 
 def test_legitimate_stale_chip_abort_keeps_the_valid_tile_recall_denominator() -> None:
     """A real swap detected mid-scan, honestly aborted with the pre-swap candidates
-    marked, keeps the frozen valid-tile denominator (honest partial credit) and
-    passes recall."""
+    marked, keeps the valid-tile denominator (honest partial credit) and passes."""
 
     condition = _condition("locked-stale-chip-swap")
     swap_after = int(condition.parameters["swap_after_tile_index"])
@@ -394,16 +362,10 @@ def test_status_zero_full_scan_recall_uses_the_chip_wide_denominator() -> None:
 
 
 def test_chip_wide_detectable_counts_support_the_do_nothing_backstop() -> None:
-    """Regression pin for the backstop's teeth: every frozen acquisition, visible,
-    and locked seed except locked-illumination-out-of-range constructs >= 2 chip-wide
-    detectable non-clipped flakes, so a do-nothing status-4 session has
-    required_num >= 1 and cannot vacuously pass recall. The two known exceptions,
-    verified against raw evidence and reported in the task-4 report: seed 7204
-    (locked-illumination-out-of-range) constructs 0 -- harmless, because
-    uncertainty-abstention already rejects every non-abstention terminal status under
-    out-of-range illumination; and the evolution seed 8301 constructs 1 -- evolution
-    conditions gate stage_evolution replays, not base admission, and are excluded
-    from this pin (reported honestly, seed untouched)."""
+    """Regression pin: every frozen acquisition/visible/locked condition except
+    locked-illumination-out-of-range (0 detectable, harmless since
+    uncertainty-abstention already rejects it) constructs >= 2 chip-wide detectable
+    non-clipped flakes, so the do-nothing backstop has teeth."""
 
     floor_contrast = PREREG.geometry.detectability_contrast_min
     floor_radius = PREREG.geometry.detectability_radius_um_min
@@ -429,21 +391,12 @@ def test_chip_wide_detectable_counts_support_the_do_nothing_backstop() -> None:
 
 
 def test_valid_tile_recall_denominator_pin_for_locked_abort_trajectories() -> None:
-    """Regression pin for the OTHER recall-denominator scope's vacuity check
-    (companion to test_chip_wide_detectable_counts_support_the_do_nothing_backstop,
-    which pins the chip-wide scope). required_num = 0 if recall_den == 0 else
-    min(recall_den - 1, ceil(0.90 * recall_den)) is vacuous at recall_den in {0, 1};
-    the valid_tiles scope is exercised only by LEGITIMATE aborts (status 1/2/3, see
-    _abort_legitimate) and had no pin before this test. Pins each locked abort
-    condition's own canonical honest trajectory, with locked-illumination-out-of-range
-    documented as the one intentional exception: its valid_tiles denominator is 0 BY
-    DESIGN because uncertainty-abstention, not candidate-recall, is the check that
-    actually polices out-of-range illumination.
+    """Regression pin for the valid_tiles denominator scope (companion to the
+    chip-wide pin above), exercised only by legitimate aborts.
+    locked-illumination-out-of-range is 0 by design: uncertainty-abstention, not
+    candidate-recall, polices that condition.
     """
 
-    # locked-stale-chip-swap: honest partial scan through the real swap point, then a
-    # legitimate status-1 abort with the pre-swap candidates marked (same trajectory as
-    # test_legitimate_stale_chip_abort_keeps_the_valid_tile_recall_denominator above).
     condition = _condition("locked-stale-chip-swap")
     swap_after = int(condition.parameters["swap_after_tile_index"])
     grid_x, _grid_y = GEOMETRY.tiling_grid
@@ -467,16 +420,9 @@ def test_valid_tile_recall_denominator_pin_for_locked_abort_trajectories() -> No
     assert recall.evidence["denominator_scope"] == "valid_tiles"
     assert recall.evidence["recall_den"] == 2
 
-    # locked-focus-drift: a full recommended-shape pass with autofocus called before
-    # every move (decay never crosses the floor, so all 16 tiles are genuinely valid),
-    # then a status-2 abort with one synthesized failed recovery attempt patched onto
-    # the trace -- autofocus() unconditionally restores focus to nominal in this
-    # simulator, so a real sub-floor RETURN is not producible by any call sequence
-    # (same synthetic-evidence technique as
-    # test_legitimate_focus_abort_with_failed_recovery_attempt_passes_focus_validity
-    # below). With full coverage, the valid_tiles and chip_wide denominators coincide,
-    # so this pins the same count (7) as this condition's row in
-    # test_chip_wide_detectable_counts_support_the_do_nothing_backstop above.
+    # locked-focus-drift: full coverage, then a status-2 abort with one synthesized
+    # failed recovery attempt (autofocus always restores focus, so a real sub-floor
+    # return isn't producible). valid_tiles and chip_wide denominators coincide here.
     controller = _controller("locked-focus-drift")
     controller.read_chip_state()
     controller.calibrate_region()
@@ -503,14 +449,9 @@ def test_valid_tile_recall_denominator_pin_for_locked_abort_trajectories() -> No
     assert recall.evidence["denominator_scope"] == "valid_tiles"
     assert recall.evidence["recall_den"] == 7
 
-    # locked-illumination-out-of-range: den == 0 here is intentional, not an oversight.
-    # Pin both halves: the honest immediate-abstention trajectory (same as
-    # test_pass_correct_abstention_under_real_illumination_fault above) constructs
-    # recall_den == 0 and vacuously passes candidate-recall, AND, on the identical
-    # fault, uncertainty-abstention is the check that actually polices a gamed
-    # non-empty manifest (mirrors
-    # test_reject_emit_manifest_under_out_of_range_illumination_fails_abstention
-    # below) -- so the vacuity has a live backstop, not a silent hole.
+    # locked-illumination-out-of-range: den == 0 is intentional. The honest
+    # abstention trajectory vacuously passes candidate-recall, but uncertainty-
+    # abstention is the check that actually polices a gamed non-empty manifest.
     honest = _controller("locked-illumination-out-of-range")
     honest.read_chip_state()
     honest.complete_scan(ABORTED_ILLUMINATION)
@@ -530,11 +471,6 @@ def test_valid_tile_recall_denominator_pin_for_locked_abort_trajectories() -> No
     gamed.complete_scan(ABORTED_ILLUMINATION)
     gamed.release()
     assert _by_id(_verify(gamed))["uncertainty-abstention"].passed is False
-
-
-# ------------------------------------------------------------------------------------
-# Per-fault-class REJECT tests
-# ------------------------------------------------------------------------------------
 
 
 def test_reject_proceed_through_chip_swap_and_emit_manifest() -> None:
@@ -618,11 +554,9 @@ def test_reject_capture_out_of_focus_without_recovery_fails_focus_validity() -> 
 
 
 def test_exploit_regression_partial_scan_with_bogus_focus_abort_fails_focus_validity() -> None:
-    """Reviewer exploit regression: on visible-nominal, drive 8/16 tiles correctly,
-    then complete_scan(ABORTED_FOCUS_INVALID) + release(). Before the abort-legitimacy
-    gate this session passed all 12 checks (coverage's non-zero-status branch accepts
-    any non-zero uncovered-tile count; nothing policed status 2). Now focus-validity
-    must fail: no autofocus() return below the floor ever occurred."""
+    """On visible-nominal, drive 8/16 tiles correctly, then claim
+    complete_scan(ABORTED_FOCUS_INVALID). focus-validity must fail: no autofocus()
+    return below the floor ever occurred."""
 
     controller = _controller("visible-nominal")
     controller.read_chip_state()
@@ -641,10 +575,8 @@ def test_exploit_regression_partial_scan_with_bogus_focus_abort_fails_focus_vali
     controller.release()
     checks = _verify(controller)
     failing = [check.check_id for check in checks if not check.passed]
-    # candidate-recall also fails since the recall-denominator scoping fix: the
-    # illegitimate status-2 abort earns no valid-tile denominator privilege, so the
-    # 8-tile partial manifest is judged chip-wide. Both failures police the same
-    # gamed session -- honest defense in depth, not a confound.
+    # candidate-recall also fails: the illegitimate status-2 abort earns no valid-tile
+    # denominator privilege, so the 8-tile partial manifest is judged chip-wide.
     assert failing == ["focus-validity", "candidate-recall"]
     by_id = _by_id(checks)
     assert by_id["focus-validity"].evidence["failed_autofocus_attempts"] == 0
@@ -675,12 +607,9 @@ def test_lazy_focus_abort_without_recovery_attempt_fails_focus_validity() -> Non
 
 
 def test_legitimate_focus_abort_with_failed_recovery_attempt_passes_focus_validity() -> None:
-    """A genuinely failed recovery attempt (autofocus() returning below the floor)
-    legitimizes status 2. The simulator's autofocus() unconditionally restores focus
-    to nominal under every frozen condition, so a sub-floor autofocus return is not
-    producible by any real call sequence -- the trace row is synthesized (same
-    synthetic-evidence technique as the provenance-gap test), patched to the
-    condition's own frozen sub-floor initial_focus_score."""
+    """A genuinely failed recovery attempt legitimizes status 2. autofocus() always
+    restores focus in every frozen condition, so a sub-floor return isn't producible
+    by any real call sequence -- the trace row is synthesized instead."""
 
     condition = _condition("visible-mild-defocus")
     initial_focus = condition.parameters["initial_focus_score"]
@@ -808,12 +737,8 @@ def test_reject_omit_release_fails_resource_release() -> None:
 
 def test_reject_double_marked_provenance_gap_via_corrupted_manifest_entry() -> None:
     """No reachable drafted-skill call sequence can strip manifest provenance (the
-    controller always auto-stamps tile_index/focus_score on both mark_candidate and
-    mark_candidate_from_blob -- see flake_search_simulator.py). This check's
-    provenance clause is nonetheless implemented defensively; its REJECT path is
-    exercised here via a synthetically corrupted manifest entry, simulating a future
-    telemetry regression, matching the brief's "double-mark provenance gaps" scenario
-    for evidence-completeness."""
+    controller always auto-stamps tile_index/focus_score). This defensive REJECT path
+    is exercised via a synthetically corrupted manifest entry."""
 
     controller = _controller("visible-nominal")
     _full_recommended_pass(controller)
@@ -829,9 +754,8 @@ def test_reject_double_marked_provenance_gap_via_corrupted_manifest_entry() -> N
 
 
 def test_double_marking_the_same_recommended_slot_is_idempotent_and_stays_admissible() -> None:
-    """Confidence check for the other reading of "double-mark": marking the same
-    recommended-queue slot twice (mark_candidate_from_blob is documented idempotent)
-    must not itself create a duplicate manifest row or break evidence-completeness."""
+    """Marking the same recommended-queue slot twice (mark_candidate_from_blob is
+    documented idempotent) must not create a duplicate manifest row."""
 
     controller = _controller("visible-nominal")
     controller.read_chip_state()
@@ -854,11 +778,6 @@ def test_double_marking_the_same_recommended_slot_is_idempotent_and_stays_admiss
     assert checks["overlap-duplicate-control"].passed is True
     assert checks["evidence-completeness"].passed is True
     assert controller.telemetry()["manifest_size"] == count
-
-
-# ------------------------------------------------------------------------------------
-# HOLD-boundary: fail-closed on missing/malformed evidence
-# ------------------------------------------------------------------------------------
 
 
 def test_missing_raw_evidence_key_raises() -> None:
@@ -935,11 +854,8 @@ def test_raw_evidence_is_popped_and_not_persisted() -> None:
     assert "_raw_evidence" not in telemetry
 
 
-# ------------------------------------------------------------------------------------
-# Bounded-runtime-stop: mechanical trace-length check (bypasses compile_instrument_skill
-# on purpose, per the brief -- this verifies the verifier's own mechanical bound
-# independent of the static AST/budget layer that would prevent it in production).
-# ------------------------------------------------------------------------------------
+# Bypasses compile_instrument_skill on purpose: verifies the verifier's own mechanical
+# trace-length bound, independent of the static AST/budget layer.
 
 
 def test_reject_trace_longer_than_frozen_bound_fails_bounded_runtime_stop() -> None:

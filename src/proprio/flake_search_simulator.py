@@ -1,26 +1,12 @@
 """Reduced-order 2D flake-search simulator and bounded controller.
 
-This module deliberately does not import verifier or provider code (mirrors the
-separation documented at the top of xrd_generator.py). Ground truth is constructed
-purely from a condition's `seed` parameter via `random.Random(seed)` -- no wall clock,
-no global RNG (`random.random`/module-level `random` state is never touched).
+This module does not import verifier or provider code. Ground truth is constructed
+only from a condition's `seed` via `random.Random(seed)`; the global `random` module
+state is never touched.
 
-Frozen-signature conflict, flagged explicitly (not silently resolved):
-flake-search-preregistration.yaml's own top-of-file freeze-rationale comment states
-"This preregistration keeps that scalar-only discipline for every atom below," and
-runs/flake-search/sdd/task-3-brief.md restates "Method args/returns are scalars only,
-per the frozen contract." But `controller_atoms.read_chip_state`'s own frozen signature
-is `read_chip_state() -> {chip_id: str, state_nonce: int, corner_found: bool}` -- a
-compound/dict return -- and `call_budget.nominal_path` counts `read_chip_state` at
-exactly 2 calls total (pre-scan + post-scan), which is only arithmetically consistent
-with a single call exposing all three fields at once (3 scalar accessors x 2 checks
-would cost 6 calls, not 2, breaking the frozen 55-call nominal-path total recomputed in
-task-2-report.md). `read_chip_state()` below therefore returns a dict, honoring its own
-more specific frozen signature and the frozen call-budget arithmetic over the generic
-summary comment's blanket claim. AST allowlist rules confirm dict returns are legal
-(ast.Dict/ast.Subscript are both in ALLOWED_NODES; see the YAML's own top-of-file
-comment). No frozen value was changed to resolve this; every other atom below is
-strictly scalar, matching every other atom's own frozen signature exactly.
+`read_chip_state()` returns a dict, not scalars: its frozen signature specifies a
+compound return, and the frozen call budget (2 calls total) only balances against a
+single call exposing all three fields at once. Every other atom below is scalar.
 """
 
 from __future__ import annotations
@@ -66,34 +52,17 @@ ALLOWED_METHODS = frozenset(
     }
 )
 
-# ---------------------------------------------------------------------------------------
-# Noise-budget constants (ledger finding M2). Componentwise derivation of the end-to-end
-# reported-vs-true chip-frame coordinate error, worst case, per axis, under the NOMINAL
-# (non-fault) path:
-#   stage positioning noise:            <= STAGE_NOISE_UM            (5.00 um)
-#   tile-frame-to-chip-frame quantization: <= QUANTIZATION_STEP_UM / 2  (0.25 um)
-#   corner-detection/homography residual:  <= HOMOGRAPHY_RESIDUAL_UM    (2.00 um)
-#   ---------------------------------------------------------------------------
-#   worst-case total:                                                  7.25 um
-# COORDINATE_TOLERANCE_UM is frozen at 25.0 um (flake_search_types.COORDINATE_TOLERANCE_UM,
-# sourced from checks.coordinate-integrity.rule). 7.25 <= 25.0 with a (25.0 - 7.25) / 25.0
-# = 71% margin -- these noise magnitudes conform to the frozen tolerance with margin, as
-# required. Each component is drawn from a BOUNDED (uniform, not Gaussian) distribution so
-# the worst case above is a hard bound, not a statistical one: tests can assert every
-# reported coordinate is within tolerance on every draw, not just on average.
+# Worst-case per-axis coordinate error (stage noise + quantization/2 + homography
+# residual) is 7.25 um, well inside the frozen 25.0 um COORDINATE_TOLERANCE_UM. Each
+# term is uniform-bounded, not Gaussian, so every draw satisfies the bound, not just
+# the average.
 STAGE_NOISE_UM = 5.0
 QUANTIZATION_STEP_UM = 0.5
 HOMOGRAPHY_RESIDUAL_UM = 2.0
 
-# Simulator design choices with no frozen numeric value to derive from (documented so a
-# future reader does not mistake these for frozen preregistration content):
 NOMINAL_FOCUS_SCORE = 0.95
-# illumination_shift is a signed fractional deviation from nominal illumination. The
-# preregistration's own two example magnitudes are 0.15 (visible-mild-illumination,
-# documented as "in-range but shifted") and 0.85 (locked-illumination-out-of-range,
-# documented as "outside the documented in-range band for every tile"). No preregistration
-# field gives the exact decision boundary between them; 0.5 sits strictly between the two
-# and is not itself a frozen value.
+# Not a frozen value: sits between the preregistration's two example illumination_shift
+# magnitudes (0.15 in-range, 0.85 out-of-range).
 ILLUMINATION_VALID_BAND = 0.5
 FLAKE_CIRCULARITY_RANGE = (0.45, 0.95)
 DEBRIS_RADIUS_UM_RANGE = (3.0, 15.0)
@@ -309,10 +278,8 @@ class FlakeSearchController:
         """Deterministic re-init to the condition. Must be the first call."""
 
         self._rng = random.Random(self._seed)
-        # Opaque chip identity: deterministic per condition but not seed-recoverable.
-        # chip_id appears verbatim in read_chip_state() trace entries and compact
-        # telemetry, both of which a drafting agent may see during the repair loop --
-        # embedding the raw seed there would leak locked-condition content (M4).
+        # chip_id is hash-derived, not the raw seed, since it appears verbatim in
+        # trace/telemetry a drafting agent may see -- the raw seed would leak.
         chip_digest = hashlib.sha256(f"proprio.flake_search|{self._seed}".encode()).hexdigest()
         self._chip_id = f"chip-{chip_digest[:12]}"
         self._initial_state_nonce = 1
@@ -578,16 +545,9 @@ class FlakeSearchController:
         chip_y = nominal_origin[1] + tile_frame_y + self._homography_residual[1]
         chip_x, chip_y = self._apply_calibration_fault(chip_x, chip_y)
 
-        # Derive the get_blob-exposed tile-frame reading FROM the (possibly faulted)
-        # chip-frame value, not the other way around. observation_model.valid_
-        # acquisition_rule gates queue accumulation on calibration, so an uncalibrated
-        # capture's queue-side chip-frame value is never read. Without this derivation,
-        # the origin-offset/mirror fault would be unobservable through ANY call
-        # sequence: the recommended path only ever queues calibrated (fault-free)
-        # captures, and get_blob's tile-frame reading would otherwise stay accurate
-        # regardless of calibration. Deriving it this way keeps get_blob and the
-        # queue/manifest mutually consistent and makes the fault observable through the
-        # manual get_blob()+mark_candidate() escape hatch, which has no validity gate.
+        # Derive the exposed tile-frame reading from the (possibly faulted) chip-frame
+        # value, not the reverse -- otherwise a calibration fault would be unobservable
+        # via the manual get_blob()+mark_candidate() path, which has no validity gate.
         exposed_tile_frame_x = chip_x - nominal_origin[0]
         exposed_tile_frame_y = chip_y - nominal_origin[1]
 
@@ -699,19 +659,9 @@ def build_flake_search_controller(
 ) -> FlakeSearchController:
     """Construct a bounded controller for one condition, or fail closed on UNAVAILABLE.
 
-    Mirrors every existing built-in provider's `controller_factory` convention
-    (xrd_provider/keithley_provider/openflexure_provider in builtin_providers.py, none
-    of which this task may modify): SimulationScenario.UNAVAILABLE must raise
-    InstrumentRuntimeUnavailable so instrument_plugins.py converts the outcome to HOLD,
-    never REJECT/ADMIT. Other scenario values (NOMINAL/REPAIR/DRIFT) are not given any
-    additional special-cased behavior here, matching keithley_provider's
-    controller_factory precedent (builtin_providers.py:160-168) most closely: every
-    flake-search fault is already fully driven by named `parameters` keys (see
-    KNOWN_CONDITION_PARAMETERS), so `scenario` carries no extra fault-selection duty of
-    its own for this instrument. This function is the future flake_search_provider()'s
-    controller_factory body; it lives here (not in builtin_providers.py) only because
-    this task's scope excludes touching that file -- a later task will import and wire
-    it in.
+    Mirrors the other built-in providers' `controller_factory` convention: UNAVAILABLE
+    must raise InstrumentRuntimeUnavailable so the outcome becomes HOLD, never
+    REJECT/ADMIT.
     """
 
     if scenario is SimulationScenario.UNAVAILABLE:

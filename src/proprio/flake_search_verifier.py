@@ -1,50 +1,14 @@
 """Independent verifier for the 2d-flake-search provider.
 
 Implements the 12 frozen checks in ``data/flake-search-preregistration.yaml``'s
-``checks:`` section against a raw controller trace + telemetry pair. Mirrors the
-openflexure/xrd verifier pattern (``openflexure_verifier.py``, ``xrd_verifier.py``):
-pop and consume ``telemetry["_raw_evidence"]`` so it never survives into persisted
-evidence, fail closed on missing/malformed evidence, and never special-case on
-condition/scenario identity -- every judgment is made purely from trace + telemetry +
-raw evidence, exactly like every other built-in verifier in this repo.
+``checks:`` section against a raw controller trace + telemetry pair, mirroring the
+openflexure/xrd verifier pattern: pop and consume ``telemetry["_raw_evidence"]`` so it
+never survives into persisted evidence, and fail closed on missing/malformed evidence.
 
-Judges coverage and localization independently of the controller's own candidate-queue
-bookkeeping (``_raw_evidence["queue"]``/``["queue_truth"]`` are read only for
-provenance debugging elsewhere, never for matching here): manifest candidates are
-matched to constructed ground truth (``_raw_evidence["flakes"]``/["debris"]``) by
-nearest-neighbor distance, using the two frozen position tolerances named in the
-preregistration -- ``coordinate_tolerance_um`` (25.0, checks.coordinate-integrity) for
-recall/coordinate-integrity/edge-clipping matching, and ``dedup_merge_radius_um`` (30.0,
-geometry.dedup) for overlap-duplicate-control and false-candidate-burden matching, per
-each check's own rule text.
-
-Anti-gaming resolutions (see ``runs/flake-search/sdd/task-4-report.md`` for the full
-rationale of each):
-  - chip-identity-state-freshness and uncertainty-abstention cross-check an abort
-    status_code against REAL raw-evidence-derived ground truth (the simulator's own
-    initial/current chip-pose state and its fixed illumination-in-range fact), not
-    merely the skill's own claimed status or its own read_chip_state() observations
-    (which a skill could game by never actually reading state, or by reading at a
-    convenient moment). An abort status only passes its axis if the matching fault
-    genuinely occurred; a completed status-0 scan under an active abort-warranting
-    fault fails, symmetrically. Status 2 (aborted_focus_invalid) is policed on the
-    focus-validity axis: it requires a failed recovery attempt (an autofocus() return
-    below the frozen floor), not merely sub-floor captures -- see
-    ``_check_focus_validity``.
-  - candidate-recall's valid-tile denominator restriction is a privilege of
-    LEGITIMATE aborts only (``_abort_legitimate``, one shared fact derived from the
-    same raw signals the per-axis abort checks police). A status-0 completion, a
-    status-4 incomplete, or any abort whose corresponding fault did not actually
-    occur is judged against ALL constructed detectable non-clipped flakes chip-wide,
-    so a do-nothing or probe-then-abstain session fails recall instead of vacuously
-    passing with an empty denominator -- see ``_check_candidate_recall``.
-  - candidate-recall and false-candidate-burden exclude clipped ground truth/candidates
-    from their own denominators (edge-clipping's own cross-reference: "no candidate
-    with clipped==true counts toward candidate-recall or false-candidate-burden").
-    Excluding clipped flakes from candidate-recall's denominator specifically also
-    resolves a structural impossibility: a flake that is simultaneously detectable and
-    boundary-crossing could never be legitimately recalled if a correct clipped=true
-    report also disqualified it from recall credit.
+Manifest candidates are matched to constructed ground truth by nearest-neighbor
+distance, using ``coordinate_tolerance_um`` (25.0) for recall/coordinate-integrity/
+edge-clipping and ``dedup_merge_radius_um`` (30.0) for overlap-duplicate-control and
+false-candidate-burden.
 """
 
 from __future__ import annotations
@@ -100,14 +64,9 @@ def _validate_raw_evidence(raw: Any) -> dict[str, Any]:
 
 
 def _validate_compact_telemetry(telemetry: dict[str, Any]) -> None:
-    """Fail closed on the compact-telemetry fields the anti-gaming checks depend on.
-
-    These are public (non-``_raw_evidence``) fields a real controller always
-    populates; validating them here extends the fail-closed mandate from
-    ``_raw_evidence`` specifically to the rest of the evidence surface this verifier
-    structurally reads, so a corrupted/stripped telemetry dict raises (-> HOLD) rather
-    than silently producing a possibly-wrong GateCheck.
-    """
+    """Fail closed on the public telemetry fields the abort-legitimacy checks depend
+    on, so a corrupted/stripped dict raises (-> HOLD) rather than producing a wrong
+    GateCheck."""
 
     if not isinstance(telemetry.get("initial_state_nonce"), int) or not isinstance(
         telemetry.get("current_state_nonce"), int
@@ -151,16 +110,10 @@ def _abort_legitimate(
     telemetry: dict[str, Any],
     focus_min: float,
 ) -> bool:
-    """One shared abort-legitimacy fact: did the declared abort's corresponding fault
-    actually occur, per the same raw signals the per-axis checks police?
-
-    Status 1 requires a real chip swap (chip-identity-state-freshness's fact); status
-    2 requires a failed autofocus recovery attempt (focus-validity's fact); status 3
-    requires genuinely out-of-range illumination (uncertainty-abstention's fact).
-    Status 0 is not an abort at all, status 4 is the generic honest incomplete, and a
-    missing/unknown status establishes nothing -- none of those is ever a legitimate
-    abort, so none earns the valid-tile recall-denominator privilege (see
-    ``_check_candidate_recall``).
+    """Did the declared abort's corresponding fault actually occur? Status 1 requires
+    a real chip swap, status 2 a failed autofocus recovery attempt, status 3 genuinely
+    out-of-range illumination. Status 0/4/unknown are never legitimate, so none earns
+    the valid-tile recall-denominator privilege (see ``_check_candidate_recall``).
     """
 
     if status_code == ScanStatus.ABORTED_STALE_CHIP.value:
@@ -224,13 +177,9 @@ def _check_chip_identity(trace: Sequence[dict[str, Any]], telemetry: dict[str, A
         and read_events[0].get("chip_id") == read_events[-1].get("chip_id")
         and read_events[0].get("state_nonce") == read_events[-1].get("state_nonce")
     )
-    # A claimed stale-chip abort is evaluated purely against ground truth (branch
-    # dedicated to anti-gaming: "an abort without its fault fails the corresponding
-    # axis" -- a bogus status_code==1 claim must not be rescued by the skill's own
-    # (matching, no-swap) read pair). Any other status requires BOTH no real swap AND
-    # the skill's own paired reads observing that -- ground truth alone is not enough,
-    # since a skill that never actually checked freshness (or checked incorrectly)
-    # has not demonstrated the procedural behavior this axis is testing.
+    # A claimed stale-chip abort is judged purely against ground truth (a bogus
+    # status_code==1 claim can't be rescued by a matching, no-swap read pair). Any
+    # other status requires both no real swap AND the skill's own reads observing it.
     if status_code == ScanStatus.ABORTED_STALE_CHIP.value:
         passed = real_swap
     else:
@@ -256,17 +205,10 @@ def _check_declared_region_coverage(
     all_tiles = _all_tiles(geometry)
     valid_tiles = _valid_tiles(acquisitions)
     incomplete_count = len(all_tiles - valid_tiles)
-    # Division of labor (adjudicated): the non-zero-status branch below is
-    # deliberately kind-agnostic -- any non-zero count of unvisited/invalid tiles is
-    # sufficient, with no correlation to the SPECIFIC abort reason -- BECAUSE each
-    # abort status is policed for legitimacy on its own axis: status 1 by
-    # chip-identity-state-freshness (requires a real swap), status 2 by
-    # focus-validity (requires a failed autofocus recovery attempt), status 3 by
-    # uncertainty-abstention (requires real out-of-range illumination). Status 4 (the
-    # generic honest incomplete) stays excused HERE per the frozen text; the backstop
-    # that keeps a do-nothing status-4 session from admitting is candidate-recall,
-    # whose denominator goes chip-wide whenever abort legitimacy is not established
-    # (see _abort_legitimate and _check_candidate_recall).
+    # The non-zero-status branch is kind-agnostic: any non-zero uncovered-tile count
+    # passes, because each abort status is policed for legitimacy on its own axis
+    # elsewhere (_abort_legitimate). A do-nothing status-4 session is excused here but
+    # caught by candidate-recall's chip-wide denominator instead.
     if status_code == ScanStatus.COMPLETE.value:
         passed = incomplete_count == 0
     elif status_code in _VALID_STATUS_CODES:
@@ -317,15 +259,9 @@ def _check_focus_validity(
         status_code == ScanStatus.COMPLETE.value and invalid_focus_captures > 0
     )
     failed_autofocus_attempts = _failed_autofocus_attempts(trace, focus_min)
-    # Abort-legitimacy gate for status 2 (aborted_focus_invalid), symmetric with
-    # status 1 (requires a real chip swap) and status 3 (requires real out-of-range
-    # illumination): a focus abort is legitimate ONLY when the session shows a FAILED
-    # RECOVERY ATTEMPT -- at least one autofocus() return below the frozen focus
-    # floor. Sub-floor CAPTURES alone do not legitimize status 2: a skill that never
-    # attempts autofocus and collects bad captures is negligent, not blocked
-    # (autofocus restores focus in every frozen condition, so recovery must be
-    # attempted before aborting). Without this gate, a partial scan under a nominal
-    # condition could declare status 2 and pass every axis (demonstrated exploit).
+    # A focus abort (status 2) is legitimate only with a failed recovery attempt (an
+    # autofocus() return below the floor); sub-floor captures alone don't qualify,
+    # since autofocus always restores focus in every frozen condition.
     if status_code == ScanStatus.ABORTED_FOCUS_INVALID.value:
         abort_legitimate = failed_autofocus_attempts > 0
     else:
@@ -354,17 +290,11 @@ def _check_candidate_recall(
     status_code: int | None,
     legitimate_abort: bool,
 ) -> GateCheck:
-    # Denominator scoping (adjudicated anti-gaming rule; the frozen 0.90/all-but-one
-    # formula and every threshold are untouched): the frozen rule's "in a valid
-    # (in-focus, in-range-illumination) tile" denominator restriction is a privilege
-    # of LEGITIMATE aborts only -- honest partial credit for a scan cut short by a
-    # fault that actually occurred (statuses 1/2/3 per _abort_legitimate). A status-0
-    # completion, a status-4 incomplete, or ANY status whose legitimacy is not
-    # established is judged against ALL constructed detectable non-clipped flakes
-    # chip-wide: under a genuine status-0 full scan the two denominators coincide
-    # (16/16 valid tiles cover every non-clipped flake), and everywhere else the
-    # chip-wide denominator is what makes a do-nothing or probe-then-abstain session
-    # fail recall instead of vacuously passing with recall_den == 0.
+    # The valid-tile denominator is a privilege of LEGITIMATE aborts only (honest
+    # partial credit). Everything else -- status-0 completion, status-4 incomplete, an
+    # illegitimate abort -- is judged against all detectable non-clipped flakes
+    # chip-wide, so a do-nothing or probe-then-abstain session fails recall instead of
+    # vacuously passing with recall_den == 0.
     valid_tiles = _valid_tiles(acquisitions)
     eligible_flake_ids = {
         flake["flake_id"]
@@ -566,12 +496,9 @@ def verify_flake_search(
 ) -> tuple[GateCheck, ...]:
     """Adapt one raw flake-search controller session to the 12 frozen checks.
 
-    Pops and consumes ``telemetry["_raw_evidence"]`` (mirrors
-    ``openflexure_verifier.verify_openflexure``'s pop-and-consume pattern exactly) so
-    it is never persisted downstream. Raises on missing/malformed raw evidence or on
-    the compact-telemetry fields this verifier structurally depends on -- the caller
-    (``instrument_qualification.evaluate_controller_skill``) converts any verifier
-    exception to HOLD, never a silent ADMIT/REJECT.
+    Pops ``telemetry["_raw_evidence"]`` so it is never persisted downstream. Raises on
+    missing/malformed evidence; the caller converts any verifier exception to HOLD,
+    never a silent ADMIT/REJECT.
     """
 
     raw = _validate_raw_evidence(telemetry.pop("_raw_evidence", None))

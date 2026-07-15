@@ -1,22 +1,12 @@
 """Shared data-only types for flake-search generation, verification, and providers.
 
-Mirrors the shape of ``proprio.xrd_types``: dumb, dependency-light data models used by
-the simulator (``flake_search_simulator.py``), the independent verifier (a later task),
-and the provider adapter (a later task). This module imports nothing from any of those
-three and must stay that way.
+Mirrors ``proprio.xrd_types``: dependency-light data models shared by the simulator,
+verifier, and provider adapter. This module imports nothing from any of those.
 
-Locked-only visibility split (ledger finding M4, see runs/flake-search/sdd/task-3-brief.md
-"Required reading" item 1): ``FlakeSearchPreregistration.conditions`` carries every
-condition's ``seed``/``fault_code``/fault-magnitude parameters, which the preregistration
-YAML itself marks locked-only -- they must never reach a drafting agent. This module keeps
-that split structural, not merely documented: ``contract_geometry`` and
-``contract_observation_model`` below return ``ContractGeometry``/``ContractObservationModel``
-values whose fields never include a conditions payload, so no future "contract-facing"
-accessor built from those two functions can leak a seed or a fault magnitude -- there is
-no field to leak it through. Code that needs condition parameters (the simulator building
-ground truth, this module's own tests, a future verifier) must read
-``FlakeSearchPreregistration.conditions`` directly; that attribute is simulator/verifier
--side only and is never routed through ``contract_geometry``/``contract_observation_model``.
+``FlakeSearchPreregistration.conditions`` carries locked-only content (seed, fault_code,
+fault magnitudes) that must never reach a drafting agent. ``ContractGeometry`` and
+``ContractObservationModel`` omit that field entirely, so no accessor built on them can
+leak it.
 """
 
 from __future__ import annotations
@@ -29,19 +19,10 @@ from typing import Any, Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
-# ---------------------------------------------------------------------------------------
-# Threshold values frozen only as prose in flake-search-preregistration.yaml.
-#
-# Unlike metrology-preregistration.yaml (which has a clean top-level `thresholds:` block
-# of `{value, comparator, rationale}` records), flake-search-preregistration.yaml embeds
-# these five numbers only inside `rule`/`notes`/`signature` prose strings -- there is no
-# structured numeric field for them at freeze time (verified by direct inspection of the
-# frozen file, commit bc6c834). The preregistration is immutable, so this module mirrors
-# the frozen prose numbers verbatim rather than restructuring the YAML. Do not tune these.
-# tests/test_flake_search_simulator.py regex-extracts the same numbers straight from the
-# raw YAML text and asserts equality against these constants, so a future edit to the
-# frozen prose without a matching edit here fails loudly instead of silently drifting.
-# ---------------------------------------------------------------------------------------
+# These five numbers exist only as prose in flake-search-preregistration.yaml (no
+# structured thresholds block to read), so they are mirrored here verbatim. Do not tune:
+# test_flake_search_simulator.py regex-extracts the same numbers from the raw YAML text
+# and asserts equality, so drift between the two fails loudly.
 
 # geometry.debris_population.signature / observation_model.debris_rule:
 # "contrast >= 0.30 AND (circularity < 0.35 OR radius_um < 12.0)"
@@ -57,9 +38,8 @@ FOCUS_SCORE_MIN = 0.70
 # <= 25.0 um"
 COORDINATE_TOLERANCE_UM = 25.0
 
-# Every parameter key any condition in the frozen preregistration ever supplies (union of
-# `conditions.*.*.parameters` keys across acquisition/visible/locked/evolution). Fault
-# injection is driven only by the presence of these named keys, never by a categorical
+# Every parameter key any condition in the frozen preregistration supplies. Fault
+# injection is driven only by the presence of these named keys, never a categorical
 # switch -- see flake_search_simulator.py.
 KNOWN_CONDITION_PARAMETERS: frozenset[str] = frozenset(
     {
@@ -93,10 +73,8 @@ class ScanStatus(IntEnum):
 class ChipState(BaseModel):
     """Return shape of the `read_chip_state()` atom.
 
-    This is the one atom in the frozen controller_atoms list whose own signature
-    ("read_chip_state() -> {chip_id: str, state_nonce: int, corner_found: bool}")
-    specifies a compound return rather than a scalar -- see the module docstring note
-    in flake_search_simulator.py for the full conflict-resolution rationale.
+    The one atom whose frozen signature specifies a compound return rather than a
+    scalar -- see flake_search_simulator.py's module docstring.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -149,7 +127,7 @@ class BlobProvenance(BaseModel):
     """Simulator-internal, verifier-only truth about one detected blob.
 
     Never surfaced through `get_blob`/`mark_candidate_from_blob`; carried only inside
-    `telemetry()["_raw_evidence"]` for the future locked verifier.
+    `telemetry()["_raw_evidence"]` for the verifier.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)

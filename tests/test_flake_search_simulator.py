@@ -70,11 +70,6 @@ def _nearest_truth_distance(
     return min(((chip_x - tx) ** 2 + (chip_y - ty) ** 2) ** 0.5 for tx, ty in truth_points)
 
 
-# ------------------------------------------------------------------------------------
-# Deterministic reset
-# ------------------------------------------------------------------------------------
-
-
 def test_reset_is_deterministic_across_fresh_controllers() -> None:
     condition = _condition("visible-nominal")
     first = FlakeSearchController(condition.parameters)
@@ -139,11 +134,6 @@ def test_different_seeds_produce_different_layouts() -> None:
     assert acquisition.telemetry()["chip_id"] != visible.telemetry()["chip_id"]
 
 
-# ------------------------------------------------------------------------------------
-# Bounded surface
-# ------------------------------------------------------------------------------------
-
-
 def test_public_surface_is_exactly_twelve_atoms_plus_close_and_telemetry() -> None:
     public_methods = {
         name
@@ -204,11 +194,6 @@ def test_reset_must_be_called_first() -> None:
         controller.move_to_tile(0, 0)
 
 
-# ------------------------------------------------------------------------------------
-# Per-fault-class simulator behavior
-# ------------------------------------------------------------------------------------
-
-
 def test_stale_chip_swap_flips_nonce_after_frozen_tile_index() -> None:
     condition = _condition("locked-stale-chip-swap")
     controller = FlakeSearchController(condition.parameters)
@@ -260,9 +245,8 @@ def test_origin_offset_applies_only_when_uncalibrated() -> None:
                 chip_x = origin_x + ix * tile_w + x
                 chip_y = origin_y + iy * tile_h + y
                 nearest = _nearest_truth_distance(chip_x, chip_y, truth_points)
-                # The nearest true object's own untransformed position is `noise_bound`
-                # away at most; if the reconstructed position is far closer to
-                # (truth + offset) than to truth itself, the fault was applied.
+                # If the reconstructed position is far closer to (truth + offset) than
+                # to truth itself, the offset fault was applied.
                 shifted_error = min(
                     ((chip_x - (tx + offset_x)) ** 2 + (chip_y - (ty + offset_y)) ** 2) ** 0.5
                     for tx, ty in truth_points
@@ -339,8 +323,8 @@ def test_mirrored_frame_applies_only_when_uncalibrated() -> None:
 
 @pytest.mark.parametrize("condition_id", ["locked-wrong-origin-offset", "locked-mirrored-frame"])
 def test_calibration_gated_faults_on_the_recommended_path(condition_id: str) -> None:
-    """Regression for the fault-gating fix: recommended path is empty while
-    uncalibrated (valid_acquisition_rule), and coordinate-correct once calibrated."""
+    """Recommended path is empty while uncalibrated (valid_acquisition_rule), and
+    coordinate-correct once calibrated."""
 
     condition = _condition(condition_id)
 
@@ -490,11 +474,6 @@ def test_edge_clipped_flakes_flagged_and_meet_frozen_minimum() -> None:
             )
 
 
-# ------------------------------------------------------------------------------------
-# Candidate queue mechanics
-# ------------------------------------------------------------------------------------
-
-
 def test_strong_blob_screen_uses_the_frozen_debris_signature_thresholds() -> None:
     contract = contract_observation_model(PREREG)
     assert contract.debris_contrast_min == DEBRIS_CONTRAST_MIN
@@ -584,12 +563,10 @@ def test_mark_candidate_from_blob_idempotent_and_out_of_range_returns_false() ->
 
 
 def test_get_blob_scoped_to_most_recent_capture_only() -> None:
-    """index resets on every capture_tile() call, even re-capturing the same tile.
+    """get_blob is scoped to the latest capture_tile() call, not cached across calls.
 
-    Re-capturing the identical (unmoved) tile keeps blob_count identical (same true
-    population, same bounds) while advancing the RNG stream, so a changed get_blob(0,
-    "x_um") reading after the second capture_tile() call proves the accessor is scoped
-    to the latest capture's fresh data, not cached/cumulative across calls.
+    Re-capturing the same (unmoved) tile keeps blob_count identical but advances the
+    RNG, so a changed reading proves the accessor uses fresh data every capture.
     """
 
     controller = FlakeSearchController(_condition("visible-nominal").parameters)
@@ -619,11 +596,6 @@ def test_get_blob_rejects_unknown_field_and_out_of_range_index() -> None:
         controller.get_blob(0, "material")
     with pytest.raises(IndexError):
         controller.get_blob(10_000, "x_um")
-
-
-# ------------------------------------------------------------------------------------
-# Raw evidence channel, ordering guards, and UNAVAILABLE
-# ------------------------------------------------------------------------------------
 
 
 def test_raw_evidence_present_in_telemetry_and_absent_from_trace() -> None:
@@ -690,11 +662,6 @@ def test_non_unavailable_scenarios_construct_normally() -> None:
         assert isinstance(controller, FlakeSearchController)
 
 
-# ------------------------------------------------------------------------------------
-# Coordinate noise budget (M2) and frozen-prose threshold drift guard
-# ------------------------------------------------------------------------------------
-
-
 def test_coordinate_noise_budget_conforms_to_frozen_tolerance_with_margin() -> None:
     worst_case_per_axis = STAGE_NOISE_UM + QUANTIZATION_STEP_UM / 2 + HOMOGRAPHY_RESIDUAL_UM
     assert worst_case_per_axis < COORDINATE_TOLERANCE_UM
@@ -735,7 +702,7 @@ def test_known_condition_parameters_cover_every_frozen_condition_field() -> None
 
 
 def test_contract_accessors_never_expose_condition_data() -> None:
-    """Ledger finding M4: contract-facing accessors must never carry conditions."""
+    """Contract-facing accessors must never carry conditions."""
 
     geometry_fields = set(contract_geometry(PREREG).model_dump())
     observation_fields = set(contract_observation_model(PREREG).model_dump())
@@ -765,11 +732,9 @@ def _string_values(payload: Any) -> list[str]:
 
 
 def test_chip_id_is_opaque_and_seed_is_unrecoverable_from_trace_and_compact_telemetry() -> None:
-    """M4 leak guard: locked seeds must be structurally unrecoverable from what a
-    drafting agent can see (trace + compact telemetry). chip_id must be the one-way
-    sha256 derivation, and no string value in either surface may embed the seed digits.
-    (_raw_evidence is exempt: it is the verifier-only channel and carries the seed
-    deliberately.)"""
+    """Locked seeds must be structurally unrecoverable from what a drafting agent can
+    see (trace + compact telemetry); chip_id is the one-way sha256 derivation.
+    (_raw_evidence is exempt: it is the verifier-only channel.)"""
 
     for group in PREREG.conditions.values():
         for condition in group:
@@ -800,7 +765,7 @@ def test_scan_status_enum_matches_frozen_status_codes() -> None:
 
 
 def test_nominal_full_scan_matches_the_frozen_call_budget_total() -> None:
-    """Cross-check against task-2-report.md's recomputed nominal_path total (55 calls)."""
+    """Regression pin: nominal-path call count is frozen at 55."""
 
     controller = FlakeSearchController(_condition("acquisition-nominal").parameters)
     controller.reset()

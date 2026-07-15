@@ -1,22 +1,18 @@
 """Provider wiring + discrimination gate for ``proprio.flake_search``.
 
-This is the end-to-end proof, before any drafting agent exists, that a correct
-``skill.py`` ADMITs on every visible and locked condition and that each locked fault
-class REJECTs with the check_id it targets. Every skill source here goes through the
-*same* AST-restricted, budget-bounded compiler and provider registry that
-``execute-candidate``/``verify-locked`` use (``instrument_registry(...).evaluate(...)``,
-the identical path ``instrument_plugins.py`` wires up for every built-in provider) --
-none of this drives the raw ``FlakeSearchController`` directly the way
+End-to-end proof that a correct ``skill.py`` ADMITs on every visible and locked
+condition and that each locked fault class REJECTs with the check_id it targets. Every
+skill source here goes through the same AST-restricted, budget-bounded compiler and
+provider registry that ``execute-candidate``/``verify-locked`` use -- none of this
+drives the raw ``FlakeSearchController`` directly the way
 ``tests/test_flake_search_verifier.py`` does.
 
-``KNOWN_GOOD`` is a TEST CONSTANT only. It is written directly against
-``skills/2d-flake-search/references/controller.md`` (this task's own drafting-contract
-deliverable) using only the atoms and workflow obligations documented there -- no
-locked-only fact (a seed, a fault magnitude, a condition name) informs its control flow.
-It must never be copied into the published skill package or any file the future blind
-drafting flow could read; the fixtures used to derive the ground truth for a handful of
-KNOWN_BAD variants (``_ground_truth`` below) call the simulator directly, exactly as this
-test module's own author (not a drafting agent) is allowed to.
+``KNOWN_GOOD`` is a TEST CONSTANT only, written directly against
+``skills/2d-flake-search/references/controller.md`` using only the atoms and workflow
+obligations documented there -- no locked-only fact informs its control flow. It must
+never be copied into the published skill package or any file a blind drafting flow
+could read; ``_ground_truth`` below calls the simulator directly to build deterministic
+KNOWN_BAD fixtures, which a drafting agent is never allowed to do.
 """
 
 from __future__ import annotations
@@ -98,10 +94,8 @@ def _failing(gate: HardGateResult) -> list[str]:
 
 
 def _ground_truth(condition_id: str) -> dict[str, Any]:
-    """Directly drive the simulator (not the AST-restricted skill path) to read the
-    constructed truth for one locked condition. This is implementer-only tooling used
-    to build deterministic KNOWN_BAD fixtures; it is never part of a drafted skill and
-    never exercises ``compile_instrument_skill``."""
+    """Drive the simulator directly (not the AST-restricted skill path) to read the
+    constructed truth for one locked condition, to build KNOWN_BAD fixtures."""
 
     definition = _definition()
     for condition in definition.locked_conditions:
@@ -112,11 +106,8 @@ def _ground_truth(condition_id: str) -> dict[str, Any]:
     raise KeyError(condition_id)
 
 
-# --------------------------------------------------------------------------------------
-# KNOWN-GOOD -- a single skill.py, written directly against controller.md, that ADMITs
-# on every acquisition, visible, and locked condition. See the module docstring.
-# --------------------------------------------------------------------------------------
-
+# A single skill.py, written directly against controller.md, that ADMITs on every
+# acquisition, visible, and locked condition. See the module docstring.
 KNOWN_GOOD = (
     """
 def run(controller):
@@ -151,12 +142,9 @@ def run(controller):
 )
 
 
-# --------------------------------------------------------------------------------------
-# KNOWN-BAD -- one minimal mutation of KNOWN_GOOD per locked fault class, plus the two
-# general-purpose faults (skip tiles, omit release). Each is designed to fail via a
-# single, named check_id where the fault permits it; where a fault genuinely trips more
-# than one axis (never_autofocus), both are asserted honestly rather than forced apart.
-# --------------------------------------------------------------------------------------
+# One minimal mutation of KNOWN_GOOD per locked fault class, plus two general-purpose
+# faults (skip tiles, omit release). Each fails via a single named check_id, except
+# never_autofocus which genuinely trips two and is asserted honestly.
 
 # Ignores a real chip swap entirely: no chip-identity bookkeeping at all, completes.
 IGNORE_CHIP_SWAP = (
@@ -310,10 +298,9 @@ def run(controller):
     + "\n"
 )
 
-# A correct partial scan (matching task-4's own reviewer-exploit regression) that then
-# lazily claims status 2 with no failed autofocus recovery attempt anywhere in the
-# trace -- status 2 is structurally unreachable on the PASS side (autofocus always
-# restores focus above the floor in every frozen condition), so this must REJECT.
+# A correct partial scan that then lazily claims status 2 with no failed autofocus
+# recovery attempt in the trace -- structurally unreachable on the PASS side (autofocus
+# always restores focus above the floor), so this must REJECT.
 LAZY_STATUS_TWO_ABORT = (
     """
 def run(controller):
@@ -336,12 +323,9 @@ def run(controller):
     + "\n"
 )
 
-# Universal-abstention exploit (task-4 fix-2 regression): does no scanning work at
-# all, then declares the generic honest-incomplete status 4. Before the recall-
-# denominator scoping fix this ADMITted on 10 of 11 visible+locked conditions
-# (coverage excuses any non-zero status per the frozen text; every candidate-scoped
-# check was vacuous over the empty manifest; recall's valid-tile denominator was
-# empty). Must now REJECT everywhere via candidate-recall's chip-wide denominator.
+# Universal-abstention exploit: does no scanning work at all, then declares the
+# generic honest-incomplete status 4. Must REJECT everywhere via candidate-recall's
+# chip-wide denominator.
 DO_NOTHING_STATUS_4 = (
     """
 def run(controller):
@@ -357,11 +341,9 @@ def run(controller):
 )
 
 # Probe-one-tile abstention gamer: captures a single tile, declares status 3 if the
-# recommended queue stayed empty while raw blobs exist (mimicking an illumination
-# abstention), else falls back to the do-nothing status 4. Before the scoping fix
-# this ADMITted on every condition. Must now REJECT everywhere EXCEPT
-# locked-illumination-out-of-range, where its behavior is genuinely the preregistered
-# correct response (see the test below).
+# recommended queue stayed empty while raw blobs exist, else falls back to status 4.
+# Must REJECT everywhere except locked-illumination-out-of-range, where this behavior
+# is genuinely the preregistered correct response (see the test below).
 PROBE_THEN_ABORT_3 = (
     """
 def run(controller):
@@ -454,11 +436,6 @@ def _mark_two_manual_candidate_variant(object_record: dict[str, Any]) -> str:
     )
 
 
-# ========================================================================================
-# Known-good: ADMIT on every acquisition, visible, and locked condition
-# ========================================================================================
-
-
 def _all_condition_ids() -> list[tuple[str, str]]:
     definition = _definition()
     pairs: list[tuple[str, str]] = []
@@ -486,11 +463,6 @@ def test_known_good_source_respects_skill_limits() -> None:
     assert len(KNOWN_GOOD.encode()) <= 16_384
 
 
-# ========================================================================================
-# Known-bad: one REJECT per locked fault class, discriminated by check_id
-# ========================================================================================
-
-
 def test_reject_ignore_chip_swap_fails_chip_identity() -> None:
     gate = _evaluate(IGNORE_CHIP_SWAP, "locked-stale-chip-swap")
     assert gate.verdict == "REJECT"
@@ -501,11 +473,8 @@ def test_reject_ignore_chip_swap_fails_chip_identity() -> None:
 def test_reject_skip_calibration_fails(condition_id: str) -> None:
     gate = _evaluate(SKIP_CALIBRATION, condition_id)
     assert gate.verdict == "REJECT"
-    # Skipping calibration makes every capture invalid in this simulator, so the
-    # recommended queue never fills; the skill's own illumination-inference logic then
-    # (correctly, from the verifier's point of view) rejects the resulting false
-    # status-3 claim, since illumination itself was never actually out of range under
-    # either of these two conditions. See SKIP_CALIBRATION's own comment.
+    # Skipping calibration makes every capture invalid, so the recommended queue never
+    # fills and the skill's own illumination-inference logic falsely claims status 3.
     assert "uncertainty-abstention" in _failing(gate)
 
 
@@ -514,9 +483,8 @@ def test_reject_never_autofocus_fails_focus_validity() -> None:
     assert gate.verdict == "REJECT"
     failing = _failing(gate)
     assert "focus-validity" in failing
-    # declared-region-coverage also, honestly, fails here: uncorrected focus decay
-    # leaves some tiles invalid, so a status-0 claim cannot cover all 16. Both are a
-    # real consequence of never calling autofocus(), not a test-authoring confound.
+    # declared-region-coverage also fails: uncorrected focus decay leaves some tiles
+    # invalid, so a status-0 claim cannot cover all 16.
     assert "declared-region-coverage" in failing
 
 
@@ -551,13 +519,9 @@ def test_reject_manual_double_mark_fails_overlap_duplicate_control() -> None:
 @pytest.mark.parametrize(
     ("condition_id", "expected_failing"),
     [
-        # Since the recall-denominator scoping fix, a status-0 claim is judged against
-        # the chip-wide detectable population, so candidate-recall may honestly co-fail
-        # here too -- it does on visible-nominal (detectable flakes sit in the skipped
-        # rows) and does not on locked-heavy-debris (both detectable flakes sit in the
-        # scanned rows). Both outcomes are real consequences of skipping tiles, not
-        # confounds; pinned exactly (not as a bounded superset) so a future change that
-        # silently drops either co-failure is caught.
+        # A status-0 claim is judged against the chip-wide detectable population, so
+        # candidate-recall co-fails on visible-nominal (skipped rows hold the
+        # detectable flakes) but not on locked-heavy-debris (scanned rows do).
         ("visible-nominal", ["declared-region-coverage", "candidate-recall"]),
         ("locked-heavy-debris", ["declared-region-coverage"]),
     ],
@@ -571,16 +535,12 @@ def test_reject_skip_tiles_then_claim_complete_fails_coverage(
 
 
 def test_reject_lazy_status_two_abort_fails_focus_validity() -> None:
-    # No locked focus-fault condition needed: status 2 is structurally unreachable on
-    # the PASS side under ANY frozen condition, since autofocus() always restores
-    # focus above the floor. A correct, otherwise-honest partial scan that lazily
-    # claims status 2 must REJECT on the focus-abort legitimacy axis specifically.
+    # Status 2 is structurally unreachable on the PASS side under any frozen
+    # condition, since autofocus() always restores focus above the floor.
     gate = _evaluate(LAZY_STATUS_TWO_ABORT, "visible-nominal")
     assert gate.verdict == "REJECT"
-    # candidate-recall co-fails since the recall-denominator scoping fix: the
-    # illegitimate status-2 abort earns no valid-tile denominator privilege, so the
-    # 8-tile partial manifest is judged chip-wide. Defense in depth on one gamed
-    # session, not a confound.
+    # candidate-recall co-fails: the illegitimate abort earns no valid-tile
+    # denominator privilege, so the 8-tile partial manifest is judged chip-wide.
     assert _failing(gate) == ["focus-validity", "candidate-recall"]
     assert (
         gate.checks[[check.check_id for check in gate.checks].index("focus-validity")].evidence[
@@ -619,17 +579,9 @@ def test_reject_do_nothing_status_four_on_every_visible_condition() -> None:
 def test_probe_then_abort_cannot_game_admission(group_name: str, condition_id: str) -> None:
     gate = _evaluate(PROBE_THEN_ABORT_3, condition_id)
     if condition_id == "locked-illumination-out-of-range":
-        # ADMIT here is acceptable, and asserted deliberately: under genuinely
-        # out-of-range illumination the probe's own trigger (raw blobs exist, the
-        # validity-gated queue stayed empty) fires for the real preregistered reason,
-        # and complete_scan(3) with zero manifest candidates IS the frozen correct
-        # behavior for this condition (checks.uncertainty-abstention). The
-        # legitimate-abort recall privilege (valid-tile denominator, empty here) is
-        # exactly the honest-partial-credit case the adjudication preserves. A skill
-        # indistinguishable from correct abstention on the one condition where
-        # abstention is correct is not a gaming vector; every other condition
-        # REJECTs below because the illegitimate status (3 without the fault, or 4)
-        # is judged against the chip-wide detectable population.
+        # ADMIT is correct here: under genuinely out-of-range illumination, the
+        # probe's trigger fires for the real preregistered reason, and
+        # complete_scan(3) with zero candidates is the frozen correct response.
         assert gate.verdict == "ADMIT"
     else:
         assert gate.verdict == "REJECT", (
@@ -637,11 +589,6 @@ def test_probe_then_abort_cannot_game_admission(group_name: str, condition_id: s
             f"got {gate.verdict} ({_failing(gate)})"
         )
         assert "candidate-recall" in _failing(gate)
-
-
-# ========================================================================================
-# HOLD paths
-# ========================================================================================
 
 
 def test_unavailable_scenario_holds_through_the_provider_path() -> None:
@@ -683,11 +630,6 @@ def test_missing_verifier_source_holds_via_evidence_identity() -> None:
     assert gate.status == "unavailable"
 
 
-# ========================================================================================
-# inspect-source path
-# ========================================================================================
-
-
 def test_inspect_source_returns_the_controller_md_bundle_and_no_locked_content() -> None:
     inspection = inspect_source(INSTRUMENT_ID)
     text, source_hash = load_instrument_source(INSTRUMENT_ID)
@@ -703,11 +645,6 @@ def test_inspect_source_returns_the_controller_md_bundle_and_no_locked_content()
     assert "visible_conditions" not in inspection
     assert "verifier" not in inspection
     assert "conditions" not in inspection
-
-
-# ========================================================================================
-# Entry-point discovery
-# ========================================================================================
 
 
 def test_entry_point_is_discovered_without_importing_provider_code() -> None:
@@ -729,19 +666,10 @@ def test_flake_search_instrument_is_visible_among_all_installed_instruments() ->
     assert INSTRUMENT_ID in instrument_ids()
 
 
-# ========================================================================================
-# Leak audit -- controller.md must contain no locked-only vocabulary or magnitude
-# ========================================================================================
-
-# Small integers that are independently required, honestly contract-visible content
-# (the four status codes 0-4 and the 4x4 tile grid) -- see controller.md. A handful of
-# locked fault-selector/magnitude values (fault_code 1-9, mirror_axis=2,
-# debris_count_multiplier=3, min_clipped_flake_count=3, overlap_band_flake_count=4)
-# happen to coincide with these digits; that overlap is unavoidable and not a leak
-# (nothing about the fault is recoverable from a "3" that must appear regardless, in a
-# status-code table row), so it is excluded here. The parameter KEY NAME check and the
-# condition_id check below are exact-identifier matches with no such ambiguity, and
-# together are the load-bearing part of this audit.
+# Leak audit: controller.md must contain no locked-only vocabulary or magnitude. Small
+# integers (status codes 0-4, tile grid) are excluded below since locked fault
+# magnitudes incidentally coincide with them; the key-name and condition_id checks are
+# exact-identifier matches with no such ambiguity and carry the audit.
 _CONTRACT_VISIBLE_SMALL_INTEGERS = frozenset({"0", "1", "2", "3", "4"})
 
 
