@@ -1,0 +1,703 @@
+# Preregistration for proprio.flake_search.2d-flake-search (family: optical_microscopy).
+#
+# Verified repo-contract facts this file relies on (instrument_qualification.py, read in full
+# 2026-07-14 on commit 070cf19 before any value below was frozen):
+#   - SkillLimits (instrument_qualification.py:71-81): max_source_bytes=16384,
+#     max_loop_iterations=16, max_branch_depth=4, max_controller_calls=96.
+#   - ALLOWED_NODES (instrument_qualification.py:21-68) DOES include ast.Dict, ast.List, and
+#     ast.Tuple (lines 34-36). Dict/list/tuple *literals* are syntactically legal in a drafted
+#     skill.py, and ast.Subscript (line 64) is also allowed and does NOT require its target to be
+#     a Call -- unlike ast.Attribute, which is only legal as the callee of a Call
+#     (instrument_qualification.py:202-203, "direct reads of simulator state are forbidden").
+#     Consequence: a controller method COULD legally return a dict/list/tuple and a drafted skill
+#     could subscript into it (`blob = controller.capture_tile(); blob["radius_um"]`) at zero
+#     additional controller-call cost, since Subscript is not a Call. This repository's other
+#     built-in controllers (XRD, OpenFlexure) nonetheless expose scalar-returning methods
+#     exclusively. This preregistration keeps that scalar-only discipline for every atom below --
+#     NOT because dict/list returns are forbidden (they are not), but for consistency with
+#     existing verified controllers and because it keeps the static call-budget arithmetic
+#     (instrument_qualification.py:127-146, _controller_call_cost) legible: that function counts
+#     ast.Call nodes whose func is an ast.Attribute, so it is blind to how much data a single call
+#     returns. A dict-returning atom would not reduce the *call* count either way for this design.
+#   - _controller_call_cost (instrument_qualification.py:127-146) is a static, pessimistic
+#     over-approximation: for an `If` node it adds max(body_cost, orelse_cost) UNCONDITIONALLY --
+#     it does not know at compile time whether a runtime condition will actually be true, so any
+#     controller call written inside an `if` inside a bounded `for` is charged every loop
+#     iteration in the worst-case budget, regardless of whether the branch fires at runtime. This
+#     is the reason a literal-per-blob accessor design blows the 96-call ceiling fast; see
+#     call_budget.rationale below.
+#   - `for` loops must iterate `range(...)` with 1-3 literal int arguments
+#     (instrument_qualification.py:104-124); the computed iteration count cannot exceed
+#     max_loop_iterations=16. A loop bound can never be a runtime value (e.g. a count returned by
+#     a controller call) because range() arguments must be literal ast.Constant ints.
+#   - Local variables, arithmetic, comparisons, and `break`/`continue` inside skill code cost NO
+#     controller calls; only `controller.<method>(...)` invocations count (confirmed: `Break` is
+#     in ALLOWED_NODES at line 62, and _controller_call_cost only ever counts ast.Call nodes).
+#   - DebugCondition.parameters (skill_search.py:17-26) is float-only
+#     (`tuple[tuple[str, float], ...]`); there is no channel for a categorical condition
+#     parameter. Every qualitative fault below is threaded through SimulationScenario (4 values:
+#     nominal/repair/drift/unavailable, instrument_types.py:18-22) plus a numeric `fault_code`
+#     parameter, matching the OpenFlexure precedent's `correction_direction: int(+/-1)` encoding
+#     (builtin_providers.py:334-392).
+schema_version: proprio.flake_search_preregistration.v1
+frozen_at: "2026-07-14T00:00:00Z"
+# Filled by the release/commit step after this file's own commit hash exists; do not guess it.
+frozen_at_commit: "SET-AT-COMMIT"
+claim_boundary: >-
+  Verified in simulation only, against a reduced-order deterministic optical flake-search model.
+  The claim is workflow-level: declared-region coverage, chip-relative coordinate integrity,
+  focus validity, overlap deduplication, chip identity and state freshness, and evidence
+  completeness. This preregistration makes no material-identity, layer-count, or thickness claim
+  of any kind, and no manifest field below encodes one. Hardware validation is a separate, later
+  qualification gate; nothing here is a digital twin of any laboratory's real optical hardware,
+  controllers, stage, or illumination system -- geometry, noise, and fault magnitudes are
+  constructed for this simulator only.
+instrument:
+  instrument_id: proprio.flake_search.2d-flake-search
+  family: optical_microscopy
+
+# ---------------------------------------------------------------------------------------------
+# Constructed ground truth. Contract-visible facts (safe for skills/2d-flake-search/references/
+# controller.md, Phase 2) are marked contract_visible: true; everything else is verifier/
+# simulator-only and must never appear in the source bundle a drafting agent reads.
+# ---------------------------------------------------------------------------------------------
+geometry:
+  chip_size_um: [3000.0, 3000.0]
+  coordinate_origin: bottom_left_chip_corner
+  coordinate_units: micrometers
+  coordinate_frame_source: >-
+    Qumus Methods, "Chip Corner Detection and Flake Re-Localization": the bottom-left chip
+    corner is defined as the coordinate-frame origin, and each flake position is recorded as a
+    vector relative to that reference point.
+  contract_visible: true
+  declared_region:
+    origin_um: [500.0, 500.0]
+    size_um: [2000.0, 2000.0]
+    contract_visible: true
+  tiling:
+    grid: [4, 4]
+    tile_size_um: [500.0, 500.0]
+    tile_index_range: [0, 3]
+    overlap_um: 50.0
+    contract_visible: true
+    rationale: >-
+      16 tiles cover the declared 2000x2000um region exactly with no gap; 50um overlap on shared
+      edges is what makes a flake near a tile boundary observable from two captures, which is the
+      condition overlap_duplicate_control (checks axis 3) exists to test.
+  flake_population:
+    count_range: [6, 12]
+    radius_um_range: [15.0, 80.0]
+    contrast_range: [0.0, 1.0]
+    contract_visible: false
+    note: >-
+      Exact per-seed count and placement are simulator-internal; only the detectability floor
+      below (which determines what a flake needs to look like to be countable) is contract-
+      visible, not the underlying population range.
+  debris_population:
+    count_range: [2, 6]
+    signature: >-
+      contrast >= 0.30 AND (circularity < 0.35 OR radius_um < 12.0). A documented, mechanical
+      discriminator applied to observation-model outputs -- not a scientific-content judgment,
+      no different in kind from a detectability floor.
+    contract_visible: false
+    note: >-
+      The debris count is simulator-internal. The discriminating RULE (contrast/circularity/
+      radius) is contract-visible (see observation_model.debris_rule below) because a correct
+      skill needs it to satisfy false_candidate_burden; the population count is not.
+  detectability_floor:
+    contrast_min: 0.30
+    equivalent_radius_um_min: 20.0
+    condition: in_focus_and_in_range_illumination_tile
+    excluded_from_recall_denominator_below_floor: true
+    contract_visible: true
+  dedup:
+    merge_radius_um: 30.0
+    rule: >-
+      Two manifest candidates whose chip-frame positions are within merge_radius_um of each
+      other are the same physical object; at most one may appear in an admissible manifest.
+    contract_visible: true
+  edge_clipping:
+    rule: >-
+      Any constructed flake whose disk crosses the declared-region boundary must, if reported at
+      all, carry clipped=true, and a clipped candidate is excluded from usable (recall/burden)
+      candidate counting.
+    contract_visible: true
+
+# ---------------------------------------------------------------------------------------------
+# What the controller reports back to a running skill (post-detection-pipeline outputs), as
+# distinct from the constructed ground truth above.
+# ---------------------------------------------------------------------------------------------
+observation_model:
+  per_blob_fields:
+    - x_um
+    - y_um
+    - radius_um
+    - contrast
+    - circularity
+  per_blob_fields_source: tile_frame
+  per_blob_fields_scope: >-
+    get_blob(index, field) is scoped to the blobs recorded by the MOST RECENT capture_tile()
+    call; index resets to 0 on every new capture_tile(). This is the diagnostic/manual accessor,
+    not the recommended chip-wide candidate path (see controller_atoms and call_budget).
+  contract_visible: true
+  debris_rule: >-
+    Same rule as geometry.debris_population.signature: contrast >= 0.30 AND (circularity < 0.35
+    OR radius_um < 12.0). Contract-visible so a skill using the manual get_blob path can apply
+    it; the recommended chip-wide path (strong_blob_count/mark_candidate_from_blob) applies this
+    rule mechanically before exposing a candidate slot, so a skill using only the recommended
+    path never needs to evaluate it directly.
+  valid_acquisition_rule: >-
+    A capture_tile() contributes to declared_region_coverage and to the chip-wide candidate
+    accumulation only if it was preceded by calibrate_region() (in this scan) and its
+    concurrent autofocus() reported focus_score >= 0.70 and illumination was in-range. Captures
+    that violate this still return a blob_count mechanically (per controller_atoms.capture_tile)
+    but are recorded as invalid acquisitions and contribute nothing to the candidate queue.
+  contract_visible_valid_acquisition_rule: true
+  candidate_accumulation: >-
+    strong_blob_count() and mark_candidate_from_blob() operate over a single CHIP-WIDE,
+    monotonically-growing queue that the controller builds as each valid capture_tile() call
+    completes. The controller applies the documented debris rule (excluded) and the documented
+    dedup rule (an object already queued from an overlapping tile is not re-queued) before a
+    blob is added to this queue -- both are mechanical, deterministic, non-judgmental filters
+    applied identically regardless of scan order, not a scientific decision made by the skill or
+    the controller. A skill that instead reads raw per-tile blobs via get_blob(...) and marks
+    them manually via mark_candidate(...) bypasses this filtering and is responsible for
+    correctness itself; this is the intentional "safe recommended path vs. manual escape hatch"
+    split documented in call_budget below.
+  contract_visible_candidate_accumulation: true
+  status_codes:
+    "0": complete
+    "1": aborted_stale_chip
+    "2": aborted_focus_invalid
+    "3": aborted_illumination
+    "4": incomplete
+  contract_visible: true
+
+# ---------------------------------------------------------------------------------------------
+# Controller atom surface. Every atom costs exactly 1 controller call per invocation (there is
+# no free/batched call in this design). "role: recommended" atoms are the cheap, safe,
+# mechanically-filtered path; "role: manual" atoms are a more expensive escape hatch a skill may
+# use instead, at its own budget risk and its own correctness risk (see call_budget.rationale for
+# why axis 3 and axis 6 remain meaningful skill-competence tests despite the recommended path
+# being mechanically filtered).
+# ---------------------------------------------------------------------------------------------
+controller_atoms:
+  - name: reset
+    signature: "reset() -> None"
+    call_cost: 1
+    role: required
+    evidence_tag: design
+    notes: Deterministic re-init to the condition. Must be the first call.
+  - name: read_chip_state
+    signature: "read_chip_state() -> {chip_id: str, state_nonce: int, corner_found: bool}"
+    call_cost: 1
+    role: required
+    evidence_tag: transcript
+    notes: >-
+      state_nonce increments if the chip is swapped/disturbed. A correct skill reads this
+      before the scan and again after, per checks.chip-identity-state-freshness. Grounded in
+      the authors' named "significant failure mode" (stale lab/chip state), not in the paper.
+  - name: calibrate_region
+    signature: "calibrate_region() -> calibration_ok: bool"
+    call_cost: 1
+    role: required
+    evidence_tag: paper
+    notes: >-
+      Establishes the chip-relative frame from the detected corner. Must be called after
+      reset() and before any move_to_tile(); moving without calibration is recorded and is a
+      verifier-visible fault (see conditions.locked.wrong_origin_offset).
+  - name: move_to_tile
+    signature: "move_to_tile(ix: int, iy: int) -> arrival: bool"
+    call_cost: 1
+    role: required
+    evidence_tag: paper
+    notes: >-
+      ix, iy are literal/loop-derived tile indices in [0, 3]. Out-of-range indices return
+      False and record a fault event. [inferred atom per paper-brief section 6(a) stage.move_to]
+  - name: autofocus
+    signature: "autofocus() -> focus_score: float"
+    call_cost: 1
+    role: required
+    evidence_tag: paper
+    notes: >-
+      Documented validity floor is focus_score >= 0.70. Under some conditions focus decays as
+      the stage moves and must be periodically re-run; the exact decay behavior is locked-
+      condition content (see conditions.locked.focus_drift) and is not itself contract-visible.
+  - name: capture_tile
+    signature: "capture_tile() -> blob_count: int"
+    call_cost: 1
+    role: required
+    evidence_tag: paper
+    notes: >-
+      Captures at the current position. Per-blob observations for THIS capture are recorded
+      into telemetry by the controller and readable via get_blob(index, field). Captures while
+      out of focus or before calibration succeed mechanically but are recorded as invalid
+      acquisitions (see observation_model.valid_acquisition_rule) and do not feed the chip-wide
+      candidate queue.
+  - name: get_blob
+    signature: 'get_blob(index: int, field: str) -> float'
+    call_cost: 1
+    role: manual
+    evidence_tag: design
+    notes: >-
+      field in {"x_um","y_um","radius_um","contrast","circularity"}. Scoped to the most recent
+      capture_tile() call only (see observation_model.per_blob_fields_scope). Diagnostic/manual
+      accessor; NOT required by the recommended nominal path (see call_budget). Expensive if
+      used across every blob on every tile -- see call_budget.manual_path_cost_warning.
+  - name: mark_candidate
+    signature: >-
+      mark_candidate(chip_x_um: float, chip_y_um: float, radius_um: float, contrast: float,
+      clipped: bool) -> None
+    call_cost: 1
+    role: manual
+    evidence_tag: design
+    notes: >-
+      Manual/explicit candidate registration using skill-supplied floats. The controller still
+      stamps tile provenance and focus evidence automatically, but chip-frame coordinates and
+      dedup correctness are the skill's own responsibility on this path -- this is the intended
+      "risky path" that conditions.locked.duplicate_overlap_stress and
+      checks.coordinate-integrity can genuinely fail against, unlike mark_candidate_from_blob.
+  - name: strong_blob_count
+    signature: "strong_blob_count() -> count: int"
+    call_cost: 1
+    role: recommended
+    evidence_tag: design
+    notes: >-
+      Chip-wide count of candidate queue slots accumulated so far (see
+      observation_model.candidate_accumulation): debris-excluded, dedup-resolved, valid-
+      acquisition-only. Monotonically non-decreasing as more capture_tile() calls complete.
+      Bounded above by the true flake population (<=12) because debris and duplicate
+      observations of the same object never occupy a slot.
+  - name: mark_candidate_from_blob
+    signature: "mark_candidate_from_blob(blob_index: int) -> marked: bool"
+    call_cost: 1
+    role: recommended
+    evidence_tag: design
+    notes: >-
+      Marks chip-wide candidate queue slot blob_index (0-based, stable discovery order) into
+      the manifest using controller-computed chip-frame coordinates and auto-stamped tile
+      provenance + focus evidence. Returns False (no-op, not an error) if blob_index is out of
+      range for the current strong_blob_count() or was already marked -- calling it twice on
+      the same index cannot itself create a duplicate manifest row. This idempotence is what
+      lets a skill safely loop over a fixed literal range without knowing the true count in
+      advance (loop bounds must be literal ints; see the ALLOWED_NODES note at the top of this
+      file).
+  - name: complete_scan
+    signature: "complete_scan(status_code: int) -> None"
+    call_cost: 1
+    role: required
+    evidence_tag: design
+    notes: >-
+      status_code in {0,1,2,3,4}, meanings in observation_model.status_codes. Explicit
+      completion state is required; a trace with no complete_scan event is an evidence-
+      completeness fault (checks.evidence-completeness) and a silent-truncation fault
+      (checks.bounded-runtime-stop).
+  - name: release
+    signature: "release() -> None"
+    call_cost: 1
+    role: required
+    evidence_tag: paper
+    notes: >-
+      Returns the stage to park and releases the vacuum-hold analog. Required before exit;
+      must be called after complete_scan(). [transcript-indirect: the authors named vacuum
+      holders as part of the custom hardware-abstraction layer, not as a release protocol
+      directly -- tagged "paper" per the grounding brief's own instruction for this axis,
+      since the release-ordering requirement itself is a design/paper-precedent choice, not a
+      transcript claim.]
+
+# ---------------------------------------------------------------------------------------------
+# Call-budget arithmetic. Frozen remedy: an ADAPTATION of the brief's option (c)
+# ("mark_candidate_from_blob" + a controller-computed strong-blob count), NOT the brief's literal
+# text. adjusted-at-freeze: the brief's literal remedy (c) additionally proposed "TWO scalar
+# accessors blob_metric(index, metric_code) used only on blobs that pass strong_blob_count()"
+# as part of the nominal per-candidate marking cost. Honest arithmetic on that literal design,
+# done below, does not fit <=70 calls without shrinking the flake population below the
+# geometry-frozen 6-12 range. This file instead moves the debris-exclusion and dedup-resolution
+# work into the controller's mechanical candidate-queue construction (observation_model.
+# candidate_accumulation), so the recommended nominal path needs zero per-candidate metric
+# reads. get_blob (renamed from the brief's separately-proposed blob_metric; they are the same
+# per-blob field-accessor concept, see controller_atoms.get_blob) remains available as a manual
+# per-blob accessor for a skill that wants to verify blobs itself instead of trusting the
+# recommended path, but it is not on the frozen nominal path and its cost is a warning below, not
+# part of the frozen budget.
+# ---------------------------------------------------------------------------------------------
+call_budget:
+  max_controller_calls: 96
+  source: instrument_qualification.py:78 (SkillLimits.max_controller_calls default)
+  required_ceiling: 70
+  required_margin_fraction: 0.27
+  ceiling_derivation: "96 * (1 - 0.27) = 70.08, so <=70 calls IS the >=27% margin condition."
+  chosen_remedy: "c-adapted"
+  rejected_literal_remedy_c_arithmetic: >-
+    Literal remedy (c): strong_blob_count()(1 call, chip-wide) + a flat loop over a
+    chip-wide candidate-slot cap N of [blob_metric(index,codeA) + blob_metric(index,codeB) +
+    conditional mark_candidate_from_blob(index)] = 1 + 3N calls. Solving 42 (base scan, see
+    nominal_path below) + 1 + 3N <= 70 gives N <= 9. But recall (checks.candidate-recall)
+    requires >=90%-with-all-but-one coverage of a true-flake population as large as 12
+    (geometry.flake_population.count_range), so any slot cap below 12 makes recall
+    structurally unwinnable for a maximally-populated seed through no fault of the drafted
+    skill -- a methodology defect, not a fair test. Shrinking the population range to fit
+    (e.g. to 6-8) was considered and rejected in favor of shrinking the per-slot call cost
+    instead, since the population range is a geometry.md-level binding design directive and
+    the accessor design is this file's own choice to make.
+  nominal_path:
+    description: >-
+      One complete, correct skill implementing the RECOMMENDED atoms only (no get_blob, no
+      manual mark_candidate). Two-phase: acquire all 16 tiles with a post-scan freshness
+      check, then mark candidates from the chip-wide queue in one flat, unconditional loop
+      bounded by the literal population ceiling (12). autofocus cadence is once per scan row,
+      matching the row-major move_to_tile order.
+    calls:
+      - {atom: reset, count: 1, subtotal: 1}
+      - {atom: read_chip_state, count: 2, subtotal: 3, note: "pre-scan + post-scan freshness"}
+      - {atom: calibrate_region, count: 1, subtotal: 4}
+      - {atom: autofocus, count: 4, subtotal: 8, note: "once per scan row (4 rows)"}
+      - {atom: move_to_tile, count: 16, subtotal: 24}
+      - {atom: capture_tile, count: 16, subtotal: 40}
+      - {atom: strong_blob_count, count: 1, subtotal: 41, note: "called once, post-scan"}
+      - {atom: mark_candidate_from_blob, count: 12, subtotal: 53,
+         note: "literal range(12) = max true-flake population; unconditional, no if-wrapper"}
+      - {atom: complete_scan, count: 1, subtotal: 54}
+      - {atom: release, count: 1, subtotal: 55}
+    total_calls: 55
+    margin_fraction: 0.427
+    margin_check: "(96 - 55) / 96 = 0.427 >= 0.27; 55 <= 70 required ceiling."
+  defensive_variant:
+    description: >-
+      Same skill but with autofocus called once per tile instead of once per row (a more
+      conservative cadence that would also cover a per-tile-decay reading of focus_drift, not
+      just a per-row one). Documented so Phase 2/3 simulator calibration of the exact decay
+      rate has headroom either way without re-opening this freeze.
+    total_calls: 67
+    derivation: "55 - 4 (row autofocus) + 16 (per-tile autofocus) = 67"
+    margin_fraction: 0.302
+    margin_check: "(96 - 67) / 96 = 0.302 >= 0.27; 67 <= 70 required ceiling."
+  manual_path_cost_warning: >-
+    get_blob and mark_candidate remain callable up to the hard 96-call ceiling for a skill
+    that chooses the manual/diagnostic path instead of, or in addition to, the recommended
+    one. They are not part of the frozen nominal or defensive budgets above and no specific
+    manual-path skill is preregistered as "correct" -- a skill using them extensively is
+    simply spending more of its own 96-call budget and accepting more correctness risk
+    (see controller_atoms.mark_candidate and controller_atoms.get_blob notes).
+  static_worst_case_semantics: >-
+    instrument_qualification._controller_call_cost (lines 127-146) charges max(if_body,
+    else_body) for every `If` node regardless of whether the condition can statically be
+    known false, and iterations * body_cost for every `For` node regardless of runtime
+    early-exit (`break` does not reduce the static bound). Every number in nominal_path and
+    defensive_variant above already assumes this pessimistic static accounting, not an
+    optimistic runtime-average count.
+
+# ---------------------------------------------------------------------------------------------
+# Rubric axes (12) and their checks. Evidence tags: transcript (stale-state grounding only,
+# runs/flake-search/grounding/transcript-brief.md section 7), paper (Qumus arXiv:2605.18407),
+# design (derived from the constructed geometry above, no external citation).
+# ---------------------------------------------------------------------------------------------
+rubric_axes:
+  - {id: chip_identity_state_freshness, evidence_tag: transcript}
+  - {id: declared_region_coverage, evidence_tag: paper}
+  - {id: overlap_duplicate_control, evidence_tag: design}
+  - {id: focus_validity, evidence_tag: paper}
+  - {id: candidate_recall, evidence_tag: design}
+  - {id: false_candidate_burden, evidence_tag: paper}
+  - {id: edge_clipping, evidence_tag: design}
+  - {id: coordinate_integrity, evidence_tag: paper}
+  - {id: uncertainty_abstention, evidence_tag: design}
+  - {id: evidence_completeness, evidence_tag: paper}
+  - {id: bounded_runtime_stop, evidence_tag: design}
+  - {id: resource_release, evidence_tag: paper}
+
+checks:
+  - check_id: chip-identity-state-freshness
+    axis: chip_identity_state_freshness
+    evidence_tag: transcript
+    rule: >-
+      chip_id and state_nonce from the pre-scan read_chip_state() must exactly equal chip_id
+      and state_nonce from the post-scan read_chip_state(), OR complete_scan was called with
+      status_code == 1 (aborted_stale_chip). Any other combination fails.
+    rationale: >-
+      Grounded directly in the Qumus authors' named "significant failure mode": the agent's
+      internal model of chip location/identity drifting out of sync with physical reality
+      (transcript-brief.md section 1). This is the one axis with direct, first-party
+      transcript evidence rather than paper or design inference.
+  - check_id: declared-region-coverage
+    axis: declared_region_coverage
+    evidence_tag: paper
+    rule: >-
+      All 16 declared-region tiles have a VALID acquisition (calibrated, focus_score >= 0.70,
+      in-range illumination; see observation_model.valid_acquisition_rule) when complete_scan
+      status_code == 0. Any other status_code (1,2,3,4) is only valid together with an
+      explicit, non-zero count of unvisited or invalid tiles consistent with that abort reason.
+    rationale: >-
+      Coverage is the mechanical analogue of the paper's 10x full-field screen preceding
+      per-candidate revisit (paper-brief.md section 2, Extended Data Fig. 3b-e).
+  - check_id: overlap-duplicate-control
+    axis: overlap_duplicate_control
+    evidence_tag: design
+    rule: >-
+      Zero pairs of non-clipped manifest candidates whose chip-frame positions fall within
+      geometry.dedup.merge_radius_um (30.0) of each other.
+    rationale: >-
+      Verifier-side, output-only check on the final manifest. The recommended controller path
+      (strong_blob_count/mark_candidate_from_blob) is mechanically deduped by construction, so
+      this axis chiefly discriminates a skill that instead used the manual get_blob +
+      mark_candidate path without correctly recognizing a cross-tile re-observation in the
+      50um overlap band -- see conditions.locked.duplicate_overlap_stress.
+  - check_id: focus-validity
+    axis: focus_validity
+    evidence_tag: paper
+    rule: >-
+      Every capture that contributed a manifest candidate had focus_score >= 0.70 at capture
+      time. Captures below the floor must not contribute candidates; if the scan nonetheless
+      completes with status_code == 0 despite any invalid capture, that is a fault (the
+      correct action is abort status_code == 2, aborted_focus_invalid).
+    rationale: >-
+      "a motorized focus module for automated z-axis focusing" (paper-brief.md section 2/6a,
+      Main "The Robotic Minilab").
+  - check_id: candidate-recall
+    axis: candidate_recall
+    evidence_tag: design
+    rule: >-
+      recall_den = count of constructed flakes meeting geometry.detectability_floor in a
+      valid (in-focus, in-range-illumination) tile. recall_num = count of those flakes present
+      in the final manifest as non-clipped, non-debris, deduplicated candidates. Admit iff
+      recall_num >= required_num, where required_num = min(recall_den - 1,
+      ceil(0.90 * recall_den)) -- the more permissive (lower) of a strict 90% target and an
+      "all but one" floor. recall_den == 0 is vacuously admitted (no denominator). Over this
+      preregistration's frozen population range (recall_den in [0, 12]), this formula reduces
+      exactly to required_num = max(recall_den - 1, 0): "admit if at most one detectable flake
+      is missing from the manifest." (Verified: ceil(0.90*d) >= d-1 for every integer d in
+      [1, 19]; the two bounds diverge only once d >= 20, which never occurs given
+      geometry.flake_population.count_range = [6, 12].)
+    rationale: >-
+      Directly implements the brief's stated rule ("all-but-one for populations <=10"),
+      formalized and shown to hold uniformly across the actual frozen population range so
+      there is no boundary ambiguity for a verifier implementation to guess at.
+  - check_id: false-candidate-burden
+    axis: false_candidate_burden
+    evidence_tag: paper
+    rule: >-
+      Zero constructed-debris objects (by ground-truth identity, matched within
+      geometry.dedup.merge_radius_um) present among manifest candidates.
+    rationale: >-
+      Debris is an explicit output class of the paper's Mask Classification step, sitting
+      alongside the pipeline's other classification labels rather than being filtered out as
+      a separate stage (paper-brief.md section 2). Proprio adopts only the debris/not-debris
+      distinction; it does not adopt or reproduce any of the pipeline's other classification
+      labels, consistent with this file's claim_boundary.
+  - check_id: edge-clipping
+    axis: edge_clipping
+    evidence_tag: design
+    rule: >-
+      Every constructed boundary-crossing flake that is reported in the manifest at all
+      carries clipped == true; no candidate with clipped == true counts toward
+      candidate-recall or false-candidate-burden (that exclusion is enforced by those checks'
+      own denominators, not restated here).
+    rationale: >-
+      Pure consequence of the constructed declared_region boundary; no external citation
+      needed beyond the geometry itself.
+  - check_id: coordinate-integrity
+    axis: coordinate_integrity
+    evidence_tag: paper
+    rule: >-
+      For every matched (non-duplicate, non-clipped) candidate, abs(reported_chip_position -
+      true_chip_position) <= 25.0 um, evaluated independently per axis (x and y).
+    rationale: >-
+      Corner-origin chip-relative frame per paper-brief.md section 3. Tolerance components:
+      stage positioning noise (5um, this file's own construction) plus tile-frame-to-chip-
+      frame quantization and corner-detection/homography residual. No existing simulator noise
+      model for this new instrument contradicts 25um; frozen as a generous-but-not-vacuous
+      bound (5x the stated stage-noise component) pending Phase 2 simulator calibration.
+      Contract-visible (see geometry note): a skill benefits from knowing this envelope, matching
+      the precedent in skills/openflexure-adaptive-autofocus/references/controller.md, which
+      reveals its own analogous "+/-100-step acquisition tolerance."
+  - check_id: uncertainty-abstention
+    axis: uncertainty_abstention
+    evidence_tag: design
+    rule: >-
+      Under out-of-range illumination, correct behavior is complete_scan(status_code=3) with
+      zero manifest candidates. Any manifest candidate present when status_code == 3 is a
+      fault, regardless of how plausible that candidate looks.
+    rationale: >-
+      No stated confidence/abstention protocol exists in either the paper or the transcript
+      (transcript-brief.md section 7 marks this axis "Not evidenced" explicitly); frozen from
+      first-principles design as a hard-stop rule, not tuned against any external claim.
+  - check_id: evidence-completeness
+    axis: evidence_completeness
+    evidence_tag: paper
+    rule: >-
+      complete_scan() was called exactly once with a status_code in {0,1,2,3,4}. Every
+      manifest candidate carries controller-stamped tile provenance (originating tile index)
+      and focus evidence (focus_score at the capture that produced it). Missing either fails.
+    rationale: >-
+      The paper's database design ties a final experimental outcome back to its chip, image,
+      workflow, agent decision, and tool output through relational links across its three
+      databases (paper-brief.md section 4). This check adopts only the chip/image/tile/focus
+      provenance portion of that traceability chain, not its identity-bearing relations.
+  - check_id: bounded-runtime-stop
+    axis: bounded_runtime_stop
+    evidence_tag: design
+    rule: >-
+      Trace length <= max_controller_calls (96, enforced upstream by
+      instrument_qualification._ControllerBudget at runtime and by
+      instrument_qualification.compile_instrument_skill statically before execution) AND the
+      skill reached an explicit terminal status via complete_scan() before its trace ends; no
+      silent truncation (the trace must not end mid-scan with no complete_scan event).
+    rationale: >-
+      Mechanical completeness check on the trace, consistent with how every other built-in
+      provider's PROCEDURAL_CHECKS-class axes work (skill_search.py PROCEDURAL_CHECKS).
+  - check_id: resource-release
+    axis: resource_release
+    evidence_tag: paper
+    rule: >-
+      release() was called exactly once, strictly after complete_scan() and before the run()
+      function's trace ends.
+    rationale: >-
+      "[transcript-indirect: vacuum holders]" -- the authors named vacuum and other hardware
+      resources as part of their custom hardware-abstraction layer (transcript-brief.md
+      section 3), but never described a release/cleanup protocol directly; the ordering
+      requirement itself is this file's own design choice, following the paper's general
+      framing of atom-level determinism, hence tagged "paper" per the brief's own instruction
+      for this specific axis rather than "transcript".
+
+# ---------------------------------------------------------------------------------------------
+# Conditions. DebugCondition field names match skill_search.py:17-26 exactly:
+# condition_id, scenario, parameters (float-only), repetitions (default 3, used here unless
+# noted). Locked-condition seeds and fault magnitudes below are FROZEN, VERIFIER-SIDE-ONLY
+# values. They must never be copied into skills/2d-flake-search/references/controller.md or any
+# other file a drafting agent reads (see AGENTS.md "Draft blind"). Only the qualitative
+# behavioral facts already marked contract_visible: true above (detectability floor, debris
+# rule, merge radius, focus floor, coordinate tolerance, status codes) are safe to restate there.
+# fault_code is an internal numeric selector consumed by Phase 2's controller_factory
+# (SimulationScenario, Mapping[str, float]) -> Controller mapping; its meaning is locked-only.
+# ---------------------------------------------------------------------------------------------
+conditions:
+  acquisition:
+    - condition_id: acquisition-nominal
+      scenario: nominal
+      parameters: {seed: 6100.0}
+      repetitions: 1
+      evidence_tag: design
+      rationale: Single nominal seed, no fault. Matches the XRD/Keithley minimal-acquisition shape.
+
+  visible:
+    - condition_id: visible-nominal
+      scenario: nominal
+      parameters: {seed: 6110.0}
+      repetitions: 3
+      evidence_tag: design
+      rationale: >-
+        Baseline correct-path exercise, no fault, visible to the drafting agent's repair loop.
+    - condition_id: visible-mild-defocus
+      scenario: nominal
+      parameters: {seed: 6111.0, fault_code: 10.0, initial_focus_score: 0.55}
+      repetitions: 3
+      evidence_tag: paper
+      rationale: >-
+        Initial focus below the 0.70 floor; autofocus() must recover it before any capture is
+        counted. Exercises checks.focus-validity on the visible (non-locked) suite so the
+        drafting agent gets direct repair feedback on the floor value it is told about.
+    - condition_id: visible-mild-illumination
+      scenario: nominal
+      parameters: {seed: 6112.0, fault_code: 11.0, illumination_shift: 0.15}
+      repetitions: 3
+      evidence_tag: paper
+      rationale: >-
+        In-range but shifted illumination; the documented detectability floors still apply
+        unchanged. Exercises checks.declared-region-coverage and checks.candidate-recall under
+        a non-adversarial nuisance shift, distinct from the locked out-of-range fault.
+
+  locked:
+    - condition_id: locked-stale-chip-swap
+      scenario: repair
+      parameters: {seed: 7201.0, fault_code: 1.0, swap_after_tile_index: 8.0}
+      repetitions: 3
+      evidence_tag: transcript
+      rationale: >-
+        state_nonce changes after tile 8 (0-indexed, mid-scan). Correct = detect via post-scan
+        read_chip_state() and abort status_code=1, or a pre-emptive abort; a manifest emitted
+        as if nothing changed is REJECT. Directly tests checks.chip-identity-state-freshness.
+    - condition_id: locked-wrong-origin-offset
+      scenario: nominal
+      parameters: {seed: 7202.0, fault_code: 2.0, offset_x_um: 60.0, offset_y_um: 45.0}
+      repetitions: 3
+      evidence_tag: paper
+      rationale: >-
+        Corner detection returns an offset frame unless calibrate_region() is called after
+        reset(); skipping calibration yields shifted coordinates. Tests
+        checks.coordinate-integrity via calibration-order compliance.
+    - condition_id: locked-mirrored-frame
+      scenario: nominal
+      parameters: {seed: 7203.0, fault_code: 3.0, mirror_axis: 2.0}
+      repetitions: 3
+      evidence_tag: paper
+      rationale: >-
+        Y-axis mirror applied if calibration is skipped; same mechanism as
+        locked-wrong-origin-offset, distinct seed and transform, so a skill that only "got
+        lucky" on the offset case is still tested. mirror_axis=2.0 selects the y-axis
+        (1.0 would select x); this numeric selector is locked-only.
+    - condition_id: locked-illumination-out-of-range
+      scenario: repair
+      parameters: {seed: 7204.0, fault_code: 4.0, illumination_shift: 0.85}
+      repetitions: 3
+      evidence_tag: design
+      rationale: >-
+        Illumination outside the documented in-range band for every tile. Correct = abort
+        status_code=3 with zero manifest candidates. Directly tests
+        checks.uncertainty-abstention.
+    - condition_id: locked-heavy-debris
+      scenario: nominal
+      parameters: {seed: 7205.0, fault_code: 5.0, debris_count_multiplier: 3.0}
+      repetitions: 3
+      evidence_tag: paper
+      rationale: >-
+        Debris population multiplied by 3x relative to geometry.debris_population.count_range.
+        checks.false-candidate-burden must still evaluate to zero regardless of debris density.
+    - condition_id: locked-edge-clipped-field
+      scenario: nominal
+      parameters: {seed: 7206.0, fault_code: 6.0, min_clipped_flake_count: 3.0}
+      repetitions: 3
+      evidence_tag: design
+      rationale: >-
+        At least 3 constructed flakes cross the declared-region boundary. Directly tests
+        checks.edge-clipping with enough clipped instances that a skill cannot pass by luck on
+        a single edge case.
+    - condition_id: locked-focus-drift
+      scenario: drift
+      parameters: {seed: 7207.0, fault_code: 7.0, decay_per_move: 0.08}
+      repetitions: 3
+      evidence_tag: paper
+      rationale: >-
+        Focus score decays by decay_per_move for every move_to_tile() call since the last
+        autofocus(); re-autofocus is required per row or on detected drift to keep captures
+        above the 0.70 floor. Directly tests checks.focus-validity under an active fault,
+        distinct from the visible suite's static mild-defocus case. The exact decay rate is
+        locked-only; controller.md may state only that focus can decay with stage moves and
+        that autofocus() should be re-invoked periodically (see controller_atoms.autofocus
+        notes), never this numeric rate.
+    - condition_id: locked-duplicate-overlap-stress
+      scenario: nominal
+      parameters: {seed: 7208.0, fault_code: 8.0, overlap_band_flake_count: 4.0}
+      repetitions: 3
+      evidence_tag: design
+      rationale: >-
+        4 constructed flakes deliberately placed within the 50um tile-overlap bands (up from
+        an incidental few under nominal seeds). Directly tests checks.overlap-duplicate-control,
+        specifically discriminating a skill that used the manual mark_candidate path without
+        correctly recognizing cross-tile re-observation from one using the recommended
+        mechanically-deduped path (see call_budget and controller_atoms.mark_candidate_from_blob).
+
+  evolution:
+    - condition_id: evolution-stage-backlash-shift
+      scenario: drift
+      parameters: {seed: 8301.0, fault_code: 9.0, backlash_x_um: 15.0}
+      repetitions: 3
+      evidence_tag: design
+      rationale: >-
+        Systematic +15um x-axis stage backlash applied to every move_to_tile() target.
+        Registered drift for future staging: coordinate tolerance
+        (checks.coordinate-integrity, 25.0um) breaks for a skill that does not recalibrate or
+        otherwise compensate. A stage_evolution candidate must replay its parent's admitting
+        behavior on the acquisition/visible suites and additionally survive this drift before
+        being staged. The magnitude (15.0um) is locked-only; controller.md may state only that
+        systematic stage drift is a possible future condition class, matching the general
+        "registered drift" framing already used by the OpenFlexure provider's evolution suite.
