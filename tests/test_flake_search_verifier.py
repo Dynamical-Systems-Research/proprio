@@ -386,7 +386,92 @@ def test_reject_capture_out_of_focus_without_recovery_fails_focus_validity() -> 
     controller.complete_scan(COMPLETE)
     controller.release()
     checks = _by_id(_verify(controller))
+    # completed_despite_invalid direction: status 0 with uncorrected sub-floor
+    # captures fails regardless of the status-2 abort-legitimacy gate.
     assert checks["focus-validity"].passed is False
+    assert checks["focus-validity"].evidence["invalid_focus_capture_count"] > 0
+
+
+def test_exploit_regression_partial_scan_with_bogus_focus_abort_fails_focus_validity() -> None:
+    """Reviewer exploit regression: on visible-nominal, drive 8/16 tiles correctly,
+    then complete_scan(ABORTED_FOCUS_INVALID) + release(). Before the abort-legitimacy
+    gate this session passed all 12 checks (coverage's non-zero-status branch accepts
+    any non-zero uncovered-tile count; nothing policed status 2). Now focus-validity
+    must fail: no autofocus() return below the floor ever occurred."""
+
+    controller = _controller("visible-nominal")
+    controller.read_chip_state()
+    controller.calibrate_region()
+    grid_x, grid_y = GEOMETRY.tiling_grid
+    for iy in range(grid_y // 2):  # only 8 of 16 tiles
+        controller.autofocus()
+        for ix in range(grid_x):
+            controller.move_to_tile(ix, iy)
+            controller.capture_tile()
+    controller.read_chip_state()
+    count = controller.strong_blob_count()
+    for index in range(count):
+        controller.mark_candidate_from_blob(index)
+    controller.complete_scan(ABORTED_FOCUS_INVALID)
+    controller.release()
+    checks = _verify(controller)
+    failing = [check.check_id for check in checks if not check.passed]
+    assert failing == ["focus-validity"]
+    by_id = _by_id(checks)
+    assert by_id["focus-validity"].evidence["failed_autofocus_attempts"] == 0
+
+
+def test_lazy_focus_abort_without_recovery_attempt_fails_focus_validity() -> None:
+    """locked-focus-drift, skill never calls autofocus(), collects sub-floor captures,
+    then aborts status 2. Sub-floor CAPTURES alone do not legitimize the abort -- a
+    failed autofocus() recovery attempt is required (negligent, not blocked)."""
+
+    controller = _controller("locked-focus-drift")
+    controller.read_chip_state()
+    controller.calibrate_region()
+    grid_x, grid_y = GEOMETRY.tiling_grid
+    for iy in range(grid_y):
+        # deliberately never call autofocus() -- focus decays below the floor
+        for ix in range(grid_x):
+            controller.move_to_tile(ix, iy)
+            controller.capture_tile()
+    controller.read_chip_state()
+    controller.complete_scan(ABORTED_FOCUS_INVALID)
+    controller.release()
+    checks = _by_id(_verify(controller))
+    assert checks["focus-validity"].passed is False
+    assert checks["focus-validity"].evidence["invalid_focus_capture_count"] > 0
+    assert checks["focus-validity"].evidence["failed_autofocus_attempts"] == 0
+
+
+def test_legitimate_focus_abort_with_failed_recovery_attempt_passes_focus_validity() -> None:
+    """A genuinely failed recovery attempt (autofocus() returning below the floor)
+    legitimizes status 2. The simulator's autofocus() unconditionally restores focus
+    to nominal under every frozen condition, so a sub-floor autofocus return is not
+    producible by any real call sequence -- the trace row is synthesized (same
+    synthetic-evidence technique as the provenance-gap test), patched to the
+    condition's own frozen sub-floor initial_focus_score."""
+
+    condition = _condition("visible-mild-defocus")
+    initial_focus = condition.parameters["initial_focus_score"]
+    assert initial_focus < OBSERVATION_MODEL.focus_score_min
+
+    controller = _controller("visible-mild-defocus")
+    controller.read_chip_state()
+    controller.calibrate_region()
+    controller.move_to_tile(0, 0)
+    controller.autofocus()
+    controller.read_chip_state()
+    controller.complete_scan(ABORTED_FOCUS_INVALID)
+    controller.release()
+    telemetry = controller.telemetry()
+    trace = [dict(row) for row in controller.trace]
+    for row in trace:
+        if row["operation"] == "autofocus":
+            row["focus_score"] = initial_focus
+    checks = _by_id(verify_flake_search(trace, telemetry))
+    assert checks["focus-validity"].passed is True
+    assert checks["focus-validity"].evidence["failed_autofocus_attempts"] > 0
 
 
 def test_reject_under_marking_fails_candidate_recall() -> None:
@@ -438,6 +523,11 @@ def test_reject_keep_debris_via_manual_path_fails_false_candidate_burden() -> No
     controller.release()
     checks = _by_id(_verify(controller))
     assert checks["false-candidate-burden"].passed is False
+    evidence = checks["false-candidate-burden"].evidence
+    assert evidence["debris_candidate_count"] == len(evidence["violations"]) > 0
+    for violation in evidence["violations"]:
+        assert set(violation) == {"manifest_index", "debris_id", "distance_um"}
+        assert violation["distance_um"] <= evidence["merge_radius_um"]
 
 
 def test_reject_report_clipped_flake_as_usable_fails_edge_clipping() -> None:

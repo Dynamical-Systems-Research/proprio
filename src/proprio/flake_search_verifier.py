@@ -27,7 +27,10 @@ rationale of each):
     (which a skill could game by never actually reading state, or by reading at a
     convenient moment). An abort status only passes its axis if the matching fault
     genuinely occurred; a completed status-0 scan under an active abort-warranting
-    fault fails, symmetrically.
+    fault fails, symmetrically. Status 2 (aborted_focus_invalid) is policed on the
+    focus-validity axis: it requires a failed recovery attempt (an autofocus() return
+    below the frozen floor), not merely sub-floor captures -- see
+    ``_check_focus_validity``.
   - candidate-recall and false-candidate-burden exclude clipped ground truth/candidates
     from their own denominators (edge-clipping's own cross-reference: "no candidate
     with clipped==true counts toward candidate-recall or false-candidate-burden").
@@ -203,6 +206,14 @@ def _check_declared_region_coverage(
     all_tiles = _all_tiles(geometry)
     valid_tiles = _valid_tiles(acquisitions)
     incomplete_count = len(all_tiles - valid_tiles)
+    # Division of labor (adjudicated): the non-zero-status branch below is
+    # deliberately kind-agnostic -- any non-zero count of unvisited/invalid tiles is
+    # sufficient, with no correlation to the SPECIFIC abort reason -- BECAUSE each
+    # abort status is policed for legitimacy on its own axis: status 1 by
+    # chip-identity-state-freshness (requires a real swap), status 2 by
+    # focus-validity (requires a failed autofocus recovery attempt), status 3 by
+    # uncertainty-abstention (requires real out-of-range illumination), and status 4
+    # is the generic honest incomplete.
     if status_code == ScanStatus.COMPLETE.value:
         passed = incomplete_count == 0
     elif status_code in _VALID_STATUS_CODES:
@@ -252,13 +263,32 @@ def _check_focus_validity(
     completed_despite_invalid = (
         status_code == ScanStatus.COMPLETE.value and invalid_focus_captures > 0
     )
-    passed = manifest_below_floor == 0 and not completed_despite_invalid
+    failed_autofocus_attempts = sum(
+        1
+        for row in trace
+        if row.get("operation") == "autofocus" and row.get("focus_score", math.inf) < focus_min
+    )
+    # Abort-legitimacy gate for status 2 (aborted_focus_invalid), symmetric with
+    # status 1 (requires a real chip swap) and status 3 (requires real out-of-range
+    # illumination): a focus abort is legitimate ONLY when the session shows a FAILED
+    # RECOVERY ATTEMPT -- at least one autofocus() return below the frozen focus
+    # floor. Sub-floor CAPTURES alone do not legitimize status 2: a skill that never
+    # attempts autofocus and collects bad captures is negligent, not blocked
+    # (autofocus restores focus in every frozen condition, so recovery must be
+    # attempted before aborting). Without this gate, a partial scan under a nominal
+    # condition could declare status 2 and pass every axis (demonstrated exploit).
+    if status_code == ScanStatus.ABORTED_FOCUS_INVALID.value:
+        abort_legitimate = failed_autofocus_attempts > 0
+    else:
+        abort_legitimate = True
+    passed = manifest_below_floor == 0 and not completed_despite_invalid and abort_legitimate
     return _gate(
         "focus-validity",
         passed,
         focus_score_min=focus_min,
         manifest_candidates_below_floor=manifest_below_floor,
         invalid_focus_capture_count=invalid_focus_captures,
+        failed_autofocus_attempts=failed_autofocus_attempts,
         status_code=status_code,
     )
 
@@ -326,6 +356,7 @@ def _check_false_candidate_burden(
         len(matches) == 0,
         merge_radius_um=merge_radius,
         debris_candidate_count=len(matches),
+        violations=matches,
     )
 
 
