@@ -32,7 +32,7 @@ installable and contains `SKILL.md`, an `agents/openai.yaml` discovery manifest,
 where required, focused controller references, and a compact verification record. The historical
 raw model conversations are not required to install, use, reproduce, or extend these packages.
 
-[`catalog.json`](catalog.json) content-addresses all 12 packages. `simulation_qualified` means the
+[`catalog.json`](catalog.json) content-addresses all 13 packages. `simulation_qualified` means the
 exact code passed visible and independently held simulator checks. `simulation_staged` means the
 proposal passed its recorded evolution gate but has not received the broader qualification claim.
 Every package still requires separate validation on real hardware.
@@ -51,10 +51,11 @@ Every package still requires separate validation on real hardware.
 | HELAO Gamry | [Run cyclic voltammetry](skills/helao-gamry-cv/SKILL.md) | `simulation_qualified` |
 | CLSLab | [Measure light spectrum](skills/clslab-light-spectrometer/SKILL.md) | `simulation_qualified` |
 | OpenFlexure microscope | [Run adaptive autofocus](skills/openflexure-adaptive-autofocus/SKILL.md) | `simulation_staged` |
+| Optical flake-search microscope | [Search 2D flakes](skills/2d-flake-search/SKILL.md) | `simulation_qualified` |
 
 ### Install the skill library
 
-The [`skills` installer](https://github.com/vercel-labs/skills) discovers the 12 packages directly
+The [`skills` installer](https://github.com/vercel-labs/skills) discovers the 13 packages directly
 from this repository. List them before installing:
 
 ```bash

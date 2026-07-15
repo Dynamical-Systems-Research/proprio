@@ -123,6 +123,13 @@ PUBLISHED_SKILLS = (
         "proprio.openflexure.microscope-autofocus",
         "skills/openflexure-adaptive-autofocus/references/admitted-parent.py",
     ),
+    PublishedSkill(
+        "2d-flake-search",
+        "0.1.0",
+        "reduced-order 2D optical flake search",
+        "simulation_qualified",
+        "proprio.flake_search.2d-flake-search",
+    ),
 )
 
 
