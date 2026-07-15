@@ -250,6 +250,53 @@ def xrd_provider() -> InstrumentProvider:
     )
 
 
+def flake_search_provider() -> InstrumentProvider:
+    """Expose the verified 2D flake-search simulator and metrology gate."""
+
+    from proprio.flake_search_simulator import ALLOWED_METHODS, build_flake_search_controller
+    from proprio.flake_search_types import load_flake_search_preregistration
+    from proprio.flake_search_verifier import verify_flake_search
+
+    provider_id = "proprio.flake_search"
+    instrument_id = f"{provider_id}.2d-flake-search"
+
+    prereg = load_flake_search_preregistration()
+
+    def _conditions(group: str) -> tuple[DebugCondition, ...]:
+        return tuple(
+            DebugCondition(
+                condition_id=item.condition_id,
+                scenario=SimulationScenario(item.scenario),
+                parameters=tuple(sorted(item.parameters.items())),
+                repetitions=item.repetitions,
+            )
+            for item in prereg.conditions[group]
+        )
+
+    instrument = ProviderInstrument(
+        instrument_id=instrument_id,
+        family="optical_microscopy",
+        source_path=_skill_root() / "2d-flake-search" / "references" / "controller.md",
+        upstream_revision=f"flake-search-preregistration-schema:{prereg.schema_version}",
+        allowed_methods=ALLOWED_METHODS,
+        controller_factory=build_flake_search_controller,
+        verifier=verify_flake_search,
+        simulator_path=lambda: PACKAGE_ROOT / "flake_search_simulator.py",
+        verifier_path=PACKAGE_ROOT / "flake_search_verifier.py",
+        acquisition_conditions=_conditions("acquisition"),
+        visible_conditions=_conditions("visible"),
+        locked_conditions=_conditions("locked"),
+        evolution_conditions=_conditions("evolution"),
+    )
+    return InstrumentProvider(
+        api_version="1",
+        provider_id=provider_id,
+        provider_version="0.5.0",
+        instruments={instrument_id: instrument},
+        runtime_kind="built-in-flake-search-metrology",
+    )
+
+
 OPENFLEXURE_REVISION = "d26b93e1be1093e9d696b634dd1f7dde3bb7142a"
 OPENFLEXURE_TREE = "a8e138b993aababbbb77ef371446d986e117ae67"
 

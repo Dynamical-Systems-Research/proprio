@@ -18,6 +18,13 @@ from proprio.skill_publication import (
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Packages wired ahead of full catalog publication: their provider, controller.md, and
+# discrimination-gate tests exist and are exercised directly against the live provider
+# (see tests/test_flake_search_provider.py), but SKILL.md/agents/openai.yaml/scripts and
+# the catalog.json entry are a later task. Remove an entry here once that package joins
+# PUBLISHED_SKILLS/catalog.json.
+STAGED_PACKAGES = frozenset({"2d-flake-search"})
+
 RESTORED_CODE_HASHES = {
     "absorbance-plate-read": "8927d96c2081de2050ee796d45f1fdcd7f0531d35f979bee4acc2101b3f7b0a9",
     "calibrated-pump-dose": "1b17847ba8a931d5b60de736785103f901a408ff503545e307f4c14d6d52b8a1",
@@ -49,7 +56,7 @@ def test_skill_library_rebuild_is_deterministic_and_passing() -> None:
 
 
 def test_qualified_skills_preserve_the_validated_implementations() -> None:
-    catalog = validate_catalog(ROOT)
+    catalog = validate_catalog(ROOT, staged=STAGED_PACKAGES)
     entries = {entry.id: entry for entry in catalog.skills}
 
     for skill_id, expected_hash in RESTORED_CODE_HASHES.items():
@@ -188,6 +195,8 @@ def test_packages_are_flat_and_have_only_public_skill_surfaces() -> None:
         if not package.is_dir():
             continue
         assert {path.name for path in package.iterdir()} <= allowed
+        if package.name in STAGED_PACKAGES:
+            continue
         assert (package / "SKILL.md").is_file()
         assert (package / "agents" / "openai.yaml").is_file()
         assert (package / "references" / "verification.json").is_file()

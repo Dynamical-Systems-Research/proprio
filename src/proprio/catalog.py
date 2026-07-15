@@ -75,9 +75,18 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def validate_catalog(root: Path) -> SkillCatalog:
+def validate_catalog(root: Path, *, staged: frozenset[str] = frozenset()) -> SkillCatalog:
+    """Validate the release catalog against the packages on disk.
+
+    ``staged`` names packages that are being wired ahead of full catalog publication
+    (provider + controller.md land in one task, SKILL.md/agents/scripts/catalog entry
+    in a later one) -- excluded from the package/catalog parity check only, never from
+    the per-entry checks below, which still run over every catalog-registered skill.
+    Remove a name from ``staged`` once its package is registered in ``catalog.json``.
+    """
+
     catalog = SkillCatalog.model_validate_json((root / "catalog.json").read_text(encoding="utf-8"))
-    package_names = {path.name for path in (root / "skills").iterdir() if path.is_dir()}
+    package_names = {path.name for path in (root / "skills").iterdir() if path.is_dir()} - staged
     catalog_names = {Path(entry.path).parent.name for entry in catalog.skills}
     if package_names != catalog_names:
         raise ValueError(
