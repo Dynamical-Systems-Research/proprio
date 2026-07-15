@@ -67,6 +67,7 @@ proprio = "proprio.cli:main"
 
 [project.entry-points."proprio.instrument_providers"]
 "proprio.external_reference" = "proprio.builtin_providers:external_reference_provider"
+"proprio.flake_search" = "proprio.builtin_providers:flake_search_provider"
 "proprio.keithley" = "proprio.builtin_providers:keithley_provider"
 "proprio.openflexure" = "proprio.builtin_providers:openflexure_provider"
 "proprio.reduced_order" = "proprio.builtin_providers:reduced_order_provider"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "2D Flake Search"
+  short_description: "Search a chip region for 2D flake candidates"
+  default_prompt: "Use $2d-flake-search to run a simulator-verified optical scan of the declared chip region for candidate 2D-material flakes."

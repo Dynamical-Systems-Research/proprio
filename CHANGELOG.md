@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Added the built-in `proprio.flake_search` provider: a reduced-order 2D optical
+  flake-search simulator, an independent verifier, and a preregistered rubric
+  (procedural compliance, coverage, positional accuracy, deduplication, completeness).
+- Published `2d-flake-search`, a blind-drafted, simulator-verified skill admitted on
+  visible and locked conditions with zero access to the verifier, thresholds, or prior
+  evidence during drafting.
+
 ## 0.5.0 - 2026-07-14
 
 - Added the versioned `proprio.instrument_providers` entry-point seam for independently installed

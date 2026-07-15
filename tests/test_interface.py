@@ -71,6 +71,7 @@ def test_source_inspection_exposes_only_the_visible_controller_contract() -> Non
     assert "locked_conditions" not in record
     assert "evolution_conditions" not in record
     assert record["skill_contract"]["skill_py"]["entrypoint"] == "run(controller)"
+    assert record["skill_contract"]["skill_py"]["entrypoint_returns"] == "dictionary"
     assert record["skill_contract"]["skill_py"]["bounded_for_loops_only"] == (
         "range(...) with literal integer bounds"
     )

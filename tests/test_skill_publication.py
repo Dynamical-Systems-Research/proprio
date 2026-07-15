@@ -37,7 +37,7 @@ def test_skill_library_rebuild_is_deterministic_and_passing() -> None:
 
     assert publication["verdict"] == "PASS"
     assert publication["failed_skills"] == []
-    assert publication["published_skills"] == len(PUBLISHED_SKILLS) == 12
+    assert publication["published_skills"] == len(PUBLISHED_SKILLS) == 13
     assert catalog == json.loads((ROOT / "catalog.json").read_text(encoding="utf-8"))
     for skill_id, record in records.items():
         checked_in = json.loads(
