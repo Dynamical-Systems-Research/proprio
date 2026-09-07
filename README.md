@@ -199,6 +199,21 @@ uv run proprio composition-battery --output-dir runs/xrd-composition
 uv run proprio skill-admission --output-dir runs/skill-admission
 ```
 
+## Reproduce the reuse study
+
+The [published report](https://dynamicalsystems.ai/blog/simulator-verified-skill-acquisition#what-the-next-agent-can-reuse)
+compares fresh GPT-5.6 Luna consumers of three original and repaired flake-search procedures.
+The [compact evidence](artifacts/evidence/studies/pi-reuse/results.json) preserves the packages,
+final procedures, frozen protocol, case outcomes, and separate preparation and repair accounting.
+Replay all twelve consumers across the eight recorded simulator instances without model calls:
+
+```bash
+uv run python -m research.pi_reuse.replay
+```
+
+See [the study tools](research/pi_reuse/README.md) for provenance and native Pi setup.
+These research procedures are separate from the admitted skill library.
+
 ## Repository map
 
 - [`skills`](skills) is the installable public library: instructions, controller references, exact

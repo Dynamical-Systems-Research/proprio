@@ -39,6 +39,10 @@ jobs:
           uv venv --python 3.11 /tmp/proprio-candidates/openflexure-microscope-server/.venv
           uv pip install --python /tmp/proprio-candidates/openflexure-microscope-server/.venv/bin/python --editable /tmp/proprio-candidates/openflexure-microscope-server python-gitlab
           /tmp/proprio-candidates/openflexure-microscope-server/.venv/bin/python /tmp/proprio-candidates/openflexure-microscope-server/pull_webapp.py -b v3
+          # Webapp download also extracts API docs outside the ignored static directory.
+          git -C /tmp/proprio-candidates/openflexure-microscope-server restore -- apidocs
+          git -C /tmp/proprio-candidates/openflexure-microscope-server clean -fdx -- apidocs
+          test -z "$(git -C /tmp/proprio-candidates/openflexure-microscope-server status --porcelain=v1 --untracked-files=all)"
           cd /tmp/proprio-candidates/openflexure-microscope-server
           .venv/bin/openflexure-microscope-server -c ofm_config_simulation.json --host 127.0.0.1 --port 5100 > /tmp/openflexure.log 2>&1 &
           for attempt in $(seq 1 60); do

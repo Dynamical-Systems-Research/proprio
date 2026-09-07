@@ -1,0 +1,64 @@
+[
+  {
+    "expected_status": 0,
+    "name": "nominal_1",
+    "parameters": {
+      "seed": 644920863
+    }
+  },
+  {
+    "expected_status": 0,
+    "name": "nominal_2",
+    "parameters": {
+      "seed": 401746035
+    }
+  },
+  {
+    "expected_status": 0,
+    "name": "focus_1",
+    "parameters": {
+      "decay_per_move": 0.08,
+      "seed": 816539939
+    }
+  },
+  {
+    "expected_status": 0,
+    "name": "focus_2",
+    "parameters": {
+      "decay_per_move": 0.08,
+      "seed": 199612884
+    }
+  },
+  {
+    "expected_status": 1,
+    "name": "stale_1",
+    "parameters": {
+      "seed": 777032334,
+      "swap_after_tile_index": 8
+    }
+  },
+  {
+    "expected_status": 1,
+    "name": "stale_2",
+    "parameters": {
+      "seed": 464788225,
+      "swap_after_tile_index": 8
+    }
+  },
+  {
+    "expected_status": 3,
+    "name": "illumination_1",
+    "parameters": {
+      "illumination_shift": 0.85,
+      "seed": 655864615
+    }
+  },
+  {
+    "expected_status": 3,
+    "name": "illumination_2",
+    "parameters": {
+      "illumination_shift": 0.85,
+      "seed": 423168281
+    }
+  }
+]

@@ -22,7 +22,7 @@ from proprio.flake_search_types import (
     ScanStatus,
     load_flake_search_preregistration,
 )
-from proprio.flake_search_verifier import verify_flake_search
+from proprio.flake_search_verifier import _check_false_candidate_burden, verify_flake_search
 from proprio.instrument_qualification import DEFAULT_SKILL_LIMITS
 from proprio.instrument_types import GateCheck
 
@@ -673,6 +673,32 @@ def test_reject_emit_manifest_under_out_of_range_illumination_fails_abstention()
     controller.release()
     checks = _by_id(_verify(controller))
     assert checks["uncertainty-abstention"].passed is False
+
+
+@pytest.mark.parametrize(
+    ("candidate_x", "passed"),
+    [(1004.0, True), (1010.0, True), (1016.0, False)],
+)
+def test_false_candidate_burden_resolves_nearby_flake_and_debris_identity(
+    candidate_x: float, passed: bool
+) -> None:
+    # Both objects are within the matching radius; only the nearer identity counts.
+    check = _check_false_candidate_burden(
+        [{"chip_x_um": candidate_x, "chip_y_um": 1000.0, "clipped": False}],
+        [{"flake_id": "flake-0", "chip_x_um": 1000.0, "chip_y_um": 1000.0}],
+        [{"debris_id": "debris-0", "chip_x_um": 1020.0, "chip_y_um": 1000.0}],
+        GEOMETRY.dedup_merge_radius_um,
+    )
+    assert check.passed is passed
+    assert check.evidence["debris_candidate_count"] == (0 if passed else 1)
+
+
+def test_recommended_scan_near_debris_regression_seed_9502102() -> None:
+    controller = FlakeSearchController({"seed": 9502102.0})
+    controller.reset()
+    _full_recommended_pass(controller, autofocus_every_tile=True)
+    checks = _verify(controller)
+    assert all(check.passed for check in checks), [check for check in checks if not check.passed]
 
 
 def test_reject_keep_debris_via_manual_path_fails_false_candidate_burden() -> None:

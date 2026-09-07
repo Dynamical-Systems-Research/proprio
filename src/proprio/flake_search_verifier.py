@@ -335,17 +335,23 @@ def _check_candidate_recall(
 
 
 def _check_false_candidate_burden(
-    manifest: Sequence[dict[str, Any]], debris: Sequence[dict[str, Any]], merge_radius: float
+    manifest: Sequence[dict[str, Any]],
+    flakes: Sequence[dict[str, Any]],
+    debris: Sequence[dict[str, Any]],
+    merge_radius: float,
 ) -> GateCheck:
-    debris_truth = [(item["debris_id"], item["chip_x_um"], item["chip_y_um"]) for item in debris]
+    # Resolve identity against both classes, as recall and coordinate integrity do.
+    # A real flake can lie within the matching radius of unrelated debris.
+    truth = [(flake["flake_id"], flake["chip_x_um"], flake["chip_y_um"]) for flake in flakes] + [
+        (item["debris_id"], item["chip_x_um"], item["chip_y_um"]) for item in debris
+    ]
+    debris_ids = {item["debris_id"] for item in debris}
     matches: list[dict[str, Any]] = []
     for index, candidate in enumerate(manifest):
         if candidate.get("clipped", True):
             continue
-        object_id, distance = _nearest(
-            (candidate["chip_x_um"], candidate["chip_y_um"]), debris_truth
-        )
-        if object_id is not None and distance <= merge_radius:
+        object_id, distance = _nearest((candidate["chip_x_um"], candidate["chip_y_um"]), truth)
+        if object_id in debris_ids and distance <= merge_radius:
             matches.append(
                 {"manifest_index": index, "debris_id": object_id, "distance_um": distance}
             )
@@ -535,7 +541,7 @@ def verify_flake_search(
             status_code,
             legitimate_abort,
         ),
-        _check_false_candidate_burden(manifest, debris, geometry.dedup_merge_radius_um),
+        _check_false_candidate_burden(manifest, flakes, debris, geometry.dedup_merge_radius_um),
         _check_edge_clipping(manifest, flakes, observation_model.coordinate_tolerance_um),
         _check_coordinate_integrity(
             manifest, flakes, debris, observation_model.coordinate_tolerance_um

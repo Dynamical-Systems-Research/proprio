@@ -1,0 +1,28 @@
+{
+  "files": {
+    "research/pi_transfer/behavioral-contract.json": "28312c2d66e84001ce7adc48495a1bc7f1b7485ce22215699f873b75fde31eaa",
+    "research/pi_transfer/behavioral-source.md": "bd4ba81773d011ef960b66f4077ad22b75dcc67f01ae8dfc4271fe6123df62b2",
+    "research/pi_transfer/behavioral.py": "a311f3816a314a7cd634751253548df7e335b14753eb5fcd41537a3bca0e7494",
+    "research/pi_transfer/contract.json": "e69ec7334e915dd01016088def20767652b9215c3f801bd89b5f744b7e167a26",
+    "research/pi_transfer/matched-extension.ts": "b989413d33d6dfcd4685f2e1458afe83bb6a0e2d8ab590067bb2450dac3dd5bd",
+    "research/pi_transfer/pilot.py": "22f3766b6c7a310f29557990163d5412d64d21b2694cd067ac9966c8218afa73",
+    "src/proprio/builtin_providers.py": "089894ca9bc9ceaabbafa48db3edaa8c23d644e9159a5a7520c37be87520f990",
+    "src/proprio/data/flake-search-preregistration.yaml": "f83b7555326da0b5a94543123ee2599eb0bc762ac35d025fc757c8022637f3f8",
+    "src/proprio/flake_search_simulator.py": "27026a2c7d302896e72bb4fc594c8801054238d42c23d34295459b6c2e02a6ef",
+    "src/proprio/flake_search_types.py": "4380fefbf7d593aa7dc9de1fa446b6fc80d5e9fc82a0bf8395e59ccd66be5f68",
+    "src/proprio/flake_search_verifier.py": "a18e1e13a2f766732741d4b9f23d98293b04f2abafdb213197fdbc2fd11575d6",
+    "src/proprio/instrument_plugins.py": "7b34f2740412c8ba2b606b17fd01e51e2fa9e74293e578c369d52942bc12259f",
+    "src/proprio/instrument_qualification.py": "5e65a1e3ac1c20b64d767967a13ea674922ca4cc404cc9233b71fd2fba8123c6",
+    "src/proprio/instrument_types.py": "84b0d3446ce5f8aa4c0e4bef761f0081437e32fe7772fa7d329f01210c9aff09",
+    "uv.lock": "bf93d79881856100aaca093435c29009a7bd8f3aacbf23d4881cafefd5b634e3"
+  },
+  "prompts": {
+    "author": "Read source.md and produce skill.py plus SKILL.md for its complete operating\nprocedure. Define run(controller) in the documented bounded language. Save both files\nusing bash before finishing. You have no execution feedback. Describe your unverified\nprocedure honestly; do not claim simulation admission or hardware qualification.",
+    "consumer": "Prepare skill.py for a complete optical flake search over the declared region.\nRead source.md and reference/skill.py plus reference/SKILL.md; reuse or revise them as\nuseful. Handle documented disturbances honestly and release the instrument. Define\nrun(controller) in the documented bounded language. Call complete_scan exactly once\nwith the appropriate outcome, then release. The harness constructs the result from that\nobserved completion; no return dictionary is required or used. You may use at most two\nexecute_candidate development tests. Separate\nprivate simulator instances grade observed behavior, not code identity. Save skill.py\nusing bash before finishing, then state briefly what you tested. A code block in your\nfinal response is not a saved procedure file.",
+    "repair": "Improve the supplied skill.py and SKILL.md using source.md and development\nexecution feedback. These files are your own earlier draft. Run execute_candidate on\nthe draft, diagnose failures, and repair the procedure within at most six executions.\nPreserve correct behavior. Leave your final skill.py and concise operating instructions\nin SKILL.md, recording what you actually tested and remaining limitations. Development\nchecks do not establish private admission or hardware qualification. Save files with bash.",
+    "smoke1": "Runtime preflight only. Use bash to write skill.py containing exactly:\ndef run(controller):\n    return\nThen write completion.txt containing ready. Read both files back with bash and finish.\nDo not inspect source.md or claim an instrument result.",
+    "smoke2": "Runtime preflight only. Use bash to save this intentionally incomplete procedure\nin skill.py:\ndef run(controller):\n    controller.reset()\n    controller.complete_scan(4)\n    controller.release()\nExecute it once using execute_candidate. Rejection of the incomplete scan is expected;\ndo not repair it. After receiving feedback write completion.txt containing ready, read\nit back, and finish. This checks tool and file delivery, not instrument success.",
+    "system": "You are operating a simulated scientific instrument using its supplied documentation.\nUse bash to read and write files in /workspace. The instrument runtime is available only through\nexecute_candidate, when that tool is provided. It executes the bounded run(controller) procedure\nand returns development feedback. You may inspect, revise, and test your work within the budget.\nOther files, networks, and instruments are unavailable. Do not invent measurements or claim\nhardware qualification. Work independently and leave the requested files before finishing."
+  },
+  "time": 1788792291.5640852
+}

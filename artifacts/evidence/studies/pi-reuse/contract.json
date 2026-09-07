@@ -1,0 +1,93 @@
+{
+  "base_commit": "dcc7cee94796346e0ba4985bcd475a12c8c07d32",
+  "budget_note": "Budget accounting uses highest published pricing tier, not base-tier estimate. A1.1USD session reserve covers .5USD completed-message cap plus at most .6USD final-response exposure at the model maximumcontext and65536output. Actual providercharges reconciled separately.",
+  "catalog_base_price": {
+    "cacheRead": 0.02,
+    "cacheWrite": 0.25,
+    "input": 0.2,
+    "output": 1.2
+  },
+  "consumer_executions": 2,
+  "context_window": 200000,
+  "continuity": "New prospective run after the matched pilot exposed a duplicate return obligation. Preserve prior scores and do not pool. Same family, harness, model, budgets, fault settings and evaluator; fresh drafts and scene seeds. Only approved public result adapter changes.",
+  "decision": "Keep the same descriptive minimum useful criterion; report a valid negative or mixed result without automatic reruns, model changes, family expansion, or publication.",
+  "design": "Three independent source-only drafts; freeze all before any feedback. Each repair sees only its own draft plus development feedback, up to6executions. Keep final repaired version whether passing or failing; if repair naturally produces no new file, retain unchanged draft. Two fresh consumers receive each version under neutral reference names; identical source/task/budgets. Twelve planned slots. Evaluate all final outputs only after all12finish. No cherry-picking repaired admissions.",
+  "failure_rules": "Natural completion without consumerfile is tasknoncompletion counted in planned denominator. Invalidcode is behavioral failure. Timeout/lengthlimit reported as budgetnoncompletion and failure to deliver, separately from instrumentbehavior. Explicit provider/connectionfailure may receive at most1fresh replacement studywide only before any simulator execution or finalfile; retainattempt/cost+uncertaintyreserve. A second or ineligible providerfailure is operationallymissing and blocks a positive conclusion. No replacement for behavior or costlyruns. Draft generation without a file prevents a matched pair: stop acquisition and retainfailure, no selective regeneration. Repair noncompletion retains originalartifact, flagsrepairfailure; do not exclude pair. Evaluatorcrash/accounting/leakage stops study. Diagnose after2consecutive runtimefailures; no automatic design/model changes.",
+  "global_budget_usd": 25,
+  "grading": "Primary: fraction of all6 planned consumers per arm passing every one of8 private conditions through the existing deterministic checks, correct observed terminal status and valid trace-derived public result. Honest stopping and valid partial evidence required. No duplicate authored return obligation. Missing file or invalid code is failure in planned denominator. Report three within-draft contrasts, with two fresh consumers per version; three draft pairs are independent units. Tokens secondary, success strata separate. False completion means observed status0 despite a rejected operation or wrong expected status; interface errors reported separately.",
+  "hypothesis": "Feedback-guided repair produces transferable procedural packages that improve fresh consumer correctness, or lower preparation tokens when all consumers succeed. Competing explanation: consumers can repair source-only drafts equally well, or apparent gains come from compiler familiarity and extra repair compute rather than transferable scientific operating knowledge.",
+  "instrument": "proprio.flake_search.2d-flake-search",
+  "max_concurrent": 3,
+  "max_messages": 24,
+  "max_output_tokens": 65536,
+  "max_seconds": 1800,
+  "minimum_useful": "A favorable mechanics result requires complete operational accounting for all12planned slots; after has at least2more successfulconsumers overall, improvements in at least2of3draftpairs, no pair successregression and no increase in falsecompletion sessions within any pair. Alternatively, all12succeed and after has at least20percent lower median-token consumption within at least2of3pairs, with no pair morethan10percent worse. Descriptive continuationrule, not significance; no automatic expansion.",
+  "model": "openai/gpt-5.6-luna",
+  "order": [
+    "consumer-1-before-1",
+    "consumer-2-after-1",
+    "consumer-3-before-1",
+    "consumer-1-after-1",
+    "consumer-2-before-1",
+    "consumer-3-after-1",
+    "consumer-1-after-2",
+    "consumer-2-before-2",
+    "consumer-3-after-2",
+    "consumer-1-before-2",
+    "consumer-2-after-2",
+    "consumer-3-before-2"
+  ],
+  "pi_version": "0.84.4",
+  "preflight": "Two native Pi smoke sessions must save requested files. Second executes an intentionally incomplete no-return procedure and receives a trace-derived status4 with failing behavioral checks, demonstrating that the adapter does not convert honest incomplete operation into success. Static and runtime unit tests confirm failures remain failures before launch.",
+  "price": {
+    "cacheRead": 0.04,
+    "cacheWrite": 0.5,
+    "input": 0.4,
+    "output": 1.8
+  },
+  "prior_exposure_usd": 6.112645988,
+  "private_hash": "03746af655debfd18d9a65e8d0f535922d9e34c0f33a2c34639bce3fc41eaa8e",
+  "provider": "openrouter",
+  "public_result_contract": "run(controller) declares its outcome exactly once through complete_scan(status_code), then releases. The harness ignores its optional Python return, propagates every runtime error, and derives a machine-readable status_code from exactly one valid completion record agreeing with controller telemetry. The identical adapter applies in development and private evaluation. It never selects or repairs the status. All existing static, behavioral, evidence, and resource checks remain.",
+  "question": "Does experience acquired while repairing a procedure help a fresh agent operate correctly with less preparation?",
+  "repair_executions": 6,
+  "response_cost_reserve_usd": 0.6,
+  "scope": "Benefit of feedback-guided revision and transferred procedural artifacts; extra repair compute is part of intervention. Not verification vs equal-compute blindrevision, not hardware, not unseenfaultclasses. Samefamily/simulator freshinstances. Consumerpreparation differs from instrumentcallcost.",
+  "session_cost_usd": 0.5,
+  "source": "behavioral-source.md",
+  "thinking": "xhigh",
+  "turn_structure": "Multi-turn file preparation and development testing, up to24 assistant messages. Source-only drafts have no simulator access. Repair has6 calls; consumers2. Each call returns visible behavior, trace and public checks; workspace persists within a session only. Final sealed grading is outside policy access. Both consumer arms share tools and budgets. No training.",
+  "visible": [
+    {
+      "expected_status": 0,
+      "name": "nominal",
+      "parameters": {
+        "seed": 7901001
+      }
+    },
+    {
+      "expected_status": 0,
+      "name": "focus",
+      "parameters": {
+        "decay_per_move": 0.08,
+        "seed": 7901002
+      }
+    },
+    {
+      "expected_status": 1,
+      "name": "stale",
+      "parameters": {
+        "seed": 7901003,
+        "swap_after_tile_index": 8
+      }
+    },
+    {
+      "expected_status": 3,
+      "name": "illumination",
+      "parameters": {
+        "illumination_shift": 0.85,
+        "seed": 7901004
+      }
+    }
+  ]
+}

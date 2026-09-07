@@ -90,6 +90,10 @@ cd /tmp/proprio-candidates/openflexure-microscope-server
 uv venv --python 3.11 .venv
 uv pip install --python .venv/bin/python --editable . python-gitlab
 .venv/bin/python pull_webapp.py -b v3
+# The download also replaces API docs; retain the pinned source tree.
+git restore -- apidocs
+git clean -fdx -- apidocs
+test -z "$(git status --porcelain=v1 --untracked-files=all)"
 .venv/bin/openflexure-microscope-server -c ofm_config_simulation.json \
   --host 127.0.0.1 --port 5100
 ```
